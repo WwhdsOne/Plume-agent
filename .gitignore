@@ -1,0 +1,50 @@
+# Go build and test artifacts
+/go-herald
+/herald
+/bin/
+/dist/
+/build/
+*.exe
+*.exe~
+*.test
+*.prof
+/coverage/
+/coverage.out
+/coverage.html
+
+# Local workspace configuration
+/go.work
+/go.work.sum
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Credentials and runtime data (keep fixtures and reviewed reports tracked)
+/credentials/
+/secrets/
+/data/
+/logs/
+/traces/
+/tmp/
+/.cache/
+*.log
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+
+# Editor and operating system files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+._*
+Thumbs.db
