@@ -1,6 +1,6 @@
 # 第一阶段：微信 Agent 开发计划
 
-> 范围：微信扫码接入、Eino Agent 基础能力、trace 与首批量化实验；本文是阶段计划，后续阶段另建文档。
+> 范围：首次模型/渠道配置、微信扫码接入、Eino Agent 基础能力、trace 与首批量化实验；本文是阶段计划，后续阶段另建文档。
 
 > 状态：已确定 Hermes 式微信扫码接入；按用户要求仅初始化 Hello World 骨架，后续功能仍待逐项审核。
 > 日期：2026-10-05。
@@ -8,9 +8,9 @@
 
 **Goal：** 用 Go + Eino 构建一个以微信为首个真实入口、具备工具调用、持久记忆和可复用技能的个人 Agent，形成能展示逐步开发过程、完整执行链路和量化改造收益的简历项目。
 
-**Architecture：** 单进程模块化服务；渠道适配器负责收发消息，应用层负责会话和运行状态，Eino ADK 负责 Agent 与工具编排。Trace 和评测从第一段可执行链路开始接入，后续优化使用同一套数据比较。
+**Architecture：** 单进程模块化服务；配置向导分别选择模型供应商与渠道，供应商工厂创建 Eino 模型组件，渠道注册表创建消息适配器。应用层负责会话和运行状态，Eino ADK 负责 Agent 与工具编排；trace 和评测从第一段可执行链路开始接入。
 
-**Tech Stack：** Go、Eino ADK、标准库 HTTP、SQLite、结构化 JSONL、OpenTelemetry；模型提供商在首个审核点确认。Jaeger 作为后续本地 trace 浏览器；首版不要求 Redis、向量数据库、Kubernetes 或独立前端。
+**Tech Stack：** Go、Eino ADK、标准库 HTTP、SQLite、结构化 JSONL、OpenTelemetry；运行时通过向导配置模型供应商、API Key、模型名称与 Base URL。Jaeger 作为后续本地 trace 浏览器；首版不要求 Redis、向量数据库、Kubernetes 或独立前端。
 
 ## 1. 项目定位与范围
 
@@ -18,7 +18,7 @@
 
 对标 NousResearch 的 Hermes Agent，用户已明确微信入口要模仿其网关扫码流程。借鉴消息网关、工具执行、跨会话记忆、可复用技能的能力边界；不是对 Hermes 全部功能做逐项复刻。参考项目的说明见 [Hermes 官方仓库](https://github.com/NousResearch/hermes-agent)。
 
-首个演示场景：命令行网关向导选择微信 → 终端显示二维码 → 用户用微信扫码并确认 → 在微信中获得/连接 bot 聊天对象 → 启动网关并向 bot 发送文字 → Eino 生成回答并回复。开发者可追踪扫码状态，以及每条消息的输入、模型调用、耗时、token、异常与发送结果。
+首个演示场景：运行首次设置向导 → 选择模型供应商、输入 API Key 与模型名称、确认预填 Base URL → 选择微信渠道 → 终端显示二维码 → 用户用微信扫码并确认 → 在微信中获得/连接 bot 聊天对象 → 启动网关并向 bot 发送文字 → Eino 生成回答并回复。开发者可追踪配置校验与扫码状态，以及每条消息的输入、模型调用、耗时、token、异常与发送结果。
 
 后续场景：用户让 Agent 查询时间、计算结果、读取自己确认保存的偏好，再按一份版本化技能完成固定工作流。通过同一批任务展示上下文压缩、工具并行、技能复用的收益与代价。
 
@@ -34,7 +34,71 @@
 
 Eino 官方提供 ADK、组件与编排能力，首版使用其 Agent 实现执行循环，而非仅把 Eino 用作模型 HTTP 包装。[Eino 概览](https://www.cloudwego.io/docs/eino/overview/)
 
-## 2. 微信接入：Hermes 式 iLink Bot 扫码网关（已选定）
+## 2. 首次配置与可扩展渠道
+
+### 首次设置向导
+
+交互式终端中，供应商和渠道列表使用 ↑ / ↓ 移动、Enter 确认，Ctrl+C 取消当前设置；API Key 隐藏输入，模型名称与 Base URL 使用文本输入框。首次直接运行 `herald` 且无配置时进入向导；已有完整配置时正常启动网关，配置不完整时提示继续相应设置。`herald setup` 可随时重新配置。非交互终端不等待按键输入，缺少配置时给出明确提示并退出。
+
+```text
+herald setup
+  1. 选择模型供应商
+  2. 确认该供应商预填的 Base URL（可编辑）
+  3. 输入 API Key（隐藏输入）
+  4. 输入模型名称/模型 ID
+  5. 校验必填项，选择是否进行一次模型连通性检查，保存模型配置
+  6. 选择渠道：微信；飞书、QQ 显示“待支持”且不可启用
+  7. 运行所选渠道的设置流程：微信请求二维码并等待扫码确认
+  8. 显示模型、渠道各自的配置/验证状态及启动命令
+
+herald model setup       # 单独新增或调整模型配置
+herald gateway setup     # 单独配置或重连渠道，复用首次向导的渠道设置流程
+```
+
+向导保存的是可修改的用户配置，不能把某一家供应商、某个模型或微信类型写死在 Agent 核心。模型已配置但渠道未完成时允许退出并继续本地调试；再次进入从已有状态继续，不能要求重新输入有效 API Key。渠道配置失败不撤销已保存的模型配置；模型配置更新失败也不覆盖原有效配置。
+
+### 模型供应商预设与工厂
+
+每个供应商预设包含稳定 ID、显示名称、协议类型、默认 Base URL、可选地域/业务空间参数、凭据要求及模型工厂。初期使用静态注册表；新增预设无需修改向导主流程。供应商和模型名分开保存，模型 ID 允许手动输入，不依赖模型列表 API 可用。
+
+首批预设建议如下；在 G1a 审核时冻结实际支持清单，所有可选项都必须有可用的 Eino 适配路径：
+
+| 预设 | Base URL 的初始值 | 配置要求 |
+| --- | --- | --- |
+| DeepSeek | `https://api.deepseek.com` | API Key + 用户输入的模型 ID |
+| 阿里云百炼（北京共享端点） | `https://dashscope.aliyuncs.com/compatible-mode/v1` | API Key + 模型 ID；其他地域/业务空间使用对应端点 |
+| 自定义兼容服务 | 无预填值，由用户提供 | Base URL + 模型 ID；默认要求 API Key，本地无鉴权服务可显式选择无需 Key |
+
+默认值依据 [DeepSeek 官方接口说明](https://api-docs.deepseek.com/) 和 [百炼 Base URL 文档](https://help.aliyun.com/en/model-studio/base-url)，检查日期为 2026-10-05。百炼还区分地域和业务空间，不能将同一地址套用于全部账号。[百炼地域与端点](https://help.aliyun.com/zh/model-studio/regions/)
+
+预填值是可编辑默认值。配置中保存最终解析的 URL，升级预设不能悄悄改变已有用户的请求目的地。切换供应商时重新应用对应默认值，防止把上一家供应商的地址和 API Key 配给下一家；Key 按模型配置隔离，不自动复用。
+
+协议类型与供应商品牌分开：首批兼容服务通过对应 Eino 扩展装配模型，后续原生协议供应商新增工厂；不能仅替换 Base URL 就声称任意供应商可用。模型的流式、工具调用、usage 等能力分别记录为支持、不支持或未验证；能完成普通对话不等于已经通过工具调用验收。
+
+本地校验检查必填项、合法 URL 和配置引用；默认使用 HTTPS，本机回环服务允许 HTTP。API Key 隐藏输入，不作为命令行参数传递。联网检查由用户选择，说明会发送一次短测试请求且可能产生少量费用；超时、鉴权失败、模型不存在或不可访问分别显示可诊断状态。跳过检查可保存为“未验证”，不能显示为“已连通”。
+
+### 配置与凭据边界
+
+仓库外应用配置目录通过 `os.UserConfigDir()` 下的 `go-herald` 子目录定位，后续允许显式指定目录。首版使用带 `schema_version` 的 `config.json`，保存非敏感配置；API Key 和微信凭据分别保存在该目录的 `credentials/` 下，目录权限 0700、文件权限 0600（类 Unix 平台），不将明文凭据混入普通配置。
+
+- 模型配置：`id`、`provider`、`protocol`、`base_url`、`model`、`api_key_ref`；`default_model` 引用一个配置 ID。首版向导先创建一个默认配置，结构允许以后新增命名配置。
+- 渠道配置：`id`、`type`、`enabled`、`model_ref`、`credential_ref`、渠道专有设置；首版启用一个微信实例，`model_ref` 默认指向默认模型配置。
+- 通用调度只读取稳定 ID 和模型引用；`context_token` 等微信字段由微信适配器管理。
+- 更新采用原子写入；取消和写入失败保留原配置。配置不包含密钥值，状态输出只显示“已设置/未设置”及脱敏标识。
+
+模型配置变更在网关重启后生效，首版不做运行中热切换。模型供应商、模型 ID、配置哈希进入实验 manifest，API Key 及凭据引用的实际内容不进入 trace 或评测文件。
+
+### 渠道注册表与后续飞书、QQ
+
+渠道注册表提供渠道 ID、显示名称、可用状态、配置向导、适配器工厂及能力描述。首版注册可用的 `weixin`；`feishu`、`qq` 只作为待支持选项，不接收其凭据、不创建虚假已配置状态。
+
+渠道边界包含配置/验证、启动/停止接收、标准化入站消息、发送回复、查询连接状态。微信在适配器内部使用长轮询；未来飞书、QQ 可在各自适配器内选用相应官方支持的传输方式，具体协议届时验证，不让网关核心依赖微信轮询接口。
+
+标准化消息包含渠道类型、渠道实例 ID、外部消息 ID、会话 ID、发送者 ID、文本和回复关联信息。所有身份与去重键带渠道实例命名空间，不能将微信用户 ID 与飞书/QQ 用户 ID 自动视为同一人。首版保持一个活动渠道；多渠道同时运行、账号绑定和跨渠道记忆共享作为后续独立阶段审核。
+
+扩展验收采用一个测试专用适配器：通过注册即可走同一个应用服务、Eino 运行时、trace 与回复路径，无需在 Agent 核心加入 `if weixin/feishu/qq`。仅提取当前需要的边界，不构建动态插件加载系统。
+
+### 微信接入：Hermes 式 iLink Bot 扫码网关（已选定）
 
 用户确认的体验是：在命令行选择微信、展示二维码、手机扫码确认后使用 bot 作为聊天对象。首版采用与 Hermes 相同的 iLink Bot 接入方向，使用 Go 实现协议适配层，Agent 核心仍由 Eino 运行。
 
@@ -76,7 +140,7 @@ herald gateway status
 
 首版验收私聊文本，接入方向已经确定，不再要求用户在公众号/企业微信之间选择。账号可用性、实际回复限制和异常返回在接入单元实测；未得到真实收发证据时只标记“模拟通过”。
 
-G0 还需确认模型提供商和模型名、单次评测费用上限，以及本机到 iLink/模型服务的出站网络。无需准备公网回调域名。密钥通过环境配置或扫码结果保存，不写进仓库或报告；费用上限确认前可做离线评测，付费批量评测不自动启动。
+G0 还需确认首批供应商预设、单次评测费用上限，以及本机到 iLink/模型服务的出站网络。用户实际使用的供应商和模型通过设置向导选择，无需在代码开发前固定为一家。无需准备公网回调域名；费用上限确认前可做离线评测，付费批量评测不自动启动。
 
 ## 3. 开发与审核制度
 
@@ -95,7 +159,9 @@ G0 还需确认模型提供商和模型名、单次评测费用上限，以及�
 ## 4. 运行链路与模块职责
 
 ```text
-命令行扫码向导 → 保存 bot 登录凭据 → 网关恢复凭据并长轮询
+首次配置向导 → 模型供应商/Key/模型/Base URL + 渠道选择
+  → 微信扫码并保存凭据 → 网关读取配置，创建模型与渠道适配器
+  → 长轮询
   → 微信 bot 私信 → 渠道标准化 → 入站去重与任务记录 → 会话调度
   → Eino Agent → 模型/受控工具 → 结果持久化 → 渠道回复
 
@@ -104,7 +170,9 @@ G0 还需确认模型提供商和模型名、单次评测费用上限，以及�
 
 | 模块 | 职责与边界 |
 | --- | --- |
-| channel | 接入协议、身份验证、消息标准化、回复；不拼装 prompt |
+| setup/config | 首次向导、配置版本与校验、凭据引用、原子保存；不承载 Agent 逻辑 |
+| provider | 供应商预设、默认 Base URL、协议选择、Eino 模型工厂；不依赖微信 |
+| channel | 渠道注册表、渠道设置、接入协议、身份验证、消息标准化、回复；不拼装 prompt |
 | app | run 生命周期、超时、去重、会话串行化、重试及回复状态 |
 | agent | Eino Agent、模型配置、prompt 版本、工具装配和循环预算 |
 | tools | 参数校验与确定性业务执行，遵守 context 取消；不直接向微信发送消息 |
@@ -122,22 +190,37 @@ G0 还需确认模型提供商和模型名、单次评测费用上限，以及�
 
 ### G0：审核计划与接入可行性
 
-**当前交付：** `docs/phase-01-weixin-agent.md` 和 Hello World 骨架。微信方向已确认；审核后先锁定参考协议与本地配置，再进入 G1。真实扫码和收发分别在 G2a.1、G2a.2 验收，不以账号尚未实测阻塞离线骨架。
+**当前交付：** `docs/phase-01-weixin-agent.md` 和 Hello World 骨架。微信方向已确认；审核后先锁定参考协议与本地配置，再进入 G1a。真实扫码和收发分别在 G2a.1、G2a.2 验收，不以账号尚未实测阻塞离线骨架。
 
 - [x] 用户确认 Hermes 网关式终端二维码 + 微信扫码连接 bot，已核实参考实现使用 iLink Bot API。
-- [ ] 确认模型、评测预算、运行环境；记录为 `docs/decisions/0001-scope.md`。
+- [ ] 确认首批供应商预设、配置边界、评测预算与运行环境；记录为 `docs/decisions/0001-scope.md`。实际模型由运行时向导选择。
 - [ ] 记录 iLink 参考源码 commit、接口契约与模拟样例设计，形成 `docs/decisions/0002-wechat.md`；真实接入证据在 G2a.1/G2a.2 补齐。
 - [ ] 用户审核通过 G0。
 
-### G1：离线可运行骨架、trace 和评测种子
+### G1a：首次设置向导与配置边界（独立审核）
 
-**拟建文件：** `go.mod`、`go.sum`、`cmd/herald/main.go`、`internal/config/config.go`、`internal/agent/runtime.go`、`internal/agent/runtime_test.go`、`internal/telemetry/events.go`、`internal/telemetry/events_test.go`、`internal/eval/smoke_test.go`、`eval/datasets/smoke.v1.jsonl`、`README.md`、`.gitignore`、`.env.example`。
+**拟建/修改：** `cmd/herald/main.go`、`cmd/herald/setup.go`、`internal/setup/wizard.go`、`internal/config/config.go`、`internal/config/store.go`、`internal/config/credentials.go`、`internal/provider/registry.go`、`internal/channel/registry.go`、对应 `_test.go`、`internal/telemetry/events.go`、`docs/runbooks/setup.md`。此时将根目录 Hello World 入口迁入 `cmd/herald/`。
+
+- [ ] 先确定配置 schema、供应商与渠道注册项及用户可见向导顺序；冻结首批供应商预设并记录 URL 来源。
+- [ ] 实现供应商选择、Base URL 预填/修改、API Key 隐藏输入、模型名输入与配置保存/恢复；日志从此阶段就有脱敏 setup trace。
+- [ ] 实现渠道选择和渠道配置入口；微信标记为“待登录”，其真实扫码在 G2a.1 完成，飞书和 QQ 标记为待支持且禁用。不能将占位入口视为已接入。
+- [ ] 用交互输入与存储 fixture 验证默认 URL、修改 URL、切换供应商、不复用错误 Key、重新进入向导、取消、文件写失败及凭据权限；配置和 trace 中不得出现测试密钥值。
+- [ ] 验证新增测试供应商/渠道注册项无需改向导分发逻辑；新增渠道不影响已有模型配置。
+- [ ] 提交可操作向导、脱敏配置样例、setup trace 和 `docs/reviews/G1a.md`，停止等待审核。此单元只做本地校验，联网模型检查随 G1b 接入。
+
+**用户能看到：** 启动向导选择供应商，输入 Key 与模型名，接受或修改默认 URL，再选择微信；关闭后重新打开能恢复已保存的配置。
+
+### G1b：Eino 模型工厂、离线闭环、trace 和评测种子（独立审核）
+
+**拟建/修改：** `go.mod`、`go.sum`、`cmd/herald/main.go`、`internal/provider/factory.go`、`internal/provider/factory_test.go`、`internal/provider/probe.go`、`internal/provider/probe_test.go`、`internal/agent/runtime.go`、`internal/agent/runtime_test.go`、`internal/telemetry/events.go`、`internal/telemetry/events_test.go`、`internal/eval/smoke_test.go`、`eval/datasets/smoke.v1.jsonl`、`README.md`、`.gitignore`、`.env.example`。
 
 - [ ] 锁定 Go/Eino/模型扩展版本；根据对应版本编译验证，记录兼容性。模型测试使用符合该版本接口的 scripted fake，Agent 循环仍经 Eino 执行。
+- [ ] 根据 G1a 保存的供应商、协议、URL、模型 ID 和凭据引用创建 Eino 模型组件；以 mock HTTP 验证不同预设的请求目的地、鉴权与模型 ID，无硬编码密钥或模型名。
+- [ ] 接入可选短请求连通性检查，区分本地校验通过、联网验证成功、未验证和验证失败；默认离线测试不消耗真实模型费用。
 - [ ] 提供本地文本入口，贯通输入、Eino 调用、输出和结构化事件；首次即包含开始、结束、错误和取消状态。
 - [ ] 建立 12 个离线种子用例：正常回答 4 个、空/无效输入 2 个、模型错误 2 个、超时/取消 2 个、trace 关联及脱敏 2 个。
 - [ ] 验证事件没有泄露测试密钥，每次 run 都有唯一终态；失败样例也可查询。
-- [ ] 保存首份绝对值报告和 `docs/reviews/G1.md`，停止等待审核。
+- [ ] 保存首份绝对值报告和 `docs/reviews/G1b.md`，停止等待审核。
 
 **用户能看到：** 无微信账号和付费 API 也可运行的 Eino 闭环，一条成功和一条超时的事件链。
 
@@ -147,7 +230,7 @@ G0 还需确认模型提供商和模型名、单次评测费用上限，以及�
 
 **拟建/修改：** `cmd/herald/gateway.go`、`internal/channel/wechat/client.go`、`internal/channel/wechat/login.go`、`internal/channel/wechat/credentials.go`、对应 `_test.go`、`docs/runbooks/wechat.md`。
 
-- [ ] 实现 `gateway setup` 的渠道选择、二维码请求/渲染、状态轮询、手机确认和凭据保存；以小型 Go 二维码库承担渲染，不调用 Python Hermes 作为运行依赖。
+- [ ] 在 G1a 渠道注册表与向导基础上实现微信的二维码请求/渲染、状态轮询、手机确认和凭据保存；`herald setup` 与 `gateway setup` 复用同一流程，以小型 Go 二维码库承担渲染。
 - [ ] 用 HTTP fixture 验证登录成功、待确认、二维码过期、取消、网络超时、错误响应及已有凭据保护；敏感数据只用于终端登录显示，不写入日志。
 - [ ] 在真实终端展示二维码，由用户扫码完成登录；核对 bot 聊天对象与本地脱敏账号状态，不替用户操作手机授权。
 - [ ] 验证重启可读取有效凭据，`gateway status` 可区分已配置与实际在线，不能把“存在凭据文件”当成“连接正常”。
@@ -157,10 +240,10 @@ G0 还需确认模型提供商和模型名、单次评测费用上限，以及�
 
 ### G2a.2：微信真实收发 + Eino 模型回答（独立审核）
 
-**拟建/修改：** `internal/channel/message.go`、`internal/channel/wechat/adapter.go`、`internal/channel/wechat/adapter_test.go`、`internal/app/service.go`、`internal/app/service_test.go`、`internal/agent/model.go`、`internal/agent/runtime.go`、`cmd/herald/main.go`、`docs/runbooks/wechat.md`。
+**拟建/修改：** `internal/channel/message.go`、`internal/channel/wechat/adapter.go`、`internal/channel/wechat/adapter_test.go`、`internal/app/service.go`、`internal/app/service_test.go`、`internal/provider/factory.go`、`internal/agent/runtime.go`、`cmd/herald/main.go`、`docs/runbooks/wechat.md`。
 
 - [ ] 使用已保存凭据实现 `gateway start`、长轮询收消息、账号与会话映射、文本回复；复用 G2a.1 客户端，保存每个对话方的回复上下文凭据。
-- [ ] 接入用户选定的模型；真实调用与离线 fake 结果分别报告。
+- [ ] 由渠道的 `model_ref` 解析模型配置，复用 G1b 模型工厂；真实调用与离线 fake 结果分别报告。通过测试专用渠道验证应用服务与 Agent 核心不依赖微信字段。
 - [ ] 分开配置登录轮询、消息长轮询、单次发送和 Agent deadline；正常空轮询不触发错误退避，网络错误和限流有界退避，鉴权失效提示重登。
 - [ ] 完成至少 10 条真实文本消息闭环，保留脱敏回执与 trace 关联。测试故障至少覆盖无效凭证、模型超时、发送失败。
 - [ ] 提交 `docs/reviews/G2a.2.md`，停止等待审核。
@@ -177,7 +260,7 @@ G0 还需确认模型提供商和模型名、单次评测费用上限，以及�
 - [ ] 展示离线重复投递 100 次仍只生成一个逻辑任务，以及多用户场景不串话；外部回复的重复风险单独说明。
 - [ ] 提交 `docs/reviews/G2b.md`，停止等待审核。
 
-**第一个里程碑完成条件：** G1、G2a.1、G2a.2、G2b 分别通过审核，有终端扫码登录、微信 bot 真实回复、错误路径、基础可靠性、trace 与测量证据。
+**第一个里程碑完成条件：** G1a、G1b、G2a.1、G2a.2、G2b 分别通过审核，有可恢复的模型/渠道配置向导、终端扫码登录、微信 bot 真实回复、错误路径、基础可靠性、trace 与测量证据。
 
 ### G3：可控工具调用
 
@@ -236,6 +319,7 @@ Eino callbacks 用于捕获 Agent、ChatModel、Tool 生命周期；接入、队
 
 | 步骤 | 需要记录的证据 |
 | --- | --- |
+| 首次配置与模型检查 | setup ID、供应商 ID、模型 ID、渠道类型、校验/保存/联网检查状态及耗时；不记录输入的 API Key 或凭据正文 |
 | 网关登录与恢复 | 独立 setup/connection trace，记录二维码请求、状态变化、确认、凭据写入成败、重连；不记录二维码内容、登录 URL 或 token |
 | 接收与验证 | 渠道、消息 ID、接收时间、脱敏身份、校验结果；不保存签名密钥 |
 | 去重与排队 | dedup key、是否命中、排队耗时、原逻辑 run ID、尝试次数 |
@@ -272,12 +356,13 @@ Eino callbacks 用于捕获 Agent、ChatModel、Tool 生命周期；接入、队
 | Trace 完整率 | 通过节点及关联检查的 run / 所有 run；进程崩溃留下未闭合链也计不完整 | 越高越好 |
 | Trace 开销 | 相同负载下采集开/关的延迟、吞吐、CPU、内存和存储增量 | 越低越好 |
 | 微信网关接入指标 | 二维码请求耗时、确认成功到凭据可用耗时、凭据恢复耗时、网络恢复到轮询成功耗时、收发成功率；人工扫码等待单列 | 系统耗时低、成功率高 |
+| 首次配置指标 | 配置成功率、校验失败原因、配置恢复耗时、模型连通性检查耗时；人工输入时间与系统处理时间分开 | 成功率高、系统耗时低 |
 
 成功率之外，延迟报告必须同时列出失败率和超时数，不能通过快速失败制造“延迟下降”。仅成功任务的分位数标注其分母，并并列报告所有任务的终止耗时。
 
 ### 数据与实验协议
 
-1. G1 的 12 个种子用例用于工程回归。G3 起扩充版本化核心集至 100 个：普通对话 15、工具 30、记忆 20、技能 15、可靠性与异常 20。未实现能力标记不适用，逐阶段公布适用集合，比较时使用相同 case ID；新增能力集单独列出。
+1. G1b 的 12 个种子用例用于 Agent 工程回归；G1a 的配置向导测试单独统计。G3 起扩充版本化核心集至 100 个：普通对话 15、工具 30、记忆 20、技能 15、可靠性与异常 20。未实现能力标记不适用，逐阶段公布适用集合，比较时使用相同 case ID；新增能力集单独列出。
 2. 按类别固定拆分开发集 60 和保留集 40；生成近似题也按来源分组，避免同题变体跨集合。优化只使用开发集调试，候选冻结后运行保留集；看过并据此调整后的集合不再称为未见测试集。
 3. 确定性逻辑用规则和固定工具结果评分；开放回答用预先定义的人工 rubric，分别检查正确性、指令遵循和完整性。若使用模型裁判，锁定裁判模型和 prompt，抽查至少 20%，费用单列。
 4. 配对运行 baseline 与 candidate，同一 case 相同素材、模型版本、参数、工具状态、环境、并发和超时；交错执行 A/B 降低时间段偏差。真实模型默认每例 3 次，预算不足则明确为探索性结果。
@@ -324,6 +409,9 @@ go-herald/
   README.md
   cmd/herald/         # 本地与微信运行入口
   cmd/eval/           # 评测与比较入口
+  internal/setup/    # 首次配置向导
+  internal/config/   # 配置校验、持久化与凭据引用
+  internal/provider/ # 供应商预设与 Eino 模型工厂
   internal/channel/  # 消息渠道
   internal/app/      # 运行与会话调度
   internal/agent/    # Eino 装配
@@ -351,6 +439,7 @@ go-herald/
 - [x] 根据用户反馈锁定 Hermes 式 iLink Bot 扫码入口，补充官方项目文档和源码依据。
 - [x] 按用户要求初始化 Go 模块，根目录 `main.go` 仅打印 `Hello, World!`，阶段计划位于 `docs/phase-01-weixin-agent.md`。
 - [x] 补充 `.gitignore`，忽略构建产物、本地配置和运行数据。
+- [x] 计划补充首次模型/渠道配置向导、默认 Base URL、供应商工厂，以及飞书/QQ 渠道扩展边界；尚未实现。
 - [ ] 用户审核更新后的计划。
 - [ ] 审核后完成 G0 接入验证，再逐单元开展实现。
 
