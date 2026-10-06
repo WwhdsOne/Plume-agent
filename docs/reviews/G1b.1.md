@@ -1,15 +1,15 @@
 ---
 title: G1b.1 审核记录：OpenAI SDK 请求、非流式解析与可测量模型接口
-status: pending-review
+status: passed
 updated: 2026-10-06
-summary: G1b.1 交付：模型契约与 openai-chat-completions 适配器、端点安全策略、工厂/probe、模型 trace、12 个离线种子；待用户审核
+summary: G1b.1 交付：模型契约与 openai-chat-completions 适配器、端点安全策略、工厂/probe、模型 trace、12 个离线种子；已通过审核
 ---
 
 # G1b.1 审核记录：OpenAI SDK 请求、非流式解析与可测量模型接口
 
 - 日期：2026-10-06。
 - 依据：[决策 0003](../decisions/0003-model-runtime.md)（2026-10-06 修订为 OpenAI 官方 SDK）与[第一阶段计划](../phase-01-tui-agent.md) §5 G1b.1。
-- 状态：**已交付，待用户审核**。完成即停，未动 G1b.2 及之后的任何内容。
+- 状态：**已通过审核**（2026-10-06 用户确认"通过"，随后启动 G1b.2）。
 
 ## 1. 本单元做了什么
 
