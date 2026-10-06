@@ -7,7 +7,8 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"runtime"
+
+	"github.com/spf13/cobra"
 
 	"herald-agent/internal/channel"
 	"herald-agent/internal/config"
@@ -15,48 +16,29 @@ import (
 )
 
 func main() {
-	if err := run(os.Args[1:], os.Stdout, os.Stderr); err != nil {
+	if err := newRootCmd().Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "herald: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func run(args []string, stdout, stderr io.Writer) error {
-	if len(args) == 0 {
-		usage(stdout)
-		hintIfUnconfigured(stdout)
-		return nil
+func newRootCmd() *cobra.Command {
+	root := &cobra.Command{
+		Use:   "herald",
+		Short: "herald-agent：以微信为首个入口的个人 Agent",
+		// 错误由 main 统一打印一次；业务失败不该顺带打印整篇用法说明。
+		SilenceErrors: true,
+		SilenceUsage:  true,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := cmd.Help(); err != nil {
+				return err
+			}
+			hintIfUnconfigured(cmd.OutOrStdout())
+			return nil
+		},
 	}
-
-	switch args[0] {
-	case "version":
-		fmt.Fprintf(stdout, "herald-agent (%s)\n", runtime.Version())
-		return nil
-	case "config":
-		return runConfig(args[1:], stdout)
-	case "setup":
-		// 与 setup trace 一起在 G1a-2 交付。
-		return errors.New("setup is not implemented yet (planned for G1a-2)")
-	case "help", "-h", "--help":
-		usage(stdout)
-		return nil
-	default:
-		usage(stderr)
-		return fmt.Errorf("unknown command %q", args[0])
-	}
-}
-
-func usage(w io.Writer) {
-	fmt.Fprint(w, `herald-agent
-
-Usage:
-  herald setup              run the first-time setup wizard (not implemented yet)
-  herald config path        print the configuration directory and file path
-  herald config show        print the saved configuration with secrets redacted
-  herald version            print the version
-
-Configuration lives in $HERALD_HOME, or ~/.herald by default.
-`)
+	root.AddCommand(newSetupCmd(), newConfigCmd(), newVersionCmd())
+	return root
 }
 
 // hintIfUnconfigured 把首次使用者引向向导，而不是只留一段干巴巴的用法说明。

@@ -6,22 +6,39 @@ import (
 	"io"
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"herald-agent/internal/channel"
 	"herald-agent/internal/config"
 )
 
-func runConfig(args []string, stdout io.Writer) error {
-	if len(args) == 0 {
-		return errors.New("config: missing subcommand (path|show)")
+func newConfigCmd() *cobra.Command {
+	configCmd := &cobra.Command{
+		Use:   "config",
+		Short: "查看 herald 的配置",
+		RunE: func(*cobra.Command, []string) error {
+			return errors.New("config: missing subcommand (path|show)")
+		},
 	}
-	switch args[0] {
-	case "path":
-		return configPath(stdout)
-	case "show":
-		return configShow(stdout)
-	default:
-		return fmt.Errorf("config: unknown subcommand %q (want path|show)", args[0])
-	}
+	configCmd.AddCommand(
+		&cobra.Command{
+			Use:   "path",
+			Short: "打印配置目录与 config.json 路径",
+			Args:  cobra.NoArgs,
+			RunE: func(cmd *cobra.Command, _ []string) error {
+				return configPath(cmd.OutOrStdout())
+			},
+		},
+		&cobra.Command{
+			Use:   "show",
+			Short: "打印已保存的配置（凭据脱敏）",
+			Args:  cobra.NoArgs,
+			RunE: func(cmd *cobra.Command, _ []string) error {
+				return configShow(cmd.OutOrStdout())
+			},
+		},
+	)
+	return configCmd
 }
 
 func configPath(stdout io.Writer) error {

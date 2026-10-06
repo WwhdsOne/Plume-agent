@@ -27,13 +27,38 @@ go test -race ./...            # 竞态检测；提交前应通过
 go test ./internal/config -run TestSaveFailureKeepsExistingConfig   # 单个测试
 go test ./internal/config -v                                        # 单包详细输出
 
-go run ./cmd/herald version            # CLI
+./scripts/build.sh             # 构建带版本信息的 ./herald
+./scripts/build.sh --install   # 安装到 GOBIN
+./scripts/build.sh --debug     # 保留符号表（默认为发布式 -s -w）
+
+go run ./cmd/herald setup              # 首次设置向导（需要交互式终端）
 go run ./cmd/herald config path
 go run ./cmd/herald config show        # 脱敏输出
+go run ./cmd/herald version
 ```
 
 - Go 1.27.1，`GOPROXY=https://goproxy.cn,direct`。
 - 阶段计划中的验收命令写作 `rtk go test ./...`；`rtk` 是本地命令包装，底层就是上面的 `go` 命令。
+
+### 构建与版本注入
+
+**发布/安装一律走 `scripts/build.sh`，不要用裸 `go build`**——裸构建不会注入版本，`herald version` 会显示 `dev/unknown`。
+
+- 版本号来自仓库根的 `VERSION` 文件（人工维护的语义版本），commit 取自 `git rev-parse --short HEAD`（工作区脏则加 `-dirty`），构建时间取当前 UTC。
+- 三个值经 `-ldflags -X main.{version,commit,buildTime}` 注入 `cmd/herald/version.go`；变量默认值是 `dev`/`none`/`unknown`，未打戳时**如实显示**，不伪造版本号。
+- 默认加 `-s -w`：约 6.75 MB；不加约 9.75 MB。
+- 仓库根没有 git tag，所以 `git describe` 不可用——这是选 `VERSION` 文件而非 tag 驱动的原因。
+
+### 验证交互式向导
+
+`herald setup` 需要 TTY，非交互环境会直接报错退出（这是刻意行为，不是缺陷）。要在脚本里跑通完整流程，需要分配 pty **并应答终端能力查询**（`ESC]11;?`、`ESC[6n`），否则 termenv 会超时报错：
+
+```
+OSC 11 背景色查询 -> 回 \x1b]11;rgb:0000/0000/0000\x1b\\
+ESC[6n 光标位置   -> 回 \x1b[1;1R
+```
+
+向导流程本身可在无 TTY 下测试：`internal/setup` 只依赖 `Prompter` 接口，`wizard_test.go` 用脚本化实现覆盖全部路径。
 
 ### 开发时不要污染真实配置
 
@@ -91,6 +116,7 @@ HERALD_HOME=$(mktemp -d) go run ./cmd/herald config show
 | --- | --- |
 | `cmd/herald/` | CLI 入口与命令分发；不承载业务逻辑 |
 | `internal/config/` | 配置 schema、校验、原子持久化、凭据引用；不承载 Agent 逻辑 |
+| `internal/setup/` | 首次设置向导的流程；只依赖 `Prompter` 接口，不依赖终端库 |
 | `internal/provider/` | 模型供应商预设与（G1b 起）Eino 模型工厂；不依赖微信 |
 | `internal/channel/` | 渠道注册表与（G2a 起）消息适配器；不拼装 prompt |
 | `internal/app/` | run 生命周期、超时、去重、会话串行化、重试与回复状态（G2a 起） |
@@ -118,6 +144,7 @@ HERALD_HOME=$(mktemp -d) go run ./cmd/herald config show
 ~/.herald/
   config.json          # 含 schema_version，非敏感
   credentials/         # 0700，文件 0600
+  logs/                # 0700；setup.jsonl 等结构化 trace，文件 0600
 ```
 
 ### 写配置的一致做法
@@ -128,8 +155,22 @@ HERALD_HOME=$(mktemp -d) go run ./cmd/herald config show
 
 ### 日志与 CLI 输出
 
-- **日志统一用 `go.uber.org/zap`**（2026-10-06 确定）。它在 **G1a-2** 随 `internal/telemetry/` 与 setup trace 一起引入，是 `go.mod` 的第一个外部依赖，需在该单元记录版本锁定与兼容性验证。
+- **日志统一用 `go.uber.org/zap`**（2026-10-06 确定，G1a-2 引入 `v1.28.0`）。`internal/telemetry` 用它写 JSON Lines trace；`SetupRecorder` 的方法**刻意不接受密钥参数**，脱敏靠类型签名而不是靠调用方自觉。
 - **CLI 面向用户的输出继续用 `fmt`**：usage、`config show`、错误提示需要人类可读的对齐文本，而 zap 会往 sink 写 JSON。两者的分工是"给人看"与"给机器看"，不是新旧关系——不要为了统一把手面向用户的输出也改成结构化日志。
+
+### 命令行层
+
+- CLI 用 `github.com/spf13/cobra`（G1a-2 引入 `v1.10.2`）。命令构造集中在 `cmd/herald/{main,setup,config}.go`，每个命令一个 `newXxxCmd()`；`SilenceErrors`/`SilenceUsage` 都开着，错误只由 `main` 打印一次。
+- **业务逻辑不写进 cobra 的 `RunE`**：`RunE` 只做参数取值与转发（`cmd.InOrStdin()` / `cmd.OutOrStdout()`），实现留在 `internal/`。
+
+### 交互层
+
+- 终端交互统一用 `github.com/charmbracelet/huh`（G1a-2 引入 `v1.0.0`），只出现在 `cmd/herald/prompter.go`。
+- **向导流程与终端库分离**：`internal/setup` 只依赖 `Prompter` 接口，新增一步交互时先加接口方法，再在 `prompter.go` 实现，不要把 huh 的类型渗进 `internal/setup`。
+- **Base URL 不再逐次询问**（2026-10-06）：有预填默认值的预设直接跳过；只有无默认值的预设才问。已有配置里的地址与默认值不同时**原样保留**，不要"顺手"重置——`TestWizardPreservesExistingNonDefaultBaseURL` 守住这条。
+- **模型走列表选择**：模型 ID 来自 `provider.Preset.Models`，列表末尾附"自定义…"才落到文本输入。新增预设时把候选模型写进 `Models`。
+- 没有 TTY 时**先判断再退出**，不要进入 huh 让它阻塞。判定必须用 `mattn/go-isatty` 的 `IsTerminal`／`IsCygwinTerminal`，**不要用 `os.ModeCharDevice`**——`/dev/null` 也是字符设备，用它判断会让 `herald setup < /dev/null` 进入 huh 并挂住（已由 `TestSetupRefusesCharDeviceThatIsNotATerminal` 守住）。
+- 在 pty 里跑向导必须应答终端能力查询，否则 termenv 超时退出（见「验证交互式向导」）。
 
 ## 文档地图
 
@@ -139,22 +180,34 @@ HERALD_HOME=$(mktemp -d) go run ./cmd/herald config show
 | `docs/decisions/0001-scope.md` | 供应商预设（已冻结 2 家）、配置/凭据边界、评测预算、运行环境 |
 | `docs/decisions/0002-wechat.md` | iLink 参考源码 blob SHA、4 个接口契约、首版边界、G2a fixture 设计 |
 | `docs/reviews/G0.md` | G0 审核记录（已通过） |
-| `docs/reviews/` | 每个审核单元的交付证据（G1a 起） |
+| `docs/reviews/G1a.md` | G1a 审核记录（已交付，待确认） |
+| `docs/reviews/` | 每个审核单元的交付证据 |
 | `docs/daily/` | 每日变更流水（`YYYY-MM-DD.md`） |
-| `docs/runbooks/` | 启动与故障复现（尚未创建） |
+| `docs/runbooks/setup.md` | 首次设置向导的启动、验证与故障复现 |
 
 ## 当前进度与禁区
 
-已完成：G0（计划与可行性，含 `docs/decisions/` 两份决策）、G1a-1（`internal/config`、`internal/provider`、`internal/channel`、`cmd/herald` 的 `version`/`config` 命令）。
+已完成：G0（计划与可行性，含 `docs/decisions/` 两份决策）、G1a-1（`internal/config`、`internal/provider`、`internal/channel`、`cmd/herald` 的 `version`/`config` 命令）、G1a-2（`internal/setup` 向导流程、`internal/telemetry` setup trace、`herald setup`）。
 
 **尚未实现，不要假设存在**：
 
-- `herald setup` 向导（G1a-2）——当前返回"planned for G1a-2"错误。
-- Eino、任何模型调用、任何 HTTP 客户端、`internal/telemetry/`、`internal/app/`、`internal/agent/`、`internal/store/`、`internal/eval/`。
-- 微信扫码、收发、网关命令 `herald gateway …`（G2a）。
+- Eino、任何**模型调用**、任何**出站 HTTP 客户端**（`herald setup` 只做本地校验，联网连通性检查属于 G1b）。
+- `internal/app/`、`internal/agent/`、`internal/store/`、`internal/eval/`。
+- 微信扫码登录与收发；网关命令 `herald gateway …`（G2a）。向导里微信只记录为"待登录"。
 - 根目录**没有** `README.md`，`.claude/` 下**没有**规则文件。
 
-`go.mod` **目前没有任何外部依赖**，只有 `module herald-agent` 与 `go 1.27.1`。**第一个外部依赖是 `go.uber.org/zap`，在 G1a-2 引入**；此后新增依赖（Eino 等）应发生在对应单元，并在该单元记录版本锁定与兼容性验证。
+### 外部依赖
+
+`go.mod` 目前有**两组**直接依赖，均于 G1a-2 引入并验证（Go 1.27.1 / darwin-arm64 干净编译，`-s -w` 二进制增量实测）：
+
+| 依赖 | 版本 | 用途 | 增量 |
+| --- | --- | --- | --- |
+| `go.uber.org/zap` | v1.28.0 | 结构化日志、setup trace | +3.48 MB |
+| `github.com/charmbracelet/huh` | v1.0.0 | 终端交互（含 bubbletea/lipgloss 等传递依赖） | +1.60 MB |
+| `github.com/spf13/cobra` | v1.10.2 | 命令行框架（含 pflag） | +0.96 MB |
+| `github.com/mattn/go-isatty` | v0.0.20 | 判断 stdin 是否为真正的终端 | 可忽略 |
+
+新增依赖（Eino 等）应发生在对应单元，并在该单元记录版本锁定与兼容性验证。
 
 ### 与需求文档的常见偏差
 

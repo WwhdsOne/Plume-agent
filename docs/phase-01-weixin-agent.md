@@ -10,7 +10,7 @@
 
 **Architecture：** 单进程模块化服务；配置向导分别选择模型供应商与渠道，供应商工厂创建 Eino 模型组件，渠道注册表创建消息适配器。应用层负责会话和运行状态，Eino ADK 负责 Agent 与工具编排；trace 和评测从第一段可执行链路开始接入。
 
-**Tech Stack：** Go、Eino ADK、标准库 HTTP、SQLite、结构化 JSONL、OpenTelemetry、zap（结构化日志，2026-10-06 确定，在 G1a-2 随 telemetry 引入）；运行时通过向导配置模型供应商、API Key、模型名称与 Base URL。Jaeger 作为后续本地 trace 浏览器；首版不要求 Redis、向量数据库、Kubernetes 或独立前端。
+**Tech Stack：** Go、Eino ADK、标准库 HTTP、SQLite、结构化 JSONL、OpenTelemetry、zap（结构化日志）、cobra（命令行框架，G1a-2 引入 v1.10.2）、huh（终端交互，G1a-2 引入 v1.0.0）；运行时通过向导配置模型供应商、API Key、模型名称与 Base URL。Jaeger 作为后续本地 trace 浏览器；首版不要求 Redis、向量数据库、Kubernetes 或独立前端。
 
 ## 1. 项目定位与范围
 
@@ -38,22 +38,24 @@ Eino 官方提供 ADK、组件与编排能力，首版使用其 Agent 实现执�
 
 ### 首次设置向导
 
-交互式终端中，供应商和渠道列表使用 ↑ / ↓ 移动、Enter 确认，Ctrl+C 取消当前设置；API Key 隐藏输入，模型名称与 Base URL 使用文本输入框。首次直接运行 `herald` 且无配置时进入向导；已有完整配置时正常启动网关，配置不完整时提示继续相应设置。`herald setup` 可随时重新配置。非交互终端不等待按键输入，缺少配置时给出明确提示并退出。
+交互式终端中，供应商、模型与渠道列表使用 ↑ / ↓ 移动、Enter 确认，Ctrl+C 取消当前设置；API Key 隐藏输入。首次直接运行 `herald` 且无配置时提示运行 `herald setup`；已有完整配置时正常启动网关，配置不完整时提示继续相应设置。`herald setup` 可随时重新配置。非交互终端不等待按键输入，缺失配置时给出明确提示并退出。
 
 ```text
 herald setup
   1. 选择模型供应商
-  2. 确认该供应商预填的 Base URL（可编辑）
-  3. 输入 API Key（隐藏输入）
-  4. 输入模型名称/模型 ID
-  5. 校验必填项，选择是否进行一次模型连通性检查，保存模型配置
+  2. Base URL：只有该预设没有预填地址时才询问（如"自定义兼容服务"）
+  3. 选择模型：从该预设的模型列表里选，列表末尾提供"自定义…"再行输入
+  4. 输入 API Key（隐藏输入）；无鉴权服务可显式声明不需要 Key
+  5. 校验必填项，保存模型配置
   6. 选择渠道：微信；飞书、QQ 显示“待支持”且不可启用
-  7. 运行所选渠道的设置流程：微信请求二维码并等待扫码确认
-  8. 显示模型、渠道各自的配置/验证状态及启动命令
+  7. 渠道设置：微信首版只记录为"待登录"，真实扫码在 G2a.1 完成
+  8. 显示模型、渠道状态、trace 路径与启动命令
 
 herald model setup       # 单独新增或调整模型配置
 herald gateway setup     # 单独配置或重连渠道，复用首次向导的渠道设置流程
 ```
+
+**Base URL 的修改方式（2026-10-06 调整）：** 有预填默认值的预设**不再在向导里询问**地址，直接跳到模型选择；想改地址的用户直接编辑 `config.json` 的 `base_url`（后续可加 `--base-url` 标志）。已有配置里的地址与预设默认值不同时**原样保留**，重进向导不会静默把请求目的地重置回默认——这条不可退让。
 
 向导保存的是可修改的用户配置，不能把某一家供应商、某个模型或微信类型写死在 Agent 核心。模型已配置但渠道未完成时允许退出并继续本地调试；再次进入从已有状态继续，不能要求重新输入有效 API Key。渠道配置失败不撤销已保存的模型配置；模型配置更新失败也不覆盖原有效配置。
 
@@ -72,7 +74,7 @@ herald gateway setup     # 单独配置或重连渠道，复用首次向导的�
 
 默认值依据 [DeepSeek 官方接口说明](https://api-docs.deepseek.com/) 和 [百炼 Base URL 文档](https://help.aliyun.com/en/model-studio/base-url)，检查日期为 2026-10-05（G0 于 2026-10-06 复核）。百炼还区分地域和业务空间，不能将同一地址套用于全部账号。[百炼地域与端点](https://help.aliyun.com/zh/model-studio/regions/)
 
-预填值是可编辑默认值。配置中保存最终解析的 URL，升级预设不能悄悄改变已有用户的请求目的地。切换供应商时重新应用对应默认值，防止把上一家供应商的地址和 API Key 配给下一家；Key 按模型配置隔离，不自动复用。
+预填值是预设的默认值，**向导不再逐次确认**（见上一节）。配置中保存最终使用的 URL，升级预设不能悄悄改变已有用户的请求目的地：已有配置里的地址与默认值不同时保留原值。切换供应商时该改用新预设的默认地址；Key 按模型配置隔离，不自动复用。
 
 协议类型与供应商品牌分开：首批兼容服务通过对应 Eino 扩展装配模型，后续原生协议供应商新增工厂；不能仅替换 Base URL 就声称任意供应商可用。（2026-10-06 确认：首批 2 家预设各自绑定专用 Eino 组件——DeepSeek→`components/model/deepseek`、自定义→`components/model/openai`；`protocol` 存适配器 ID，不折叠成单一 openai 组件。百炼/Qwen 延后。已核实两家组件底层都是 OpenAI 兼容 HTTP，区分点在适配器与各家特有配置面。）模型的流式、工具调用、usage 等能力分别记录为支持、不支持或未验证；能完成普通对话不等于已经通过工具调用验收。
 
@@ -202,13 +204,13 @@ G0 已确认首批供应商预设、评测预算与本机出站网络（见 `doc
 
 **拟建/修改：** `cmd/herald/main.go`、`cmd/herald/setup.go`、`internal/setup/wizard.go`、`internal/config/config.go`、`internal/config/store.go`、`internal/config/credentials.go`、`internal/provider/registry.go`、`internal/channel/registry.go`、对应 `_test.go`、`internal/telemetry/events.go`、`docs/runbooks/setup.md`。此时将根目录 Hello World 入口迁入 `cmd/herald/`。
 
-- [ ] 先确定配置 schema、供应商与渠道注册项及用户可见向导顺序；冻结首批供应商预设并记录 URL 来源。
-- [ ] 实现供应商选择、Base URL 预填/修改、API Key 隐藏输入、模型名输入与配置保存/恢复；日志从此阶段就有脱敏 setup trace。
-- [ ] 引入 `go.uber.org/zap` 作为日志库（2026-10-06 确定），记录版本锁定与兼容性验证——这是 `go.mod` 的第一个外部依赖。zap 只用于日志与 trace 事件；CLI 面向用户的输出（usage、`config show`、错误提示）继续用 `fmt`，不要改成 JSON 输出。
-- [ ] 实现渠道选择和渠道配置入口；微信标记为“待登录”，其真实扫码在 G2a.1 完成，飞书和 QQ 标记为待支持且禁用。不能将占位入口视为已接入。
-- [ ] 用交互输入与存储 fixture 验证默认 URL、修改 URL、切换供应商、不复用错误 Key、重新进入向导、取消、文件写失败及凭据权限；配置和 trace 中不得出现测试密钥值。
-- [ ] 验证新增测试供应商/渠道注册项无需改向导分发逻辑；新增渠道不影响已有模型配置。
-- [ ] 提交可操作向导、脱敏配置样例、setup trace 和 `docs/reviews/G1a.md`，停止等待审核。此单元只做本地校验，联网模型检查随 G1b 接入。
+- [x] 先确定配置 schema、供应商与渠道注册项及用户可见向导顺序；冻结首批供应商预设并记录 URL 来源。（G0 + G1a-1）
+- [x] 实现供应商选择、Base URL 解析（有默认值跳过、无默认值才询问）、模型列表选择（含“自定义…”）、API Key 隐藏输入与配置保存/恢复；日志从此阶段就有脱敏 setup trace。（G1a-2）
+- [x] 引入 `go.uber.org/zap` 作为日志库（2026-10-06 确定），记录版本锁定与兼容性验证——这是 `go.mod` 的第一个外部依赖。zap 只用于日志与 trace 事件；CLI 面向用户的输出（usage、`config show`、错误提示）继续用 `fmt`，不要改成 JSON 输出。（G1a-2；版本 v1.28.0）
+- [x] 实现渠道选择和渠道配置入口；微信标记为“待登录”，其真实扫码在 G2a.1 完成，飞书和 QQ 标记为待支持且禁用。不能将占位入口视为已接入。（G1a-2；禁用项在向导内 Validate 拦截，并有测试守住）
+- [x] 用交互输入与存储 fixture 验证默认 URL、修改 URL、切换供应商、不复用错误 Key、重新进入向导、取消、文件写失败及凭据权限；配置和 trace 中不得出现测试密钥值。（G1a-2；见 `internal/setup/wizard_test.go`）
+- [x] 验证新增测试供应商/渠道注册项无需改向导分发逻辑；新增渠道不影响已有模型配置。（`internal/config/config_test.go`、`internal/setup/wizard_test.go`）
+- [ ] 提交可操作向导、脱敏配置样例、setup trace 和 `docs/reviews/G1a.md`，停止等待审核。此单元只做本地校验，联网模型检查随 G1b 接入。（向导与 trace 已交付；`docs/reviews/G1a.md` 待 G1a-3 补齐）
 
 **用户能看到：** 启动向导选择供应商，输入 Key 与模型名，接受或修改默认 URL，再选择微信；关闭后重新打开能恢复已保存的配置。
 

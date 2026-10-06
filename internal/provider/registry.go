@@ -14,6 +14,12 @@ type Preset struct {
 	Protocol       string
 	Component      string
 	DefaultBaseURL string // 为空表示必须由用户提供
+	// Models 是向导建议的模型 ID 列表。向导会把它们做成可选项，并在末尾附上"自定义…"；
+	// 为空表示没有建议列表，直接让用户输入。
+	Models []string
+	// OptionalAPIKey 为真表示该预设允许用户显式声明"不需要 API Key"
+	// （例如本机无鉴权服务）。默认要求 API Key。
+	OptionalAPIKey bool
 }
 
 // Registry 是静态、有序的预设集合。注册新预设绝不能要求改动向导的分发逻辑。
@@ -31,6 +37,9 @@ func NewRegistry() *Registry {
 		Protocol:       "deepseek",
 		Component:      "github.com/cloudwego/eino-ext/components/model/deepseek",
 		DefaultBaseURL: "https://api.deepseek.com",
+		// 来源：https://api-docs.deepseek.com/ （2026-10-06 复核）。
+		// 只是建议项，不是协议常量；带 reasoning 能力的模型名与旧名以官方文档为准。
+		Models: []string{"deepseek-flash", "deepseek-v4-pro"},
 	})
 	r.Register(Preset{
 		ID:             "custom-openai",
@@ -38,6 +47,7 @@ func NewRegistry() *Registry {
 		Protocol:       "openai-compatible",
 		Component:      "github.com/cloudwego/eino-ext/components/model/openai",
 		DefaultBaseURL: "",
+		OptionalAPIKey: true,
 	})
 	return r
 }
