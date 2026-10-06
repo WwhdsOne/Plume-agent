@@ -28,6 +28,7 @@
 /traces/
 /tmp/
 /.cache/
+/.codegraph/
 *.log
 *.db
 *.db-shm

@@ -18,9 +18,6 @@ func TestFirstReleasePresets(t *testing.T) {
 	if ds.DefaultBaseURL != "https://api.deepseek.com" {
 		t.Errorf("deepseek default base URL = %q", ds.DefaultBaseURL)
 	}
-	if ds.Component == "" {
-		t.Error("deepseek component import path is empty")
-	}
 
 	co, ok := r.Lookup("custom-openai")
 	if !ok {

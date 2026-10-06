@@ -1,9 +1,18 @@
+---
+title: G1a 审核记录：首次设置向导与配置边界
+status: passed
+updated: 2026-10-06
+summary: G1a 已通过（2026-10-06）：配置、凭据、向导、setup trace 的交付与验证证据
+---
+
 # G1a 审核记录：首次设置向导与配置边界
 
 - 单元：G1a（拆为两个可独立审核的子单元：G1a-1 配置与注册表基础、G1a-2 向导）
 - 状态：**已通过**（用户 2026-10-06 回复「G1a通过」）
 - 日期：2026-10-06
 - 证据：`docs/decisions/0001-scope.md`、`docs/decisions/0002-wechat.md`、`docs/daily/2026-10-06.md`、`docs/runbooks/setup.md`
+
+> 历史审核记录：G1a 实现与测量结果保持不变。后续路线已改为 Resty/自研运行时与 TUI 优先，见 `docs/decisions/0003-model-runtime.md`。现有向导仍有渠道步骤，TUI 与“暂不接入渠道”尚未实现。
 
 ## 1. 改动说明
 
@@ -111,4 +120,4 @@ setup_start → select_provider → resolve_base_url(source=preset_default) → 
 
 ## 6. 下一步
 
-G1b：Eino 模型工厂、离线闭环、trace 与 12 个评测种子。届时引入 Eino 依赖，并做首次真正的模型调用与 token/延迟计量。
+后续路线更新为 G1b.1：Resty 非流式请求、自有模型接口、trace 与 12 个离线种子；之后分别审核 G1b.2 TUI、G1b.3 流式、G3 工具循环。详见 `docs/phase-01-tui-agent.md`。这次变更不重新审核或重测已通过的 G1a。

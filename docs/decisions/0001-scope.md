@@ -1,10 +1,21 @@
+---
+title: 0001 范围、供应商预设与配置边界（G0）
+status: superseded-part
+updated: 2026-10-06
+summary: G0 范围决策：两家预设、配置边界、评测预算、运行环境；Eino 组件绑定已由 0003 替代
+---
+
 # 0001 范围、供应商预设与配置边界（G0）
 
-- 状态：已确认（2026-10-06 G0 通过），作为 G1a/G1b 的输入
+- 状态：G0 历史决策（2026-10-06 通过）；模型实现路线已由 [0003](0003-model-runtime.md) 部分替代
 - 用户已确认：目录用 `~/.herald/`；首批只启用 2 个预设（DeepSeek + 自定义兼容服务，百炼/Qwen 延后）；单次联网评测无费用上限；本机（含 TUN 代理）可用于评测
 - 日期：2026-10-06
-- 关联：`docs/phase-01-weixin-agent.md`（阶段计划）、`docs/decisions/0002-wechat.md`（微信接入）
+- 关联：`docs/phase-01-tui-agent.md`（当前首阶段）、`docs/phase-02-channel-gateway.md`（后续渠道）、`docs/decisions/0002-wechat.md`（微信调研）
 - 复核口径：所有 Base URL 于 2026-10-06 现场复核，来源见下表；Eino 适配路径以 `cloudwego/eino-ext` 仓库 `main` 的目录清单为准，具体版本在 G1b 编译验证后锁定。
+
+> 2026-10-06 路线更新：用户改选 Resty + 自研请求/解析/Agent 循环，首版 TUI，微信后移。**下文“绑定 Eino 组件/未来引入 Eino”的约定不再执行**，组件说明仅保留为 G0 历史调研；包括“后续 Qwen 使用 Eino 组件”的设想也已失效。现行模型契约以 0003 为准。
+>
+> 继续有效：DeepSeek/自定义兼容两家预设、配置目录与凭据保护、预算和评测环境。schema v1 的旧 `protocol` 值先兼容映射，不要求用户重建配置。渠道注册表保留，但首版 TUI 不依赖渠道就绪；目标与当前 G1a 行为的差异见第一阶段 §2。
 
 ## 0. 本决策回答什么
 

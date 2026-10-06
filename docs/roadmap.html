@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<!--
+title: herald-agent 路线图
+status: active
+updated: 2026-10-06
+summary: 数据驱动的树状路线图页面：13 个审核单元的状态快照；维护约定见 AGENTS.md
+-->
+
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>herald-agent 路线图</title>
+<style>
+  :root {
+    /* 4 态色系统 */
+    --passed: #1a7f37;
+    --passed-bg: #dafbe1;
+    --review: #b08805;
+    --review-bg: #fff8c5;
+    --todo: #57606a;
+    --todo-bg: #eff2f5;
+    --deferred: #8c959f;
+    --deferred-bg: #f6f8fa;
+    /* 中性 */
+    --spine: #d0d7de;
+    --bg: #f6f8fa;
+    --card: #ffffff;
+    --fg: #1f2328;
+    --muted: #656d76;
+    --accent: #2563eb;
+    --radius: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 16px; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--fg);
+    line-height: 1.6; padding: 32px 16px 64px;
+  }
+  .mono { font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace; }
+
+  .wrap { max-width: 1080px; margin: 0 auto; }
+
+  /* ---------- 头部 ---------- */
+  h1 { font-size: 22px; font-weight: 700; }
+  .meta { color: var(--muted); font-size: 13px; margin-top: 4px; }
+
+  /* ---------- 进度总览 ---------- */
+  .overview {
+    background: var(--card); border: 1px solid var(--spine); border-radius: var(--radius);
+    padding: 18px 20px; margin: 20px 0 8px;
+  }
+  .ov-top { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  .ov-pct { font-size: 30px; font-weight: 700; line-height: 1; }
+  .ov-pct .mono { letter-spacing: -1px; }
+  .ov-sub { color: var(--muted); font-size: 13px; }
+  .ov-focus { margin-left: auto; font-size: 13px; color: var(--fg); }
+  .ov-focus b { color: var(--accent); }
+
+  .segbar { display: flex; height: 10px; border-radius: 6px; overflow: hidden; margin: 14px 0 12px; background: var(--todo-bg); }
+  .segbar > span { display: block; height: 100%; transition: width .25s ease; }
+  .seg-passed   { background: var(--passed); }
+  .seg-review   { background: var(--review); }
+  .seg-todo     { background: #afb8c1; }
+  .seg-deferred { background: repeating-linear-gradient(45deg, #d8dee4 0 4px, #eaeef2 4px 8px); }
+
+  .ov-counts { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+  .ov-counts .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+  .dot.passed   { background: var(--passed); }
+  .dot.review   { background: var(--review); }
+  .dot.todo     { background: var(--todo); }
+  .dot.deferred { background: transparent; border: 2px dashed var(--deferred); }
+
+  .ov-stages { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 16px; }
+  .ov-stage { border: 1px solid var(--spine); border-radius: 6px; padding: 10px 12px; font-size: 13px; }
+  .ov-stage .name { font-weight: 600; display: flex; justify-content: space-between; gap: 8px; }
+  .ov-stage .frac { color: var(--muted); font-weight: 400; }
+  .ov-bar { height: 6px; border-radius: 4px; background: var(--todo-bg); margin-top: 8px; overflow: hidden; }
+  .ov-bar > span { display: block; height: 100%; background: var(--passed); transition: width .25s ease; }
+  .ov-stage .hint { color: var(--muted); font-size: 12px; margin-top: 6px; }
+
+  /* ---------- 图例 ---------- */
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin: 14px 0 4px; }
+
+  /* ---------- 时间轴 ---------- */
+  .timeline { position: relative; margin-top: 12px; }
+  .timeline::before { /* 主轴 */
+    content: ""; position: absolute; top: 0; bottom: 0; left: 15px; width: 2px; background: var(--spine);
+  }
+
+  .stage-head {
+    position: relative; margin: 30px 0 14px; padding-left: 44px;
+    font-size: 13px; font-weight: 600; color: var(--fg); line-height: 1.4;
+  }
+  .stage-head::before { /* 阶段锚点 */
+    content: ""; position: absolute; left: 8px; top: 2px; width: 12px; height: 12px;
+    background: var(--card); border: 2px solid var(--accent); border-radius: 50%;
+  }
+  .stage-head .loc { color: var(--muted); font-weight: 400; font-size: 12px; display: block; }
+
+  /* 时间轴条目 */
+  .tl-item { position: relative; padding: 0 0 20px 44px; }
+  .tl-marker {
+    position: absolute; left: 7px; top: 14px; width: 18px; height: 18px; border-radius: 50%;
+    background: var(--card); display: flex; align-items: center; justify-content: center;
+    z-index: 1; /* 压在主轴与连接线之上 */
+  }
+  .tl-marker svg { display: block; }
+  .tl-item.passed   .tl-marker { border: 2px solid var(--passed); color: var(--passed); }
+  .tl-item.review   .tl-marker { border: 2px solid var(--review); color: var(--review); }
+  .tl-item.todo     .tl-marker { border: 2px solid var(--todo);   color: var(--todo); }
+  .tl-item.deferred .tl-marker { border: 2px dashed var(--deferred); color: var(--deferred); }
+
+  .tl-card {
+    background: var(--card); border: 1px solid var(--spine); border-radius: var(--radius);
+    padding: 12px 16px; transition: border-color .2s ease;
+  }
+  .tl-card:hover { border-color: #afb8c1; }
+  .tl-item.deferred .tl-card { border-style: dashed; }
+  .tl-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .tl-id { font-weight: 700; font-size: 15px; }
+  .tl-title { font-size: 14px; }
+  .tl-status {
+    margin-left: auto; font-size: 12px; font-weight: 600; padding: 1px 10px;
+    border-radius: 10px; white-space: nowrap;
+  }
+  .tl-item.passed   .tl-status { color: var(--passed); background: var(--passed-bg); }
+  .tl-item.review   .tl-status { color: #7c5e04; background: var(--review-bg); }
+  .tl-item.todo     .tl-status { color: var(--todo); background: var(--todo-bg); }
+  .tl-item.deferred .tl-status { color: var(--deferred); background: var(--deferred-bg); }
+  .tl-desc { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .tl-item.deferred .tl-id, .tl-item.deferred .tl-title { color: var(--muted); }
+
+  /* ---------- 桌面：左右交替 ---------- */
+  @media (min-width: 768px) {
+    .timeline::before { left: 50%; margin-left: -1px; }
+    /* 阶段标题放主轴左侧、右对齐，不跨过主轴 */
+    .stage-head { width: 50%; padding: 0 44px 0 0; text-align: right; }
+    .stage-head::before { left: auto; right: -8px; margin-left: 0; top: 2px; }
+    .tl-item { width: 50%; padding: 0 36px 24px 0; }
+    .tl-item:nth-of-type(even) { margin-left: 50%; padding: 0 0 24px 36px; }
+    .tl-item .tl-marker { left: auto; right: -9px; }
+    .tl-item:nth-of-type(even) .tl-marker { right: auto; left: -9px; }
+    /* 连接线止于状态锚点边缘（锚点占 ±9px），不穿过锚点 */
+    .tl-item::after {
+      content: ""; position: absolute; top: 22px; right: 9px; width: 27px; height: 2px; background: var(--spine);
+    }
+    .tl-item:nth-of-type(even)::after { right: auto; left: 9px; }
+  }
+
+  /* ---------- 页脚 ---------- */
+  footer { max-width: 1080px; margin: 32px auto 0; font-size: 12px; color: var(--muted); border-top: 1px solid var(--spine); padding-top: 12px; }
+  footer p + p { margin-top: 6px; }
+  code { background: var(--todo-bg); border-radius: 4px; padding: 1px 5px; font-size: 12px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .segbar > span, .ov-bar > span, .tl-card { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>herald-agent 路线图</h1>
+    <p class="meta">状态来源：AGENTS.md「当前进度与禁区」与 docs/reviews/ · 更新方法见页面底部 · 打开日期：<span id="generated-at"></span></p>
+  </header>
+
+  <!-- 进度总览：全部由 ROADMAP 数据实时计算，改数据即自动更新 -->
+  <section class="overview" aria-label="进度总览">
+    <div class="ov-top">
+      <div class="ov-pct"><span class="mono" id="ov-pct"></span></div>
+      <div class="ov-sub" id="ov-frac"></div>
+      <div class="ov-focus" id="ov-focus"></div>
+    </div>
+    <div class="segbar" id="segbar" role="img" aria-label="按状态分布的进度条"></div>
+    <div class="ov-counts" id="ov-counts"></div>
+    <div class="ov-stages" id="ov-stages"></div>
+  </section>
+
+  <div class="legend" id="legend"></div>
+
+  <main class="timeline" id="timeline" aria-label="审核单元时间轴"></main>
+</div>
+
+<footer>
+  <p>维护约定（见 AGENTS.md）：任何审核单元状态翻转（通过 / 交付待审 / 开工 / 后移）时，必须同步更新本文件 <code>ROADMAP</code> 数据中的 <code>status</code> 与 <code>updated</code> 字段，并与触发它的改动放在同一次提交里；进度总览由数据自动计算，无需手改。</p>
+  <p>状态口径以 <code>docs/reviews/</code> 与 AGENTS.md 为准；本图是可视化快照，不是审核记录本身。</p>
+</footer>
+
+<script>
+// ---- 数据区：更新进度只改这里 ------------------------------------------------
+// status 取值：passed（已通过）| review（已交付待审核）| todo（未开始）| deferred（后移/储备）
+const ROADMAP = [
+  {
+    stage: "第一阶段 · TUI Agent（docs/phase-01-tui-agent.md）",
+    nodes: [
+      { id: "G0", title: "范围与接入可行性", status: "passed",
+        desc: "供应商预设、配置边界、评测预算、运行环境（0001）+ iLink 调研（0002）", updated: "2026-10-06" },
+      { id: "G1a", title: "首次设置向导与配置边界", status: "passed",
+        desc: "config/provider/channel、huh 向导、cobra 命令、setup trace、构建脚本", updated: "2026-10-06" },
+    ],
+    branches: [
+      [
+        { id: "G1b.1", title: "Resty 请求、非流式解析与可测量模型接口", status: "todo",
+          desc: "锁 Resty 版本（v2/v3 待决策）、协议适配器、httptest 断言、12 个离线种子", updated: "2026-10-06" },
+        { id: "G1b.2", title: "最小可交互 TUI 与多轮会话", status: "todo",
+          desc: "Bubble Tea 聊天界面、herald/chat 入口、「暂不接入渠道」、run 事件", updated: "2026-10-06" },
+        { id: "G1b.3", title: "SSE 流式解析与增量输出", status: "todo",
+          desc: "自研 SSE 分帧、流式 UI、取消/断流终态、流式基准", updated: "2026-10-06" },
+        { id: "G3", title: "自研 Agent 循环与受控工具", status: "todo",
+          desc: "模型→工具→模型循环、计算器/时钟工具、预算与 trace（前移至微信之前）", updated: "2026-10-06" },
+      ],
+    ],
+  },
+  {
+    stage: "第二阶段 · 渠道网关（docs/phase-02-channel-gateway.md，第一阶段通过后另行授权）",
+    nodes: [],
+    branches: [
+      [
+        { id: "G2a.1", title: "微信扫码连接 bot", status: "deferred",
+          desc: "二维码获取/轮询/确认、凭据保存；依赖 0002 调研复核", updated: "2026-10-06" },
+        { id: "G2a.2", title: "真实收发与 Agent 复用", status: "deferred",
+          desc: "gateway start、长轮询、会话映射、文本回复", updated: "2026-10-06" },
+        { id: "G2b", title: "消息可靠性与会话隔离", status: "deferred",
+          desc: "SQLite 持久化、去重、崩溃恢复、有界 worker", updated: "2026-10-06" },
+      ],
+    ],
+  },
+  {
+    stage: "储备路线（各自另建阶段计划，不提前搭空框架）",
+    nodes: [],
+    branches: [
+      [
+        { id: "G4a", title: "持久历史与记忆", status: "deferred", desc: "", updated: "2026-10-06" },
+        { id: "G4b", title: "上下文压缩", status: "deferred", desc: "实验 E01 候选", updated: "2026-10-06" },
+        { id: "G5", title: "已审核技能", status: "deferred", desc: "", updated: "2026-10-06" },
+        { id: "G6", title: "实验与简历整理", status: "deferred", desc: "量化改造对比报告", updated: "2026-10-06" },
+      ],
+    ],
+  },
+];
+// ------------------------------------------------------------------------------
+
+const STATUS_LABEL = { passed: "已通过", review: "待审核", todo: "未开始", deferred: "后移/储备" };
+const STATUS_ORDER = ["passed", "review", "todo", "deferred"];
+// 状态标记 SVG（不用 emoji）：check / hourglass / circle / pause
+const STATUS_ICON = {
+  passed:   '<svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 8.5l3.5 3.5 7-8" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  review:   '<svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2a6 6 0 106 6M8 4v4l2.5 2.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  todo:     '<svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="4.5" stroke="currentColor" stroke-width="2"/></svg>',
+  deferred: '<svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M5.5 4v8M10.5 4v8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+};
+
+document.getElementById("generated-at").textContent =
+  new Date().toISOString().slice(0, 10);
+
+function allNodes() {
+  const out = [];
+  for (const s of ROADMAP) {
+    out.push(...s.nodes.map(n => ({ ...n, stage: s.stage })));
+    for (const branch of s.branches)
+      out.push(...branch.map(n => ({ ...n, stage: s.stage })));
+  }
+  return out;
+}
+
+/* ---------- 进度总览（从数据计算） ---------- */
+function renderOverview() {
+  const nodes = allNodes();
+  const total = nodes.length;
+  const count = Object.fromEntries(STATUS_ORDER.map(s => [s, nodes.filter(n => n.status === s).length]));
+  const pct = total ? Math.round((count.passed / total) * 100) : 0;
+
+  document.getElementById("ov-pct").textContent = pct + "%";
+  document.getElementById("ov-frac").textContent = `${count.passed} / ${total} 个审核单元已通过`;
+
+  // 当前焦点：第一个非储备阶段的第一个未完成单元
+  let focus = null;
+  outer: for (const s of ROADMAP) {
+    const items = [...s.nodes, ...s.branches.flat()];
+    for (const n of items) {
+      if (n.status === "review" || n.status === "todo") { focus = n; break outer; }
+    }
+  }
+  document.getElementById("ov-focus").innerHTML = focus
+    ? `当前焦点：<b class="mono">${focus.id}</b> ${focus.title}`
+    : "全部单元已通过";
+
+  const seg = document.getElementById("segbar");
+  seg.innerHTML = "";
+  for (const st of STATUS_ORDER) {
+    if (!count[st]) continue;
+    const el = document.createElement("span");
+    el.className = "seg-" + st;
+    el.style.width = (count[st] / total * 100) + "%";
+    el.title = STATUS_LABEL[st] + " " + count[st];
+    seg.appendChild(el);
+  }
+
+  const counts = document.getElementById("ov-counts");
+  counts.innerHTML = STATUS_ORDER.map(st =>
+    `<span><span class="dot ${st}"></span>${STATUS_LABEL[st]} ${count[st]}</span>`).join("");
+
+  // 每阶段小卡
+  const stages = document.getElementById("ov-stages");
+  stages.innerHTML = "";
+  ROADMAP.forEach((s, i) => {
+    const items = [...s.nodes, ...s.branches.flat()];
+    const p = items.filter(n => n.status === "passed").length;
+    const card = document.createElement("div");
+    card.className = "ov-stage";
+    const short = ["第一阶段 · TUI Agent", "第二阶段 · 渠道网关", "储备路线"][i] || s.stage;
+    const next = items.find(n => n.status === "review" || n.status === "todo");
+    card.innerHTML =
+      `<div class="name">${short}<span class="frac mono">${p}/${items.length}</span></div>` +
+      `<div class="ov-bar"><span style="width:${items.length ? p / items.length * 100 : 0}%"></span></div>` +
+      (next ? `<div class="hint">下一单元：<span class="mono">${next.id}</span></div>` : `<div class="hint">已完成</div>`);
+    stages.appendChild(card);
+  });
+}
+
+/* ---------- 时间轴 ---------- */
+function nodeEl(n) {
+  const item = document.createElement("div");
+  item.className = "tl-item " + n.status;
+
+  const marker = document.createElement("div");
+  marker.className = "tl-marker";
+  marker.innerHTML = STATUS_ICON[n.status] || "";
+  item.appendChild(marker);
+
+  const card = document.createElement("div");
+  card.className = "tl-card";
+
+  const head = document.createElement("div");
+  head.className = "tl-head";
+  const gid = document.createElement("span");
+  gid.className = "tl-id mono"; gid.textContent = n.id;
+  const title = document.createElement("span");
+  title.className = "tl-title"; title.textContent = n.title;
+  const st = document.createElement("span");
+  st.className = "tl-status";
+  st.textContent = STATUS_LABEL[n.status] + (n.updated ? " · " + n.updated : "");
+  head.append(gid, title, st);
+  card.appendChild(head);
+
+  if (n.desc) {
+    const desc = document.createElement("div");
+    desc.className = "tl-desc"; desc.textContent = n.desc;
+    card.appendChild(desc);
+  }
+  item.appendChild(card);
+  return item;
+}
+
+function renderTimeline() {
+  const tl = document.getElementById("timeline");
+  for (const s of ROADMAP) {
+    const h = document.createElement("h2");
+    h.className = "stage-head";
+    const m = s.stage.match(/^([^（]+)（(.+)）$/);
+    h.innerHTML = m ? `${m[1]}<span class="loc">（${m[2]}）</span>` : s.stage;
+    tl.appendChild(h);
+    const items = [...s.nodes, ...s.branches.flat()];
+    for (const n of items) tl.appendChild(nodeEl(n));
+  }
+}
+
+renderOverview();
+renderTimeline();
+</script>
+</body>
+</html>

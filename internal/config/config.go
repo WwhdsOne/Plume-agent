@@ -25,7 +25,9 @@ type Config struct {
 }
 
 // ModelConfig 描述一个模型端点。Provider 与 Protocol 分开存：Provider 是预设品牌，
-// Protocol 是将用来构建组件的 Eino 适配器 ID，见 docs/decisions/0001-scope.md。
+// Protocol 是持久化的协议适配选择器（历史值 deepseek / openai-compatible，schema v1
+// 原样保留），G1b.1 的注册工厂把它映射到自研适配器及内部 openai-chat-completions
+// 协议族，见 docs/decisions/0003-model-runtime.md。
 type ModelConfig struct {
 	ID        string `json:"id"`
 	Provider  string `json:"provider"`
@@ -47,9 +49,9 @@ type ChannelConfig struct {
 }
 
 // ProviderCatalog 是校验所需的只读供应商查询。provider 注册表和测试替身都能满足它；
-// 正是这层接口让本包不必依赖 G1b 模型工厂将引入的 Eino 依赖。
+// 正是这层接口让本包不必依赖 G1b 模型工厂将引入的 HTTP/协议实现依赖。
 type ProviderCatalog interface {
-	// ProtocolFor 返回供应商预设 ID 对应的 Eino 适配器 ID。
+	// ProtocolFor 返回供应商预设 ID 对应的协议适配选择器。
 	ProtocolFor(providerID string) (protocol string, ok bool)
 	// DefaultBaseURL 返回预设预填的 Base URL；预设没有预填值时返回 ""，
 	// 表示必须由用户提供。

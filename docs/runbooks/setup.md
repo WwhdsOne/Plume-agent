@@ -1,6 +1,15 @@
+---
+title: Runbook：herald setup
+status: active
+updated: 2026-10-06
+summary: 首次设置向导的启动、验证、重置与 7 类故障复现（G1a 交付版本）
+---
+
 # Runbook：herald setup
 
 首次设置向导的启动、验证与故障复现。适用于 G1a 交付的版本。
+
+> 路线更新：项目首版已改为 TUI，但本文仍描述当前已交付的 G1a 命令。`herald chat` 和跳过渠道的目标流程尚未实现；实现后再更新本 runbook，不能按计划假设当前已有聊天功能。
 
 ## 前置
 
@@ -25,7 +34,7 @@ herald setup
 | 7 渠道设置 | 只读提示 | 微信首版只记录为「待登录」，真实扫码是 G2a.1 |
 | 8 显示总结 | 自动 | 模型、渠道、trace 路径 |
 
-Ctrl+C 随时可取消：**退出码 0，磁盘上不写任何内容**。
+Ctrl+C 可取消当前步骤：模型配置保存前取消，不提交本轮模型配置；模型已经保存、在渠道步骤取消时，**保留已保存的模型配置与凭据**，不回滚第一阶段保存。setup trace 仍可能写入，不能承诺取消后磁盘完全无变化。当前还没有显式「暂不接入渠道」菜单项，计划在 TUI 单元补充。
 
 ## 产物位置
 
@@ -126,4 +135,5 @@ herald setup    # 会打印一条 chmod 700 的建议，但不改
 
 - 决策：`docs/decisions/0001-scope.md`（预设、配置边界）
 - 审核：`docs/reviews/G1a.md`
-- 阶段计划：`docs/phase-01-weixin-agent.md` §2
+- 阶段计划：`docs/phase-01-tui-agent.md` §2（目标行为，与本 runbook 的当前版本区分）
+- 模型与入口决策：`docs/decisions/0003-model-runtime.md`
