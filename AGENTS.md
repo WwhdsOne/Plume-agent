@@ -238,8 +238,8 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 
 ### 交互层
 
-- **设置表单**用 `github.com/charmbracelet/huh`（G1a-2 引入 `v1.0.0`），只出现在 `cmd/herald/prompter.go`；不能把现有表单称为聊天 TUI。
-- **聊天 TUI（G1b.2 已实现）**用 Bubble Tea（bubbles v0.21.1 连带锁定 bubbletea v1.3.10、lipgloss v1.1.0，与 huh 共存已由全量测试验证）。`internal/tui` 的 Model/Update 是纯状态转移，副作用只经 `Hooks`（Submit/Cancel/ResetSession）注入；`TeaModel` 是到 tea.Model 的适配层（指针接收者，`tea.NewProgram(&tui.TeaModel{...})` 传指针）。普通日志/trace 写文件，不破坏屏幕；模型输出经 `sanitize` 过滤终端控制序列后才渲染。
+- **设置表单**用 huh（G1a-2 引入 `v1.0.0`），只出现在 `cmd/herald/prompter.go`；不能把现有表单称为聊天 TUI。**v2 迁移（`charm.land/huh/v2`）已立项 G1b.2.1，随终端栈整体升级。**
+- **聊天 TUI（G1b.2 已实现）**当前用 Bubble Tea v1（bubbles v0.21.1 连带 bubbletea v1.3.10、lipgloss v1.1.0）。**终端栈升级 v2（`charm.land/*` 全家桶，全部 GA）已随 G1b.2.1 立项**：先迁 v2 保持行为不变，再落键位契约（Shift+Enter 三层渐进、Ctrl+C 三段语义、KeyMap 平台抽象），契约见 `docs/tui-keys.md`。`internal/tui` 的 Model/Update 是纯状态转移，副作用只经 `Hooks` 注入；`TeaModel` 是到 tea.Model 的适配层（指针接收者，`tea.NewProgram(&tui.TeaModel{...})` 传指针）。普通日志/trace 写文件，不破坏屏幕；模型输出经 `sanitize` 过滤终端控制序列后才渲染。
 - 未来裸 `herald` 默认进入 TUI，缺配置提示 setup；`herald chat --offline` 不需要配置/Key。setup 计划增加「暂不接入渠道」，不伪造渠道账号、不要求扫码、不清理旧渠道。**G1b.2 已实现以上行为（待审核）**：裸 `herald` 配置就绪+TTY 直接进入聊天。
 - **向导流程与终端库分离**：`internal/setup` 只依赖 `Prompter` 接口，新增一步交互时先加接口方法，再在 `prompter.go` 实现，不要把 huh 的类型渗进 `internal/setup`。
 - **Base URL 不再逐次询问**（2026-10-06）：有预填默认值的预设直接跳过；只有无默认值的预设才问。已有配置里的地址与默认值不同时**原样保留**，不要"顺手"重置——`TestWizardPreservesExistingNonDefaultBaseURL` 守住这条。
@@ -270,6 +270,7 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 
 **尚未实现，不要假设存在**：
 
+- **终端栈 v2 迁移与键位重设计（G1b.2.1）**：契约已交付待确认（`docs/tui-keys.md`），`charm.land/*` v2 依赖未安装、键位未改、草稿历史未实现——当前代码仍是 v1 栈与 G1b.2 键位（Ctrl+J 换行、单击 Ctrl+C 空闲退出）。
 - **流式模型调用**（`Client.Stream` 当前一律返回 unsupported，G1b.3 启用）、**工具循环与工具声明**（请求携带 tools 返回 unsupported，G3）、cmd/eval 比较命令。
 - 聊天 run 事件的落盘 trace（UI 当前消费内存事件）；模型独立就绪校验（启动只校验配置与凭据存在，不发探测请求）。
 - `internal/tools/`、`internal/store/`。
@@ -286,7 +287,7 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 | `github.com/charmbracelet/huh` | v1.0.0 | 终端交互（含 bubbletea/lipgloss 等传递依赖） | +1.60 MB |
 | `github.com/spf13/cobra` | v1.10.2 | 命令行框架（含 pflag） | +0.96 MB |
 | `github.com/openai/openai-go` | v1.12.0 | 模型传输与协议（G1b.1，Chat Completions 适配器） | +1.70 MB（`-s -w` 实测 6.41→8.11 MB） |
-| `github.com/charmbracelet/bubbles` | v0.21.1 | TUI 组件（textarea/viewport；G1b.2 提升，连带 bubbletea v1.3.10、lipgloss v1.1.0） | +2.59 MB（实测 8.11→10.70 MB） |
+| `github.com/charmbracelet/bubbles` | v0.21.1 | TUI 组件（textarea/viewport；G1b.2 提升，连带 bubbletea v1.3.10、lipgloss v1.1.0） | +2.59 MB（实测 8.11→10.70 MB）。**v2 迁移（`charm.land/*`，全 GA）已立项 G1b.2.1，迁移后本表更新** |
 | `github.com/mattn/go-isatty` | v0.0.20 | 判断 stdin/stdout 是否为真正的终端 | 可忽略 |
 
 新增依赖应发生在对应单元，并记录版本锁定、兼容性和实测依赖增量。2026-10-06 的路线切换同步只移除了代码中的 Eino 元数据/注释（`Preset.Component` 等），没有安装依赖或变更 `go.mod`。**模型传输已拍板 OpenAI 官方 Go SDK（`github.com/openai/openai-go`，锁定 v1.12.0，2026-10-06 决策），替代早先的 Resty 方案（原 v2/v3 比较作废）；G1b.1 引入时实测依赖增量。SDK 自动重试必须显式禁用（默认 2 次），DeepSeek 与自定义兼容服务同走 `openai-chat-completions` 协议适配器。**

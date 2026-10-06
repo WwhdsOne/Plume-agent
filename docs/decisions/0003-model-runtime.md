@@ -133,7 +133,9 @@ G1b.2 增加「暂不接入渠道」设置路径，TUI 只要求模型就绪。`
 
 ## 8. TUI 是首版入口，网关是后续入口
 
-现有 huh 保留给 setup 表单，聊天 TUI 拟用 Bubble Tea。其 Model/Update/View 模式用于 UI 状态，不承载模型 HTTP 或工具业务；异步结果转换为 UI 消息。官方参考：[Bubble Tea](https://github.com/charmbracelet/bubbletea)。实现时匹配项目已锁定的终端依赖，不直接复制最新版不同主版本 API。
+现有 huh 保留给 setup 表单，聊天 TUI 拟用 Bubble Tea。其 Model/Update/View 模式用于 UI 状态，不承载模型 HTTP 或工具业务；异步结果转换为 UI 消息。官方参考：[Bubble Tea](https://github.com/charmbracelet/bubbletea)。
+
+> 修订注记（2026-10-06，G1b.2.1 立项）：上文「实现时匹配项目已锁定的终端依赖，不直接复制最新版不同主版本 API」基于当时 huh v1/Bubble Tea v1 的现状；经用户拍板，终端栈整体升级至 charm.land v2 全家桶（全部 GA）并重设计键位，以 G1b.2.1 单独审核，详见 `docs/tui-keys.md`。本条其余约束（TUI 不承载 HTTP/工具业务）不变。
 
 应用层产生 run 事件，TUI 负责展示；同一 app/agent 以后可被微信适配器调用。首版串行多轮、可取消、流式内容和工具状态展示，不建立虚构的 `tui` 外部账号/凭据。键位、入口和历史提交规则见第一阶段 §2。
 
