@@ -180,14 +180,14 @@ HERALD_HOME=$(mktemp -d) go run ./cmd/herald config show
 | `docs/decisions/0001-scope.md` | 供应商预设（已冻结 2 家）、配置/凭据边界、评测预算、运行环境 |
 | `docs/decisions/0002-wechat.md` | iLink 参考源码 blob SHA、4 个接口契约、首版边界、G2a fixture 设计 |
 | `docs/reviews/G0.md` | G0 审核记录（已通过） |
-| `docs/reviews/G1a.md` | G1a 审核记录（已交付，待确认） |
+| `docs/reviews/G1a.md` | G1a 审核记录（已通过） |
 | `docs/reviews/` | 每个审核单元的交付证据 |
 | `docs/daily/` | 每日变更流水（`YYYY-MM-DD.md`） |
 | `docs/runbooks/setup.md` | 首次设置向导的启动、验证与故障复现 |
 
 ## 当前进度与禁区
 
-已完成：G0（计划与可行性，含 `docs/decisions/` 两份决策）、G1a-1（`internal/config`、`internal/provider`、`internal/channel`、`cmd/herald` 的 `version`/`config` 命令）、G1a-2（`internal/setup` 向导流程、`internal/telemetry` setup trace、`herald setup`）。
+已完成：G0（计划与可行性，含 `docs/decisions/` 两份决策）、**G1a（首次设置向导与配置边界，已通过）**——含 `internal/config`、`internal/provider`、`internal/channel`、`internal/setup`、`internal/telemetry`、`cmd/herald` 的 cobra 命令树与 `herald setup`。
 
 **尚未实现，不要假设存在**：
 
