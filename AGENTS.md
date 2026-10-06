@@ -19,7 +19,7 @@ This file provides guidance to CodeBuddy Code when working with code in this rep
 
 ## 项目定位
 
-`herald-agent`：用 Go 构建的个人 Agent，首版入口是 **TUI 聊天界面**，不是微信登录。模型层采用 **Resty + 自研请求/JSON/SSE 解析 + 协议适配器**，Agent 循环自研，不引入 Eino。微信 iLink Bot、飞书、QQ 属于后续渠道扩展。目标是展示完整执行链路与可复现的量化改造收益。
+`herald-agent`：用 Go 构建的个人 Agent，首版入口是 **TUI 聊天界面**，不是微信登录。模型层传输与协议解析采用 **OpenAI 官方 Go SDK（openai-go）**，其上以协议适配器归一化（为未来 Anthropic/Gemini 协议预留同一接口），Agent 循环自研，不引入 Eino。微信 iLink Bot、飞书、QQ 属于后续渠道扩展。目标是展示完整执行链路与可复现的量化改造收益。
 
 上述是 2026-10-06 更新的目标架构；当前代码仅完成 G0/G1a。实际实现与设计差异见「当前进度与禁区」，以 `docs/decisions/0003-model-runtime.md` 为新路线依据。
 
@@ -106,7 +106,7 @@ codegraph uninit        # 删 .codegraph/
 5. **完成即停下**，等用户回"通过 Gx / 继续下一部分"才推进下一单元。
 6. 单元不可在未获同意时合并；若一个单元过大，拆成更小的可运行子单元逐个审核。
 
-实施顺序：已通过 `G0` / `G1a` → `G1b.1`（Resty 非流式请求与模型接口）→ `G1b.2`（最小 TUI 与会话）→ `G1b.3`（SSE/流式展示）→ `G3`（自研工具循环）。每项独立审核，完成这些才是首版里程碑。
+实施顺序：已通过 `G0` / `G1a` → `G1b.1`（OpenAI SDK 非流式请求与模型接口）→ `G1b.2`（最小 TUI 与会话）→ `G1b.3`（流式消费与增量展示）→ `G3`（自研工具循环）。每项独立审核，完成这些才是首版里程碑。
 
 之后另行授权第二阶段：`G2a.1`（扫码登录）→ `G2a.2`（真实收发）→ `G2b`（可靠性）。保留原编号含义，G3 前移，不按数字自动推进。`G4a/G4b/G5/G6` 作为后续记忆、压缩、技能与实验路线储备。没有微信配置不得阻塞未来 TUI 启动。
 
@@ -118,7 +118,7 @@ codegraph uninit        # 删 .codegraph/
 
 必须更新：
 
-- 引入或移除外部依赖（例如 G1a-2 引入 `go.uber.org/zap`、G1b.1 计划引入 Resty）。
+- 引入或移除外部依赖（例如 G1a-2 引入 `go.uber.org/zap`、G1b.1 计划引入 openai-go）。
 - 新增、删除或重命名包目录；或改变某个目录的职责边界。
 - 配置 schema 变化（`SchemaVersion` 递增、字段增删、默认值语义变化）。
 - 新增或改变用户可见的命令、参数、CLI 输出约定。
@@ -189,7 +189,7 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 | `internal/config/` | 配置 schema、校验、原子持久化、凭据引用；不承载 Agent 逻辑 |
 | `internal/setup/` | 首次设置向导的流程；只依赖 `Prompter` 接口，不依赖终端库 |
 | `internal/provider/` | 现有供应商预设；G1b.1 计划增加注册工厂与凭据解析，不依赖入口 |
-| `internal/model/` | 拟新增：自有模型契约、协议适配器、Resty 传输与 JSON/SSE 解析 |
+| `internal/model/` | 拟新增：自有模型契约、端点安全校验、openai-go 协议适配器与事件归一化 |
 | `internal/tui/` | 拟新增：聊天输入、状态更新、渲染；不发送模型 HTTP、不执行工具 |
 | `internal/channel/` | 现有渠道注册表；第二阶段才实现消息适配器，不拼装 prompt |
 | `internal/app/` | 拟新增：会话/run 生命周期、串行与取消；后续扩展渠道去重和投递 |
@@ -201,7 +201,7 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 
 **1. 预设品牌、协议与模型能力分开。** `ModelConfig.Provider` 是品牌（`deepseek` / `custom-openai`）。为兼容现有 schema v1，`Protocol` 暂保留历史适配选择器值（`deepseek` / `openai-compatible`）；G1b.1 工厂将它们映射到自研 DeepSeek/兼容适配器及内部 `openai-chat-completions` 协议，不改用户文件。未来协议语义/字段变化单独审核迁移。一个协议可服务多家供应商，不能仅凭换 Base URL 宣称支持任意模型。原 Eino 路径字段 `Preset.Component` 已于 2026-10-06 随路线切换移除（含过时注释与测试断言）。
 
-**2. `internal/config` 通过小接口做校验，不 import `provider`/`channel`。** 见 `config.go` 的 `ProviderCatalog`/`ChannelCatalog`。此 seam 隔离预设校验与未来 Resty/协议实现，让配置测试不需要联网。**新增校验沿用这条约定；模型消费接口不暴露 Resty/TUI 类型。**
+**2. `internal/config` 通过小接口做校验，不 import `provider`/`channel`。** 见 `config.go` 的 `ProviderCatalog`/`ChannelCatalog`。此 seam 隔离预设校验与未来模型 SDK/协议实现，让配置测试不需要联网。**新增校验沿用这条约定；模型消费接口不暴露 openai-go/TUI 类型。**
 
 **3. 配置里永不出现密钥值。** `~/.herald/config.json` 只存 `api_key_ref` 这类引用；密钥本身在 `~/.herald/credentials/`（目录 0700、文件 0600）。`config show` 只输出"已设置/未设置 (ref: …)"。token、二维码内容、登录 URL 同样不得进入日志或 trace。
 
@@ -251,11 +251,11 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 
 | 路径 | 内容 |
 | --- | --- |
-| `docs/phase-01-tui-agent.md` | 第一阶段：Resty 模型调用、TUI、流式、自研工具循环、trace/指标及逐单元审核 |
+| `docs/phase-01-tui-agent.md` | 第一阶段：OpenAI SDK 模型调用、TUI、流式、自研工具循环、trace/指标及逐单元审核 |
 | `docs/phase-02-channel-gateway.md` | 第二阶段草案：微信扫码/收发/可靠性；TUI 首版后另行授权 |
 | `docs/decisions/0001-scope.md` | G0 历史范围；配置/预算继续有效，Eino 绑定由 0003 替代 |
 | `docs/decisions/0002-wechat.md` | 保留 iLink 快照/契约/fixture，实际接入已后移 |
-| `docs/decisions/0003-model-runtime.md` | 当前模型架构、设计模式、Resty/解析、配置兼容和 TUI 优先决策 |
+| `docs/decisions/0003-model-runtime.md` | 当前模型架构、设计模式、OpenAI SDK 传输、配置兼容和 TUI 优先决策 |
 | `docs/reviews/G0.md` | G0 审核记录（已通过） |
 | `docs/reviews/G1a.md` | G1a 审核记录（已通过） |
 | `docs/reviews/` | 每个审核单元的交付证据 |
@@ -269,7 +269,7 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 
 **尚未实现，不要假设存在**：
 
-- Resty、任何**模型调用**、任何**出站 HTTP 客户端**（`herald setup` 只做本地校验）；Eino 已明确不引入，不是等待实现的功能。
+- openai-go、任何**模型调用**、任何**出站 HTTP 客户端**（`herald setup` 只做本地校验）；Eino 已明确不引入，不是等待实现的功能。
 - 聊天 TUI、`herald chat`、向导中显式「暂不接入渠道」选项和模型独立就绪校验；当前在渠道步骤取消会保留已保存模型，但还没有该菜单选项。裸 `herald` 目前仍显示帮助，CLI 简介仍写微信优先，G1b.2 再同步代码。
 - `internal/model/`、`internal/tui/`、`internal/app/`、`internal/agent/`、`internal/tools/`、`internal/store/`、`internal/eval/`。
 - 微信扫码登录与收发；网关命令 `herald gateway …`（第二阶段 G2a）。向导里微信只记录为"待登录"。
@@ -286,7 +286,7 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 | `github.com/spf13/cobra` | v1.10.2 | 命令行框架（含 pflag） | +0.96 MB |
 | `github.com/mattn/go-isatty` | v0.0.20 | 判断 stdin 是否为真正的终端 | 可忽略 |
 
-新增依赖（Resty 等）应发生在对应单元，并记录版本锁定、兼容性和实测依赖增量。2026-10-06 的路线切换同步只移除了代码中的 Eino 元数据/注释（`Preset.Component` 等），没有安装依赖或变更 `go.mod`。**Resty 版本选择注意：v2（`github.com/go-resty/resty/v2`）稳定但官方已主推 v3（vanity URL `resty.dev/v3`，截至 2026-10-06 为 v3.0.0-rc.3，Go ≥1.23，自带 SSE client）；0003 的 API 细节（`SetDoNotParseResponse`/`RawBody`）仅适用于 v2。G1b.1 锁版本时必须显式决策 v2/v3 并记录理由。**
+新增依赖应发生在对应单元，并记录版本锁定、兼容性和实测依赖增量。2026-10-06 的路线切换同步只移除了代码中的 Eino 元数据/注释（`Preset.Component` 等），没有安装依赖或变更 `go.mod`。**模型传输已拍板 OpenAI 官方 Go SDK（`github.com/openai/openai-go`，锁定 v1.12.0，2026-10-06 决策），替代早先的 Resty 方案（原 v2/v3 比较作废）；G1b.1 引入时实测依赖增量。SDK 自动重试必须显式禁用（默认 2 次），DeepSeek 与自定义兼容服务同走 `openai-chat-completions` 协议适配器。**
 
 ### 与需求文档的常见偏差
 

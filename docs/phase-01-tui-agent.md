@@ -7,15 +7,15 @@ summary: 第一阶段审核计划：G1b.1→G1b.3→G3 单元拆分、TUI 生命
 
 # 第一阶段：TUI Agent 开发计划
 
-> 日期：2026-10-06。范围：终端聊天、Resty 模型适配、自研 Agent 循环、trace 和基线评测；微信登录不属于本阶段。
-> 状态：G0、G1a 已通过；本次只更新文档，以下新增功能均未实现。原微信优先/Eino 方案由 [决策 0003](decisions/0003-model-runtime.md) 替代。
+> 日期：2026-10-06。范围：终端聊天、OpenAI SDK 模型适配、自研 Agent 循环、trace 和基线评测；微信登录不属于本阶段。
+> 状态：G0、G1a 已通过；以下新增功能均未实现。原微信优先/Eino 方案由 [决策 0003](decisions/0003-model-runtime.md) 替代；同日模型传输层由 Resty 修订为 OpenAI 官方 SDK，见 0003 修订记录。
 > 执行约定：使用 executing-plans 按审核单元推进；每个单元完成即停，用户明确通过后才进入下一单元，不使用默认批量执行。本文是阶段计划，各单元开工前再细化测试与实现步骤。
 
 **Goal：** 用 Go 构建可在 TUI 中多轮聊天、执行受控工具、解释每一步执行过程的个人 Agent，并用固定任务集衡量后续改造的收益与退步。
 
-**Architecture：** TUI 通过应用层调用自研 Agent；Agent 只依赖自有模型接口和工具接口。模型层用 Resty 发送 HTTP 请求，自行构造请求、解析 JSON/SSE，通过协议适配器和注册工厂扩展模型 API。trace 与评测从第一条调用链开始建设。
+**Architecture：** TUI 通过应用层调用自研 Agent；Agent 只依赖自有模型接口和工具接口。模型层用 OpenAI 官方 Go SDK（openai-go）完成 HTTP 发送与协议/SSE 解析，经端点安全校验与事件归一化，通过协议适配器和注册工厂扩展模型 API。trace 与评测从第一条调用链开始建设。
 
-**Tech Stack：** Go、`github.com/go-resty/resty/v2`（计划引入）、标准库 `encoding/json`、cobra、huh、Bubble Tea（计划将已有传递依赖用于聊天界面）、zap/JSONL；OpenTelemetry、SQLite 按后续单元引入。不使用 Eino，不引入模型 SDK；本轮不更改 `go.mod`。
+**Tech Stack：** Go、`github.com/openai/openai-go` v1.12.0（G1b.1 引入）、cobra、huh、Bubble Tea（计划将已有传递依赖用于聊天界面）、zap/JSONL；OpenTelemetry、SQLite 按后续单元引入。不使用 Eino；本轮不更改 `go.mod`。
 
 ## 1. 项目定位、现状与范围
 
@@ -33,7 +33,7 @@ summary: 第一阶段审核计划：G1b.1→G1b.3→G3 单元拆分、TUI 生命
 
 | 方案 | 获得的能力 | 承担的成本 | 结论 |
 | --- | --- | --- | --- |
-| Resty + 自研协议适配器 + 小型运行时 | 请求、解析、执行策略与 trace 可逐项解释、测试 | 自行保证解析、取消、工具关联与资源释放正确 | 用户已选择 |
+| OpenAI SDK + 协议适配器 + 小型运行时 | 协议/流解析由官方维护；执行策略、trace 与评测可逐项解释、测试 | 跟随 SDK 演进；传输定制经 SDK option 表达 | 用户已选择（2026-10-06，替代早先 Resty 方案） |
 | Eino ADK/组件 | 复用框架的运行时和组件 | 学习和适配框架接口，项目控制点经框架提供 | 本阶段不引入，保留历史决策来源 |
 | 从零写通用 Agent 框架 | 通用编排与插件扩展 | 验证面过大，延迟可演示闭环 | 不采用 |
 
@@ -94,7 +94,7 @@ G0/G1a 的历史编号与通过状态保留；原 G1b 拆为 G1b.1–G1b.3；G3 
 ## 4. 运行链路与模块职责
 
 ```text
-模型配置 → 注册工厂 → 协议适配器 → Resty HTTP
+模型配置 → 注册工厂 → 协议适配器 → OpenAI SDK HTTP（端点校验）
                          ↑
 TUI → app（会话/run）→ agent（循环/预算）→ 模型接口 / 受控工具
  ↑                         ↓
@@ -105,9 +105,9 @@ TUI → app（会话/run）→ agent（循环/预算）→ 模型接口 / 受控
 
 | 模块 | 职责与约束 |
 | --- | --- |
-| setup/config | 向导、schema、校验、凭据引用与原子保存；不依赖 Resty/TUI 类型 |
+| setup/config | 向导、schema、校验、凭据引用与原子保存；不依赖模型 SDK/TUI 类型 |
 | provider | 保留供应商预设；通过注册工厂解析凭据、装配适配器；不向 Agent 暴露密钥 |
-| model（拟新增） | 自有消息/请求/响应/能力/错误契约；协议适配与受控 HTTP；不依赖 TUI 或微信 |
+| model（拟新增） | 自有消息/请求/响应/能力/错误契约；端点安全、协议适配与 SDK 装配；不依赖 TUI 或微信 |
 | tui（拟新增） | 输入、状态更新、渲染、取消意图；不拼 HTTP、prompt 或执行工具 |
 | app（拟新增） | 会话历史、run 生命周期、串行限制；后续扩展持久化与渠道调度 |
 | agent（拟新增） | 自研模型—工具循环、prompt 版本、最大轮数与执行预算 |
@@ -124,14 +124,14 @@ TUI → app（会话/run）→ agent（循环/预算）→ 模型接口 / 受控
 
 不重做已通过的配置与向导。后续只针对 TUI 必需的改动增加回归：跳过渠道、模型独立就绪校验、旧配置读取和入口提示。已实现与目标行为必须分别说明。
 
-### G1b.1：Resty 请求、非流式解析与可测量模型接口
+### G1b.1：OpenAI SDK 请求、非流式解析与可测量模型接口
 
-**拟改文件：** `go.mod`、`go.sum`、`internal/provider/{registry,factory,probe}.go`、`internal/model/{types,errors,capabilities,fake}.go`、`internal/model/httpclient/client.go`、`internal/model/openai/chat.go`、`internal/model/deepseek/chat.go`、对应 `_test.go`、`internal/telemetry/model.go`、`eval/datasets/smoke.v1.jsonl`。这些是规划路径，不预建空包。
+**拟改文件：** `go.mod`、`go.sum`、`internal/provider/{registry,factory,probe}.go`、`internal/model/{types,errors,capabilities,fake}.go`、`internal/model/endpoint/endpoint.go`、`internal/model/openai/chat.go`、`internal/model/deepseek/chat.go`、对应 `_test.go`、`internal/telemetry/model.go`、`eval/datasets/smoke.v1.jsonl`。这些是规划路径，不预建空包。
 
-- [ ] 锁定 Resty v2 的具体发布版本，记录 Go 1.27.1 编译、竞态与依赖增量；不引入 Eino/模型 SDK。
-- [ ] 保留 schema v1 的 `protocol` 值，工厂按 0003 映射内部协议；移除未使用的 Eino `Component` 元数据及过时注释，补旧配置 fixture。（Component 元数据与过时注释已于 2026-10-06 随路线切换提前移除；`protocol` 值与旧配置 fixture 仍在本单元完成。）
-- [ ] 先用 `httptest.Server` 断言 URL 路径、鉴权、模型 ID、消息体；再实现 DeepSeek 与自定义兼容的非流式请求/解析。fake 与真实适配器实现同一消费接口。
-- [ ] 明确 context 取消、超时、响应体关闭/大小上限、非 JSON 错误、usage 缺失、鉴权失败、限流、无效响应；禁用默认自动重试和敏感 debug 输出。
+- [ ] 锁定 `github.com/openai/openai-go` v1.12.0，记录 Go 1.27.1 编译、竞态与依赖增量；显式禁用 SDK 自动重试（默认 2 次）与 debug 输出；不引入 Eino 或其他模型 SDK。
+- [ ] 保留 schema v1 的 `protocol` 值，工厂按 0003 映射到内部 `openai-chat-completions` 协议族与同一 SDK 适配器；补旧配置 fixture。（Component 元数据与过时注释已于 2026-10-06 随路线切换提前移除。）
+- [ ] 先用 `httptest.Server` 断言 URL 路径（根地址/`/v1`/尾斜线/代理前缀）、鉴权、模型 ID、消息体；再实现兼容非流式请求/解析与 DeepSeek 适配。fake 与真实适配器实现同一消费接口。
+- [ ] 明确 context 取消、超时、响应体上限（Content-Length 中间件预检）、非 JSON 错误、usage 缺失（unknown 不当 0）、鉴权失败、限流、无效响应、禁止自动重定向；SDK `apierror` 按 0003 §6 映射错误分类。
 - [ ] 增加可选联网 probe，不能在配置保存或离线测试中隐式付费调用。
 - [ ] 建立 12 个离线种子：正常回答 4、空/无效输入 2、模型错误 2、超时/取消 2、trace 关联/脱敏 2；报告绝对值和适用项。
 - [ ] 交付 `docs/reviews/G1b.1.md` 后停止。此时可通过测试展示请求闭环，不宣称已完成聊天 TUI 或工具循环。
@@ -151,16 +151,16 @@ TUI → app（会话/run）→ agent（循环/预算）→ 模型接口 / 受控
 
 **目标演示命令：** `rtk go run ./cmd/herald chat --offline`；真实模型由用户手动运行 `rtk go run ./cmd/herald chat --model <配置ID>`。测试命令：`rtk go test ./internal/tui/... ./internal/app/... ./internal/agent/... ./cmd/herald/...`。
 
-### G1b.3：SSE 流式解析、TUI 增量输出与取消
+### G1b.3：SDK 流式消费、TUI 增量输出与取消
 
-**拟改文件：** `internal/model/sse/parser.go`、`internal/model/openai/stream.go`、`internal/model/deepseek/stream.go`、`internal/tui/update.go`、`internal/agent/runtime.go`、`internal/telemetry/model.go`、对应 `_test.go`、`eval/datasets/stream.v1.jsonl`。
+**拟改文件：** `internal/model/openai/stream.go`、`internal/model/deepseek/stream.go`、`internal/model/stream.go`、`internal/tui/update.go`、`internal/agent/runtime.go`、`internal/telemetry/model.go`、对应 `_test.go`、`eval/datasets/stream.v1.jsonl`。
 
-- [ ] 先用固定字节流和可控 HTTP 服务测试：跨网络 chunk、UTF-8 拆分、多行 data、空行分帧、注释、CRLF、空 delta、终止标记、usage-only 尾帧、畸形 JSON、超大帧与中途 EOF。
-- [ ] Resty 只负责传输，项目解析 SSE 帧与协议事件；同时维护非流式/流式规范化结果一致性。
+- [ ] 先用可控字节流的 `httptest.Server` 驱动 SDK 流式解析：跨网络 chunk、UTF-8 拆分、多行 data、CRLF、空 delta、终止标记、usage-only 尾帧、畸形 JSON、超大帧与中途 EOF；断言归一化事件与终态判定（EOF 不等于成功）。
+- [ ] 适配器把 SDK 迭代器包装为拉取式项目流（Next/Err/Close），维护非流式/流式规范化结果一致性；流式字节上限与关闭语义按 0003 §5。
 - [ ] TUI 显示文本增量与终态，记录模型首个有效文本事件和 UI 首次绘制耗时；网络 chunk 不等于一个 token。
-- [ ] 覆盖取消、超时、断流后的 body 关闭、goroutine 退出、有界队列背压；不得把断流当成功，也不自动重连拼接两次生成。
+- [ ] 覆盖取消、超时、断流后的资源关闭、goroutine 退出、有界队列背压；不得把断流当成功，也不自动重连拼接两次生成。
 - [ ] 渲染可以合并文本增量，但不丢失工具/错误/终态事件；trace 的摘要与计量不随 UI 刷新次数变化。
-- [ ] 记录解析基准、首文本延迟、取消耗时、错误率与 trace 完整率；交付 `docs/reviews/G1b.3.md` 后停止。
+- [ ] 记录归一化基准、首文本延迟、取消耗时、错误率与 trace 完整率；交付 `docs/reviews/G1b.3.md` 后停止。
 
 **验收：** `rtk go test -race ./...`；`rtk go test ./internal/model/... -bench . -benchmem`；同一 fake 数据分别经非流式/流式路径得出一致最终文本、工具字段和 usage。基准不代表外部 API 性能。
 
@@ -236,7 +236,7 @@ Trace 记录可观测输入输出、状态转移和实际工具执行，不承�
 2. 核心集按类别拆开发集 60/保留集 40，同源变体同组；只用开发集调参。看过并据此修改后的保留集不再称未见测试集。
 3. 确定性任务按实际参数/结果评分；开放回答使用固定人工 rubric。若引入模型裁判，锁定模型/prompt，抽查至少 20%，费用单列。
 4. baseline/candidate 配对、交错运行，相同 case、模型版本、参数、工具状态、并发、超时与环境；真实模型默认每例 3 次，联网实验逐项显式发起。
-5. manifest 保存机器/OS/Go/Resty/TUI 依赖版本、commit 或工作区内容哈希、配置与数据集哈希、provider/内部协议/模型 ID、日期、并发、随机种子（若支持）、缓存状态、逐例结果和 trace 引用。温度 0 不保证确定性。
+5. manifest 保存机器/OS/Go/openai-go/TUI 依赖版本、commit 或工作区内容哈希、配置与数据集哈希、provider/内部协议/模型 ID、日期、并发、随机种子（若支持）、缓存状态、逐例结果和 trace 引用。温度 0 不保证确定性。
 6. 延迟注明算法与样本量；p95 优化结论原则上每配置至少 200 次可比请求。置信区间按 case 分组做配对 bootstrap，不把同题重复当独立题。
 7. 假模型只测本地运行时/协议/界面，不推断真实模型质量；真实 HTTP、模型推理和 UI 开销分开归因。移除框架不自动产生性能收益。
 8. 数据缺失记 N/A/unknown，不能当 0。存在未知 usage/价格时费用标为部分已知或 unknown，不将已知小计当完整费用；零成功任务的费用/成功任务为 N/A。
@@ -272,13 +272,13 @@ Trace 记录可观测输入输出、状态转移和实际工具执行，不承�
 
 当前入口已经是 `cmd/herald/`，不是根目录 Hello World。`internal/config`、`setup`、`provider`、`channel`、`telemetry` 已存在，其余目录在对应单元逐步创建；不预建空实现。
 
-新增设计集中于 `internal/model/`（协议与传输）、`internal/tui/`（界面）、`internal/app/`（会话/run）、`internal/agent/`（循环）、`internal/tools/`、`internal/eval/`。应用接口不返回 Resty、Bubble Tea 或第三方模型类型。后续 `internal/store`、`memory`、`skills` 各自另行审核。
+新增设计集中于 `internal/model/`（协议与传输）、`internal/tui/`（界面）、`internal/app/`（会话/run）、`internal/agent/`（循环）、`internal/tools/`、`internal/eval/`。应用接口不返回 openai-go、Bubble Tea 等第三方类型。后续 `internal/store`、`memory`、`skills` 各自另行审核。
 
 首版演示：TUI 多轮/流式回答、一次工具调用、一次取消/失败定位、一份可复现基线。简历只使用真实实现与测量数据；微信效果不能在渠道尚未实现时写为成果。
 
 ## 10. 本次文档交付与下一步
 
-- [x] 路线改为 Resty + 自研适配器/运行时，TUI 优先；保留 G0/G1a 审核事实。
+- [x] 路线改为 OpenAI SDK + 协议适配器/自研运行时，TUI 优先（同日由 Resty 方案修订而来）；保留 G0/G1a 审核事实。
 - [x] 将微信路线独立后移，保留协议调研与审核编号。
 - [x] 补充配置兼容、TUI 生命周期、请求/解析职责、trace 与指标。
 - [ ] 用户审核本次文档的细节与阶段拆分。

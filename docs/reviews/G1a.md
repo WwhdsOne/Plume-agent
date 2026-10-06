@@ -12,7 +12,7 @@ summary: G1a 已通过（2026-10-06）：配置、凭据、向导、setup trace 
 - 日期：2026-10-06
 - 证据：`docs/decisions/0001-scope.md`、`docs/decisions/0002-wechat.md`、`docs/daily/2026-10-06.md`、`docs/runbooks/setup.md`
 
-> 历史审核记录：G1a 实现与测量结果保持不变。后续路线已改为 Resty/自研运行时与 TUI 优先，见 `docs/decisions/0003-model-runtime.md`。现有向导仍有渠道步骤，TUI 与“暂不接入渠道”尚未实现。
+> 历史审核记录：G1a 实现与测量结果保持不变。后续路线已改为自研运行时与 TUI 优先（模型传输用 OpenAI 官方 SDK），见 `docs/decisions/0003-model-runtime.md`。现有向导仍有渠道步骤，TUI 与“暂不接入渠道”尚未实现。
 
 ## 1. 改动说明
 
@@ -120,4 +120,4 @@ setup_start → select_provider → resolve_base_url(source=preset_default) → 
 
 ## 6. 下一步
 
-后续路线更新为 G1b.1：Resty 非流式请求、自有模型接口、trace 与 12 个离线种子；之后分别审核 G1b.2 TUI、G1b.3 流式、G3 工具循环。详见 `docs/phase-01-tui-agent.md`。这次变更不重新审核或重测已通过的 G1a。
+后续路线更新为 G1b.1：非流式模型请求（OpenAI 官方 SDK）、自有模型接口、trace 与 12 个离线种子；之后分别审核 G1b.2 TUI、G1b.3 流式、G3 工具循环。详见 `docs/phase-01-tui-agent.md`。这次变更不重新审核或重测已通过的 G1a。
