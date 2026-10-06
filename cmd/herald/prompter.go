@@ -171,8 +171,8 @@ func (p *prompter) ConfirmYesNo(label string, initial bool) (bool, error) {
 	return value, nil
 }
 
-func (p *prompter) SelectChannel(types []channel.Type, initial string) (channel.Type, error) {
-	options := make([]huh.Option[string], 0, len(types))
+func (p *prompter) SelectChannelOrSkip(types []channel.Type, initial string) (channel.Type, bool, error) {
+	options := make([]huh.Option[string], 0, len(types)+1)
 	byID := make(map[string]channel.Type, len(types))
 	for _, t := range types {
 		label := t.DisplayName
@@ -182,42 +182,44 @@ func (p *prompter) SelectChannel(types []channel.Type, initial string) (channel.
 		options = append(options, huh.NewOption(label, t.ID))
 		byID[t.ID] = t
 	}
+	const skipOption = "\x00skip"
+	options = append(options, huh.NewOption("暂不接入渠道（TUI 聊天现在即可使用）", skipOption))
 
 	choice := initial
 	if t, ok := byID[choice]; !ok || !t.Enabled {
-		choice = ""
-		for _, t := range types {
-			if t.Enabled {
-				choice = t.ID
-				break
-			}
-		}
+		choice = skipOption
 	}
 	err := p.form(huh.NewGroup(
 		huh.NewSelect[string]().
 			Title("选择消息渠道").
-			Description("首版只启用一个渠道").
+			Description("首版只启用一个渠道；可以先只配置模型").
 			Options(options...).
 			Validate(func(id string) error {
+				if id == skipOption {
+					return nil
+				}
 				t, ok := byID[id]
 				if !ok {
 					return fmt.Errorf("unknown channel %q", id)
 				}
 				if !t.Enabled {
-					return fmt.Errorf("%s 尚未支持，请选择微信", t.DisplayName)
+					return fmt.Errorf("%s 尚未支持", t.DisplayName)
 				}
 				return nil
 			}).
 			Value(&choice),
 	)).Run()
 	if err != nil {
-		return channel.Type{}, mapAbort(err)
+		return channel.Type{}, false, mapAbort(err)
+	}
+	if choice == skipOption {
+		return channel.Type{}, true, nil
 	}
 	t, ok := byID[choice]
 	if !ok {
-		return channel.Type{}, fmt.Errorf("unknown channel %q", choice)
+		return channel.Type{}, false, fmt.Errorf("unknown channel %q", choice)
 	}
-	return t, nil
+	return t, false, nil
 }
 
 func (p *prompter) Note(title, body string) error {

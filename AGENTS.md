@@ -190,10 +190,10 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 | `internal/setup/` | 首次设置向导的流程；只依赖 `Prompter` 接口，不依赖终端库 |
 | `internal/provider/` | 预设、ModelFactory 装配适配器、显式 Probe、凭据解析接口；保持零依赖（不 import config） |
 | `internal/model/` | G1b.1 已建：自有契约（消息/请求/响应/流/错误/能力）、endpoint 安全装配、openai-chat-completions 适配器（openai-go SDK）、deepseek 组合适配器、脚本化 fake |
-| `internal/tui/` | 拟新增：聊天输入、状态更新、渲染；不发送模型 HTTP、不执行工具 |
+| `internal/tui/` | G1b.2 已建：Bubble Tea 聊天界面（记录/输入/状态栏、控制序列净化）；不发送模型 HTTP、不执行工具，副作用经 Hooks 注入 |
 | `internal/channel/` | 现有渠道注册表；第二阶段才实现消息适配器，不拼装 prompt |
-| `internal/app/` | 拟新增：会话/run 生命周期、串行与取消；后续扩展渠道去重和投递 |
-| `internal/agent/` | 拟新增：自研模型—工具循环、prompt 版本、工具装配与预算 |
+| `internal/app/` | G1b.2 已建：会话历史、run 生命周期（串行、取消、有界事件流）；后续扩展持久化与渠道调度 |
+| `internal/agent/` | G1b.2 已建最小单轮（历史+输入→Generate）；G3 扩展工具循环、prompt 版本与预算 |
 | `internal/telemetry/` | setup trace 与模型调用 trace（G1b.1 ModelRecorder）；后续增加应用/工具事件与 run 关联 |
 | `internal/eval/` | G1b.1 已建：12 个离线种子数据集（`eval/datasets/smoke.v1.jsonl`）与运行器；后续评分、统计、比较报告 |
 
@@ -239,8 +239,8 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 ### 交互层
 
 - **设置表单**用 `github.com/charmbracelet/huh`（G1a-2 引入 `v1.0.0`），只出现在 `cmd/herald/prompter.go`；不能把现有表单称为聊天 TUI。
-- **聊天 TUI（待实现）**拟用与现有依赖兼容的 Bubble Tea，G1b.2 验证/锁定版本；通过 app 事件更新 UI，不在 Update/View 中阻塞执行 HTTP。普通日志/trace 写文件，不破坏屏幕；模型输出过滤终端控制序列。
-- 未来裸 `herald` 默认进入 TUI，缺配置提示 setup；`herald chat --offline` 不需要配置/Key。setup 计划增加「暂不接入渠道」，不伪造渠道账号、不要求扫码、不清理旧渠道。当前代码尚未具备这些行为。
+- **聊天 TUI（G1b.2 已实现）**用 Bubble Tea（bubbles v0.21.1 连带锁定 bubbletea v1.3.10、lipgloss v1.1.0，与 huh 共存已由全量测试验证）。`internal/tui` 的 Model/Update 是纯状态转移，副作用只经 `Hooks`（Submit/Cancel/ResetSession）注入；`TeaModel` 是到 tea.Model 的适配层（指针接收者，`tea.NewProgram(&tui.TeaModel{...})` 传指针）。普通日志/trace 写文件，不破坏屏幕；模型输出经 `sanitize` 过滤终端控制序列后才渲染。
+- 未来裸 `herald` 默认进入 TUI，缺配置提示 setup；`herald chat --offline` 不需要配置/Key。setup 计划增加「暂不接入渠道」，不伪造渠道账号、不要求扫码、不清理旧渠道。**G1b.2 已实现以上行为（待审核）**：裸 `herald` 配置就绪+TTY 直接进入聊天。
 - **向导流程与终端库分离**：`internal/setup` 只依赖 `Prompter` 接口，新增一步交互时先加接口方法，再在 `prompter.go` 实现，不要把 huh 的类型渗进 `internal/setup`。
 - **Base URL 不再逐次询问**（2026-10-06）：有预填默认值的预设直接跳过；只有无默认值的预设才问。已有配置里的地址与默认值不同时**原样保留**，不要"顺手"重置——`TestWizardPreservesExistingNonDefaultBaseURL` 守住这条。
 - **模型走列表选择**：模型 ID 来自 `provider.Preset.Models`，列表末尾附"自定义…"才落到文本输入。新增预设时把候选模型写进 `Models`。
@@ -265,15 +265,15 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 
 ## 当前进度与禁区
 
-已完成：G0（计划与可行性，含 `docs/decisions/` 两份决策）、**G1a（首次设置向导与配置边界，已通过）**——含 `internal/config`、`internal/provider`、`internal/channel`、`internal/setup`、`internal/telemetry`、`cmd/herald` 的 cobra 命令树与 `herald setup`。**G1b.1（OpenAI SDK 非流式模型接口，已通过）**——含 `internal/model/`（契约、endpoint、openai/deepseek 适配器、fake）、`internal/provider` 工厂与 probe、`internal/telemetry` 模型 trace、`eval/datasets/smoke.v1.jsonl` 与 runner。
+已完成：G0（计划与可行性，含 `docs/decisions/` 两份决策）、**G1a（首次设置向导与配置边界，已通过）**——含 `internal/config`、`internal/provider`、`internal/channel`、`internal/setup`、`internal/telemetry`、`cmd/herald` 的 cobra 命令树与 `herald setup`。**G1b.1（OpenAI SDK 非流式模型接口，已通过）**——含 `internal/model/`（契约、endpoint、openai/deepseek 适配器、fake）、`internal/provider` 工厂与 probe、`internal/telemetry` 模型 trace、`eval/datasets/smoke.v1.jsonl` 与 runner。**G1b.2（最小可交互 TUI 与多轮会话，已交付待审核）**——含 `internal/tui`（Bubble Tea 聊天界面）、`internal/app`（会话与 run 生命周期）、`internal/agent`（最小单轮）、`internal/model` LoopFake、`herald chat`/裸 `herald` 入口、`--offline`、setup「暂不接入渠道」、README 与 TUI runbook。
 
 **尚未实现，不要假设存在**：
 
-- 聊天 TUI、`herald chat`、向导中显式「暂不接入渠道」选项和模型独立就绪校验；当前在渠道步骤取消会保留已保存模型，但还没有该菜单选项。裸 `herald` 目前仍显示帮助，CLI 简介仍写微信优先，G1b.2 再同步代码。
-- **流式模型调用**（`Client.Stream` 当前一律返回 unsupported，G1b.3 启用）、**工具循环与工具声明**（请求携带 tools 返回 unsupported，G3）、cmd 侧任何模型命令接线（工厂/Probe 尚未被 cmd 调用）。
-- `internal/tui/`、`internal/app/`、`internal/agent/`、`internal/tools/`、`internal/store/`。
+- **流式模型调用**（`Client.Stream` 当前一律返回 unsupported，G1b.3 启用）、**工具循环与工具声明**（请求携带 tools 返回 unsupported，G3）、cmd/eval 比较命令。
+- 聊天 run 事件的落盘 trace（UI 当前消费内存事件）；模型独立就绪校验（启动只校验配置与凭据存在，不发探测请求）。
+- `internal/tools/`、`internal/store/`。
 - 微信扫码登录与收发；网关命令 `herald gateway …`（第二阶段 G2a）。向导里微信只记录为"待登录"。
-- 根目录**没有** `README.md`，`.claude/` 下**没有**规则文件。
+- 根目录 `README.md` 已于 G1b.2 建立；`.claude/` 下**没有**规则文件。
 
 ### 外部依赖
 
@@ -285,12 +285,14 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 | `github.com/charmbracelet/huh` | v1.0.0 | 终端交互（含 bubbletea/lipgloss 等传递依赖） | +1.60 MB |
 | `github.com/spf13/cobra` | v1.10.2 | 命令行框架（含 pflag） | +0.96 MB |
 | `github.com/openai/openai-go` | v1.12.0 | 模型传输与协议（G1b.1，Chat Completions 适配器） | +1.70 MB（`-s -w` 实测 6.41→8.11 MB） |
-| `github.com/mattn/go-isatty` | v0.0.20 | 判断 stdin 是否为真正的终端 | 可忽略 |
+| `github.com/charmbracelet/bubbles` | v0.21.1 | TUI 组件（textarea/viewport；G1b.2 提升，连带 bubbletea v1.3.10、lipgloss v1.1.0） | +2.59 MB（实测 8.11→10.70 MB） |
+| `github.com/mattn/go-isatty` | v0.0.20 | 判断 stdin/stdout 是否为真正的终端 | 可忽略 |
 
 新增依赖应发生在对应单元，并记录版本锁定、兼容性和实测依赖增量。2026-10-06 的路线切换同步只移除了代码中的 Eino 元数据/注释（`Preset.Component` 等），没有安装依赖或变更 `go.mod`。**模型传输已拍板 OpenAI 官方 Go SDK（`github.com/openai/openai-go`，锁定 v1.12.0，2026-10-06 决策），替代早先的 Resty 方案（原 v2/v3 比较作废）；G1b.1 引入时实测依赖增量。SDK 自动重试必须显式禁用（默认 2 次），DeepSeek 与自定义兼容服务同走 `openai-chat-completions` 协议适配器。**
 
 ### 与需求文档的常见偏差
 
 - 百炼/Qwen 与原生协议供应商**已明确延后**，`TestDeferredPresetsAreAbsent` 会拦截其意外回归。
-- 计划里提到的 `herald chat`、`herald gateway setup/start/status`、`cmd/eval` 都是**待实现**，不代表可用。
-- 代码中的 Eino 注释与 `Preset.Component` 已于 2026-10-06 清理完毕；CLI 入口简介仍写微信优先、setup 仍有渠道必经步骤，属 G1b.2 待同步项。不能据此恢复旧路线，也不能声称文档变更已经实现新行为。
+- 计划里提到的 `herald gateway setup/start/status`、`cmd/eval` 都是**待实现**，不代表可用。
+- 代码中的 Eino 注释与 `Preset.Component` 已于 2026-10-06 清理完毕；CLI 入口简介与 setup 渠道步骤已于 G1b.2 同步为 TUI 优先/可选跳过。不能据此恢复旧路线，也不能声称文档变更已经实现新行为。
+- 根目录 `README.md` 已于 G1b.2 建立；`.claude/` 下**没有**规则文件。

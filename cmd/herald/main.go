@@ -1,5 +1,6 @@
-// Command herald 是本地入口。从 G2a 起它还会承载微信网关命令：
-// gateway setup/start/status。
+// Command herald 是本地入口：终端输入 `herald` 直接打开聊天 TUI
+// （模仿 Hermes 的零参数体验）；`herald setup` 首次配置；G2a 起它还会
+// 承载微信网关命令 gateway setup/start/status。
 package main
 
 import (
@@ -8,6 +9,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 
 	"herald-agent/internal/channel"
@@ -25,19 +27,35 @@ func main() {
 func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:   "herald",
-		Short: "herald-agent：以微信为首个入口的个人 Agent",
+		Short: "herald-agent：终端聊天优先的个人 Agent（输入 herald 直接进入聊天）",
 		// 错误由 main 统一打印一次；业务失败不该顺带打印整篇用法说明。
 		SilenceErrors: true,
 		SilenceUsage:  true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if err := cmd.Help(); err != nil {
-				return err
+			out := cmd.OutOrStdout()
+			cfg, err := config.Load()
+			switch {
+			case errors.Is(err, os.ErrNotExist):
+				// 还没配置过：给用法和向导提示。
+				if herr := cmd.Help(); herr != nil {
+					return herr
+				}
+				hintIfUnconfigured(out)
+				return nil
+			case err != nil:
+				return fmt.Errorf("load config: %w", err)
 			}
-			hintIfUnconfigured(cmd.OutOrStdout())
-			return nil
+			if cfg.DefaultModel == "" {
+				return errors.New("config has no default_model; run `herald setup`")
+			}
+			if f, ok := out.(*os.File); ok && !isatty.IsTerminal(f.Fd()) && !isatty.IsCygwinTerminal(f.Fd()) {
+				return errors.New("herald needs an interactive terminal; try `herald chat --offline` for scripted output")
+			}
+			// 配置就绪且在 TTY：模仿 Hermes，零参数直接进入聊天。
+			return startChat(out, "", false)
 		},
 	}
-	root.AddCommand(newSetupCmd(), newConfigCmd(), newVersionCmd())
+	root.AddCommand(newSetupCmd(), newChatCmd(), newConfigCmd(), newVersionCmd())
 	return root
 }
 

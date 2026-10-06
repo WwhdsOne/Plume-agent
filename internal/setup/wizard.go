@@ -42,8 +42,9 @@ type Prompter interface {
 	InputSecret(label string, hasExisting bool) (secret string, keepExisting bool, err error)
 	// ConfirmYesNo 询问一个是非问题。
 	ConfirmYesNo(label string, initial bool) (bool, error)
-	// SelectChannel 让用户选择渠道；列表包含禁用中的占位项。
-	SelectChannel(types []channel.Type, initial string) (channel.Type, error)
+	// SelectChannelOrSkip 让用户选择渠道；返回 skip=true 表示用户显式
+	// 选择"暂不接入渠道"（区别于 Esc 取消）。列表包含禁用中的占位项。
+	SelectChannelOrSkip(types []channel.Type, initial string) (channel.Type, bool, error)
 	// Note 展示一段只读信息。
 	Note(title, body string) error
 }
@@ -277,20 +278,28 @@ func (w *Wizard) runModel(existing *config.Config) (*Result, error) {
 	}, nil
 }
 
-// runChannel 收集渠道选择并保存。
+// runChannel 收集渠道选择并保存。"暂不接入渠道"是显式选择：只保存模型，
+// 不写渠道、不伪造渠道账号，也不把 TUI 伪装成渠道。
 func (w *Wizard) runChannel(res *Result) error {
 	done := w.trace.Step("select_channel")
 	initial := ""
 	if len(res.Config.Channels) > 0 {
 		initial = res.Config.Channels[0].Type
 	}
-	chType, err := w.prompter.SelectChannel(w.channels.All(), initial)
-	done(err)
+	chType, skip, err := w.prompter.SelectChannelOrSkip(w.channels.All(), initial)
 	if err != nil {
+		done(err)
 		return err
 	}
+	if skip {
+		done(nil)
+		w.trace.Event("channel_skipped_explicitly", telemetry.Field("reason", "user chose to skip channels"))
+		return w.prompter.Note("暂不接入渠道", "已保存模型配置。你可以随时重新运行 herald setup 配置渠道；TUI 聊天现在即可使用。")
+	}
 	if !chType.Enabled {
-		return fmt.Errorf("channel %q is not available yet", chType.ID)
+		err := fmt.Errorf("channel %q is not available yet", chType.ID)
+		done(err)
+		return err
 	}
 	w.trace.Event("channel_selected", telemetry.Field("channel_type", chType.ID))
 

@@ -256,7 +256,7 @@ func TestRunSmokeCases(t *testing.T) {
 func assertTraceTerminal(t *testing.T, trace *bytes.Buffer, callID, wantTerminal string) {
 	t.Helper()
 	events := []map[string]any{}
-	for _, line := range strings.Split(strings.TrimSpace(trace.String()), "\n") {
+	for line := range strings.SplitSeq(strings.TrimSpace(trace.String()), "\n") {
 		if line == "" {
 			continue
 		}

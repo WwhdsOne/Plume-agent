@@ -205,8 +205,7 @@ func (a *Adapter) wrap(ctx context.Context, err error, httpResp *http.Response) 
 	if err == nil {
 		return nil
 	}
-	var mErr *model.Error
-	if errors.As(err, &mErr) {
+	if mErr, ok := errors.AsType[*model.Error](err); ok {
 		if mErr.Provider == "" {
 			mErr.WithProvider(a.provider, model.ProtocolOpenAIChatCompletions)
 		}
@@ -230,8 +229,7 @@ func (a *Adapter) wrap(ctx context.Context, err error, httpResp *http.Response) 
 			WithSummary("request interrupted: " + ctxErrNote(ctx, err))
 	}
 
-	var apiErr *openai.Error
-	if errors.As(err, &apiErr) {
+	if apiErr, ok := errors.AsType[*openai.Error](err); ok {
 		return &model.Error{
 			Code:       classifyStatus(apiErr.StatusCode),
 			Provider:   a.provider,

@@ -85,8 +85,7 @@ func (s *ModelSpan) End(resp *model.ChatResponse, err error) {
 			fields = append(fields,
 				zap.String("status", "error"),
 			)
-			var mErr *model.Error
-			if errors.As(err, &mErr) {
+			if mErr, ok := errors.AsType[*model.Error](err); ok {
 				fields = append(fields, zap.String("error_code", string(mErr.Code)))
 				if mErr.StatusCode != 0 {
 					fields = append(fields, zap.Int("status_code", mErr.StatusCode))

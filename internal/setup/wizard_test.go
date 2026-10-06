@@ -17,13 +17,14 @@ import (
 // fakePrompter 是脚本化的 Prompter：答案预先给定，同时记录向导传进来的初始值，
 // 用来断言"回填"行为。
 type fakePrompter struct {
-	provider provider.Preset
-	baseURL  string
-	model    string
-	secret   string
-	keep     bool
-	needsKey bool
-	chType   channel.Type
+	provider    provider.Preset
+	baseURL     string
+	model       string
+	secret      string
+	keep        bool
+	needsKey    bool
+	chType      channel.Type
+	skipChannel bool
 
 	failAt string // 在这些步骤注入错误：provider/base_url/model/credential/channel
 
@@ -86,11 +87,14 @@ func (f *fakePrompter) InputSecret(_ string, hasExisting bool) (string, bool, er
 
 func (f *fakePrompter) ConfirmYesNo(_ string, _ bool) (bool, error) { return f.needsKey, nil }
 
-func (f *fakePrompter) SelectChannel(_ []channel.Type, _ string) (channel.Type, error) {
+func (f *fakePrompter) SelectChannelOrSkip(_ []channel.Type, _ string) (channel.Type, bool, error) {
 	if err := f.fail("channel"); err != nil {
-		return channel.Type{}, err
+		return channel.Type{}, false, err
 	}
-	return f.chType, nil
+	if f.skipChannel {
+		return channel.Type{}, true, nil
+	}
+	return f.chType, false, nil
 }
 
 func (f *fakePrompter) Note(title, _ string) error {
@@ -523,4 +527,42 @@ func mustPath(t *testing.T) string {
 		t.Fatal(err)
 	}
 	return path
+}
+
+func TestWizardSkipsChannelExplicitly(t *testing.T) {
+	// "暂不接入渠道"是显式选择：模型保留、不写渠道、不算取消、不算失败。
+	fake := defaultFake()
+	fake.skipChannel = true
+	h := newHarness(t, fake)
+
+	res, err := h.wiz.Run(nil)
+	if err != nil {
+		t.Fatalf("Run() error = %v, want nil (explicit skip is not an error)", err)
+	}
+	if res == nil || res.Config == nil {
+		t.Fatal("result must carry the saved model configuration")
+	}
+	if len(res.Config.Models) != 1 || res.Config.DefaultModel == "" {
+		t.Errorf("models = %+v default = %q, want the model kept", res.Config.Models, res.Config.DefaultModel)
+	}
+	if len(res.Config.Channels) != 0 {
+		t.Errorf("channels = %+v, want none", res.Config.Channels)
+	}
+	if res.ChannelID != "" {
+		t.Errorf("channel id = %q, want empty", res.ChannelID)
+	}
+	saved, err := config.Load()
+	if err != nil {
+		t.Fatalf("config.Load() error = %v", err)
+	}
+	if len(saved.Channels) != 0 || len(saved.Models) != 1 {
+		t.Errorf("saved config = %+v, want model only", saved)
+	}
+	// trace 记录显式跳过，便于与"取消"区分。
+	if !strings.Contains(h.trace.String(), "channel_skipped_explicitly") {
+		t.Errorf("trace = %s, want channel_skipped_explicitly event", h.trace.String())
+	}
+	if len(fake.notes) == 0 {
+		t.Error("explicit skip should show an explanatory note")
+	}
 }
