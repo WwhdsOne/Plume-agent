@@ -1,3 +1,3 @@
-module go-herald
+module herald-agent
 
 go 1.27.1

@@ -10,11 +10,11 @@
 
 **Architecture：** 单进程模块化服务；配置向导分别选择模型供应商与渠道，供应商工厂创建 Eino 模型组件，渠道注册表创建消息适配器。应用层负责会话和运行状态，Eino ADK 负责 Agent 与工具编排；trace 和评测从第一段可执行链路开始接入。
 
-**Tech Stack：** Go、Eino ADK、标准库 HTTP、SQLite、结构化 JSONL、OpenTelemetry；运行时通过向导配置模型供应商、API Key、模型名称与 Base URL。Jaeger 作为后续本地 trace 浏览器；首版不要求 Redis、向量数据库、Kubernetes 或独立前端。
+**Tech Stack：** Go、Eino ADK、标准库 HTTP、SQLite、结构化 JSONL、OpenTelemetry、zap（结构化日志，2026-10-06 确定，在 G1a-2 随 telemetry 引入）；运行时通过向导配置模型供应商、API Key、模型名称与 Base URL。Jaeger 作为后续本地 trace 浏览器；首版不要求 Redis、向量数据库、Kubernetes 或独立前端。
 
 ## 1. 项目定位与范围
 
-名称 `go-herald`：Herald 有“信使”的含义，契合微信消息入口，也表明 Go 技术栈。
+名称 `herald-agent`：Herald 有“信使”的含义，契合微信消息入口，Agent 表明项目定位。
 
 对标 NousResearch 的 Hermes Agent，用户已明确微信入口要模仿其网关扫码流程。借鉴消息网关、工具执行、跨会话记忆、可复用技能的能力边界；不是对 Hermes 全部功能做逐项复刻。参考项目的说明见 [Hermes 官方仓库](https://github.com/NousResearch/hermes-agent)。
 
@@ -61,25 +61,26 @@ herald gateway setup     # 单独配置或重连渠道，复用首次向导的�
 
 每个供应商预设包含稳定 ID、显示名称、协议类型、默认 Base URL、可选地域/业务空间参数、凭据要求及模型工厂。初期使用静态注册表；新增预设无需修改向导主流程。供应商和模型名分开保存，模型 ID 允许手动输入，不依赖模型列表 API 可用。
 
-首批预设建议如下；在 G1a 审核时冻结实际支持清单，所有可选项都必须有可用的 Eino 适配路径：
+首批预设（2026-10-06 G0 冻结：只上两家，各家绑定自己的 Eino 组件；百炼/Qwen 及其他延后，详见 `docs/decisions/0001-scope.md` §1）：
 
-| 预设 | Base URL 的初始值 | 配置要求 |
-| --- | --- | --- |
-| DeepSeek | `https://api.deepseek.com` | API Key + 用户输入的模型 ID |
-| 阿里云百炼（北京共享端点） | `https://dashscope.aliyuncs.com/compatible-mode/v1` | API Key + 模型 ID；其他地域/业务空间使用对应端点 |
-| 自定义兼容服务 | 无预填值，由用户提供 | Base URL + 模型 ID；默认要求 API Key，本地无鉴权服务可显式选择无需 Key |
+| 预设 | Eino 组件 | Base URL 的初始值 | 配置要求 |
+| --- | --- | --- | --- |
+| DeepSeek | `components/model/deepseek` | `https://api.deepseek.com` | API Key + 用户输入的模型 ID |
+| 自定义兼容服务 | `components/model/openai` | 无预填值，由用户提供 | Base URL + 模型 ID；默认要求 API Key，本地无鉴权服务可显式选择无需 Key |
 
-默认值依据 [DeepSeek 官方接口说明](https://api-docs.deepseek.com/) 和 [百炼 Base URL 文档](https://help.aliyun.com/en/model-studio/base-url)，检查日期为 2026-10-05。百炼还区分地域和业务空间，不能将同一地址套用于全部账号。[百炼地域与端点](https://help.aliyun.com/zh/model-studio/regions/)
+延后（本阶段不做，资料保留在 G0 决策文档）：阿里云百炼（北京共享端点）`https://dashscope.aliyuncs.com/compatible-mode/v1`，纳入时用 `components/model/qwen`。
+
+默认值依据 [DeepSeek 官方接口说明](https://api-docs.deepseek.com/) 和 [百炼 Base URL 文档](https://help.aliyun.com/en/model-studio/base-url)，检查日期为 2026-10-05（G0 于 2026-10-06 复核）。百炼还区分地域和业务空间，不能将同一地址套用于全部账号。[百炼地域与端点](https://help.aliyun.com/zh/model-studio/regions/)
 
 预填值是可编辑默认值。配置中保存最终解析的 URL，升级预设不能悄悄改变已有用户的请求目的地。切换供应商时重新应用对应默认值，防止把上一家供应商的地址和 API Key 配给下一家；Key 按模型配置隔离，不自动复用。
 
-协议类型与供应商品牌分开：首批兼容服务通过对应 Eino 扩展装配模型，后续原生协议供应商新增工厂；不能仅替换 Base URL 就声称任意供应商可用。模型的流式、工具调用、usage 等能力分别记录为支持、不支持或未验证；能完成普通对话不等于已经通过工具调用验收。
+协议类型与供应商品牌分开：首批兼容服务通过对应 Eino 扩展装配模型，后续原生协议供应商新增工厂；不能仅替换 Base URL 就声称任意供应商可用。（2026-10-06 确认：首批 2 家预设各自绑定专用 Eino 组件——DeepSeek→`components/model/deepseek`、自定义→`components/model/openai`；`protocol` 存适配器 ID，不折叠成单一 openai 组件。百炼/Qwen 延后。已核实两家组件底层都是 OpenAI 兼容 HTTP，区分点在适配器与各家特有配置面。）模型的流式、工具调用、usage 等能力分别记录为支持、不支持或未验证；能完成普通对话不等于已经通过工具调用验收。
 
 本地校验检查必填项、合法 URL 和配置引用；默认使用 HTTPS，本机回环服务允许 HTTP。API Key 隐藏输入，不作为命令行参数传递。联网检查由用户选择，说明会发送一次短测试请求且可能产生少量费用；超时、鉴权失败、模型不存在或不可访问分别显示可诊断状态。跳过检查可保存为“未验证”，不能显示为“已连通”。
 
 ### 配置与凭据边界
 
-仓库外应用配置目录通过 `os.UserConfigDir()` 下的 `go-herald` 子目录定位，后续允许显式指定目录。首版使用带 `schema_version` 的 `config.json`，保存非敏感配置；API Key 和微信凭据分别保存在该目录的 `credentials/` 下，目录权限 0700、文件权限 0600（类 Unix 平台），不将明文凭据混入普通配置。
+仓库外配置目录采用 Hermes/Codex 式的单一家目录点目录：`HERALD_HOME` 非空时用它，否则 POSIX `~/.herald`、Windows `%LOCALAPPDATA%\herald`；不使用 `os.UserConfigDir()`（macOS 上是含空格的 `~/Library/Application Support`）。首版使用带 `schema_version` 的 `config.json`，保存非敏感配置；API Key 和微信凭据分别保存在该目录的 `credentials/` 下，目录权限 0700、文件权限 0600（类 Unix 平台），不将明文凭据混入普通配置。后续允许用命令行标志显式指定目录。
 
 - 模型配置：`id`、`provider`、`protocol`、`base_url`、`model`、`api_key_ref`；`default_model` 引用一个配置 ID。首版向导先创建一个默认配置，结构允许以后新增命名配置。
 - 渠道配置：`id`、`type`、`enabled`、`model_ref`、`credential_ref`、渠道专有设置；首版启用一个微信实例，`model_ref` 默认指向默认模型配置。
@@ -131,7 +132,7 @@ herald gateway status
 | 部分 | 计划行为 | 验收证据 |
 | --- | --- | --- |
 | 扫码登录 | 将等待扫码、等待确认、成功、过期、取消、失败映射为可见状态 | 终端可扫二维码；成功状态 trace；过期/取消 fixture 测试 |
-| 本地凭据 | 保存 bot 账号、token、已校验的服务地址到仓库外应用配置目录；文件权限仅当前用户可读写，原子更新 | 重启恢复；权限检查；仓库和日志无密钥 |
+| 本地凭据 | 保存 bot 账号、token、已校验的服务地址到 `~/.herald/credentials/`（仓库外）；文件权限仅当前用户可读写，原子更新 | 重启恢复；权限检查；仓库和日志无密钥 |
 | 收消息 | 长轮询 `getupdates`，区分正常空轮询、网络错误、限流和鉴权失败 | 正常空轮询不计业务失败；断线恢复测试 |
 | 回复 | `sendmessage` 使用匹配账号及对话方的上下文凭据 | 连续私聊及重启后回复；缺失/失效 token 有明确状态 |
 | 恢复与去重 | 持久化同步游标、上下文凭据、入站消息及去重键；先可靠落盘消息再推进游标 | 注入崩溃后不因游标提前提交而丢掉本地待处理消息 |
@@ -140,7 +141,7 @@ herald gateway status
 
 首版验收私聊文本，接入方向已经确定，不再要求用户在公众号/企业微信之间选择。账号可用性、实际回复限制和异常返回在接入单元实测；未得到真实收发证据时只标记“模拟通过”。
 
-G0 还需确认首批供应商预设、单次评测费用上限，以及本机到 iLink/模型服务的出站网络。用户实际使用的供应商和模型通过设置向导选择，无需在代码开发前固定为一家。无需准备公网回调域名；费用上限确认前可做离线评测，付费批量评测不自动启动。
+G0 已确认首批供应商预设、评测预算与本机出站网络（见 `docs/decisions/0001-scope.md`）：首批 2 家预设各自绑定专用 Eino 组件（DeepSeek + 自定义兼容，百炼/Qwen 延后），单次联网评测无费用上限，本机含 TUN 代理环境可用于评测。用户实际使用的供应商和模型仍通过设置向导选择，无需在代码开发前固定为一家。无需准备公网回调域名。
 
 ## 3. 开发与审核制度
 
@@ -193,9 +194,9 @@ G0 还需确认首批供应商预设、单次评测费用上限，以及本机�
 **当前交付：** `docs/phase-01-weixin-agent.md` 和 Hello World 骨架。微信方向已确认；审核后先锁定参考协议与本地配置，再进入 G1a。真实扫码和收发分别在 G2a.1、G2a.2 验收，不以账号尚未实测阻塞离线骨架。
 
 - [x] 用户确认 Hermes 网关式终端二维码 + 微信扫码连接 bot，已核实参考实现使用 iLink Bot API。
-- [ ] 确认首批供应商预设、配置边界、评测预算与运行环境；记录为 `docs/decisions/0001-scope.md`。实际模型由运行时向导选择。
-- [ ] 记录 iLink 参考源码 commit、接口契约与模拟样例设计，形成 `docs/decisions/0002-wechat.md`；真实接入证据在 G2a.1/G2a.2 补齐。
-- [ ] 用户审核通过 G0。
+- [x] 确认首批供应商预设、配置边界、评测预算与运行环境；记录为 `docs/decisions/0001-scope.md`。实际模型由运行时向导选择。（2026-10-06 用户确认：首批 2 家预设—DeepSeek + 自定义兼容，各绑定专用 Eino 组件，百炼/Qwen 延后；目录用 `~/.herald`；联网评测无费用上限；本机可评测）
+- [x] 记录 iLink 参考源码 commit、接口契约与模拟样例设计，形成 `docs/decisions/0002-wechat.md`；真实接入证据在 G2a.1/G2a.2 补齐。（2026-10-06 用户确认）
+- [x] 用户审核通过 G0。（2026-10-06）
 
 ### G1a：首次设置向导与配置边界（独立审核）
 
@@ -203,6 +204,7 @@ G0 还需确认首批供应商预设、单次评测费用上限，以及本机�
 
 - [ ] 先确定配置 schema、供应商与渠道注册项及用户可见向导顺序；冻结首批供应商预设并记录 URL 来源。
 - [ ] 实现供应商选择、Base URL 预填/修改、API Key 隐藏输入、模型名输入与配置保存/恢复；日志从此阶段就有脱敏 setup trace。
+- [ ] 引入 `go.uber.org/zap` 作为日志库（2026-10-06 确定），记录版本锁定与兼容性验证——这是 `go.mod` 的第一个外部依赖。zap 只用于日志与 trace 事件；CLI 面向用户的输出（usage、`config show`、错误提示）继续用 `fmt`，不要改成 JSON 输出。
 - [ ] 实现渠道选择和渠道配置入口；微信标记为“待登录”，其真实扫码在 G2a.1 完成，飞书和 QQ 标记为待支持且禁用。不能将占位入口视为已接入。
 - [ ] 用交互输入与存储 fixture 验证默认 URL、修改 URL、切换供应商、不复用错误 Key、重新进入向导、取消、文件写失败及凭据权限；配置和 trace 中不得出现测试密钥值。
 - [ ] 验证新增测试供应商/渠道注册项无需改向导分发逻辑；新增渠道不影响已有模型配置。
@@ -403,7 +405,7 @@ Eino callbacks 用于捕获 Agent、ChatModel、Tool 生命周期；接入、队
 下列是逐步创建的目标结构，当前仅有 `.gitignore`、`go.mod`、根目录 `main.go` 和 `docs/phase-01-weixin-agent.md`。后续实现 CLI 时再将入口移至 `cmd/herald/`，不预建空实现模块：
 
 ```text
-go-herald/
+herald-agent/
   go.mod
   docs/phase-01-weixin-agent.md
   README.md
@@ -434,13 +436,13 @@ go-herald/
 
 ## 10. 本轮交付与下一步
 
-- [x] 新建项目目录 `go-herald`。
+- [x] 新建项目目录，按用户要求命名为 `herald-agent`。
 - [x] 写入定位、阶段计划、逐项审核制度、trace 规范和指标比较协议。
 - [x] 根据用户反馈锁定 Hermes 式 iLink Bot 扫码入口，补充官方项目文档和源码依据。
 - [x] 按用户要求初始化 Go 模块，根目录 `main.go` 仅打印 `Hello, World!`，阶段计划位于 `docs/phase-01-weixin-agent.md`。
 - [x] 补充 `.gitignore`，忽略构建产物、本地配置和运行数据。
 - [x] 计划补充首次模型/渠道配置向导、默认 Base URL、供应商工厂，以及飞书/QQ 渠道扩展边界；尚未实现。
-- [ ] 用户审核更新后的计划。
-- [ ] 审核后完成 G0 接入验证，再逐单元开展实现。
+- [x] 用户审核更新后的计划。（2026-10-06）
+- [x] 审核后完成 G0 接入验证；G0 已通过，逐单元开展实现，当前进入 G1a。（2026-10-06）
 
 当前仅完成 Hello World 骨架，未接入 Eino、微信、模型、trace 或评测功能。计划中的功能命令和收益目标均不代表已实现或已验证。

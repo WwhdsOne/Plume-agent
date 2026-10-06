@@ -1,5 +1,5 @@
 # Go build and test artifacts
-/go-herald
+/herald-agent
 /herald
 /bin/
 /dist/
