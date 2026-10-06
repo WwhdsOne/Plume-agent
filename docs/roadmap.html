@@ -204,8 +204,10 @@ const ROADMAP = [
       [
         { id: "G1b.1", title: "OpenAI SDK 请求、非流式解析与可测量模型接口", status: "passed",
           desc: "锁 openai-go v1.12.0（禁自动重试）、协议适配器与工厂、httptest 断言、12 个离线种子", updated: "2026-10-06" },
-        { id: "G1b.2", title: "最小可交互 TUI 与多轮会话", status: "review",
+        { id: "G1b.2", title: "最小可交互 TUI 与多轮会话", status: "passed",
           desc: "Bubble Tea 聊天界面、herald/chat 入口、「暂不接入渠道」、run 事件", updated: "2026-10-06" },
+        { id: "G1b.2.1", title: "TUI 键位重设计与平台适配", status: "todo",
+          desc: "对齐 Codex CLI/Claude Code 惯例（Esc 中断、Ctrl+C 双击退出、Alt/Option+Enter 换行、输入历史）、mac/linux 优先、键位表平台抽象为 Windows 预留", updated: "2026-10-06" },
         { id: "G1b.3", title: "SDK 流式消费与增量输出", status: "todo",
           desc: "SDK 流式事件归一化、流式 UI、取消/断流终态、流式基准", updated: "2026-10-06" },
         { id: "G3", title: "自研 Agent 循环与受控工具", status: "todo",

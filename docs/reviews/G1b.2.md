@@ -1,15 +1,15 @@
 ---
 title: G1b.2 审核记录：最小可交互 TUI 与多轮会话
-status: pending-review
+status: passed
 updated: 2026-10-06
-summary: G1b.2 交付：Bubble Tea 聊天界面、herald/chat 入口、--offline、setup 跳过渠道、会话与 run 生命周期；待用户审核
+summary: G1b.2 交付：Bubble Tea 聊天界面、herald/chat 入口、--offline、setup 跳过渠道、会话与 run 生命周期；已通过审核
 ---
 
 # G1b.2 审核记录：最小可交互 TUI 与多轮会话
 
 - 日期：2026-10-06。
 - 依据：[第一阶段计划](../phase-01-tui-agent.md) §2/§5 G1b.2、[决策 0003](../decisions/0003-model-runtime.md) §3/§8。
-- 状态：**已交付，待用户审核**。完成即停，未动 G1b.3。
+- 状态：**已通过审核**（2026-10-06 用户确认"通过"）。审核期间发现的模型名装配 bug 已随单元修复（见 §6 与 daily 记录），修复后经真实配置端到端验证。
 
 ## 1. 本单元做了什么
 
@@ -79,9 +79,10 @@ TUI_DEMO_OK
 5. **事件 channel 满时丢弃**：仅发生在 UI 已停止消费的退出路径（有界缓冲 8；正常消费下每 run 最多 2 事件）。
 6. 真实模型下的 TUI 手感由你手动验证（`herald` 或 `herald chat --model <ID>`），费用自担。
 
-## 5. 待用户检查项
+## 5. 审核期间修复记录（用户实测发现）
 
-1. 终端手感：`herald`（或 `herald chat`）真实跑一轮，检查滚动、取消、新会话、退出后终端恢复。
-2. setup 向导的「暂不接入渠道」是否符合预期（旧配置不被改写、零渠道可聊天）。
-3. 依赖增量 +2.59 MB 是否接受（§3.3）。
-4. 回复"通过 G1b.2"后进入 G1b.3（SDK 流式消费与 TUI 增量输出）。
+用户真实使用中首次发送即收到 `400 invalid_request_error`：请求 `model` 字段传了**配置 ID**（`deepseek-default`）而非 **API 模型名**（`deepseek-flash`）。修复：装配逻辑抽为 `buildRuntime`（可测），agent 绑定 `selected.Model`；新增 `cmd/herald/chat_test.go` 守住该约定。修复后经 pty + 真实配置端到端验证（回答 "pong"、usage 36/31/67、无错误行）。提交 `36677d4`。
+
+## 6. 审核结论
+
+**通过**（2026-10-06）。后续键位体验改造（对齐 Codex CLI / Claude Code 惯例、mac/linux 优先、Windows 预留）另立单元 [G1b.2.1](../tui-keys.md)，不回改本单元记录。
