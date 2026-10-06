@@ -81,23 +81,10 @@ func startChat(out io.Writer, modelFlag string, offline bool) error {
 		if err != nil {
 			return fmt.Errorf("load config: %w", err)
 		}
-		selected, err := selectModelConfig(cfg, modelFlag)
+		runtime, label, err = buildRuntime(cfg, modelFlag)
 		if err != nil {
 			return err
 		}
-		factory := provider.NewModelFactory(provider.NewRegistry(), credentialSource{})
-		client, err := factory.Build(provider.ModelSpec{
-			Provider:  selected.Provider,
-			Protocol:  selected.Protocol,
-			BaseURL:   selected.BaseURL,
-			Model:     selected.Model,
-			APIKeyRef: selected.APIKeyRef,
-		})
-		if err != nil {
-			return fmt.Errorf("build model client: %w", err)
-		}
-		runtime = agent.New(client, selected.ID)
-		label = fmt.Sprintf("%s/%s", selected.Provider, selected.Model)
 	}
 
 	service := app.NewService(runtime)
@@ -130,6 +117,29 @@ func startChat(out io.Writer, modelFlag string, offline bool) error {
 		return fmt.Errorf("chat ui: %w", err)
 	}
 	return nil
+}
+
+// buildRuntime 从已加载配置装配 agent 与状态栏标签。
+// 关键约定：agent 绑定的是 **API 模型名**（config.Model.Model，如
+// deepseek-flash），不是配置 ID（config.Model.ID，如 deepseek-default）——
+// 两者混用会被供应商以 400 invalid_request_error 拒绝（G1b.2 实测踩坑）。
+func buildRuntime(cfg *config.Config, modelFlag string) (*agent.Runtime, string, error) {
+	selected, err := selectModelConfig(cfg, modelFlag)
+	if err != nil {
+		return nil, "", err
+	}
+	factory := provider.NewModelFactory(provider.NewRegistry(), credentialSource{})
+	client, err := factory.Build(provider.ModelSpec{
+		Provider:  selected.Provider,
+		Protocol:  selected.Protocol,
+		BaseURL:   selected.BaseURL,
+		Model:     selected.Model,
+		APIKeyRef: selected.APIKeyRef,
+	})
+	if err != nil {
+		return nil, "", fmt.Errorf("build model client: %w", err)
+	}
+	return agent.New(client, selected.Model), fmt.Sprintf("%s/%s", selected.Provider, selected.Model), nil
 }
 
 // selectModelConfig 解析要用的模型配置：显式 --model 只接受已保存的 ID，
