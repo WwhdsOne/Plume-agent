@@ -70,7 +70,7 @@ TUI 启动检查 schema、所选模型及凭据；不探测网关、不检查微
 
 首版采用单屏：可滚动的聊天记录、输入区、状态栏；状态栏展示模型、运行状态、run ID、耗时和已知 usage。工具执行显示名称、校验/执行/完成/失败状态与脱敏结果摘要，不显示模型未公开的内部思维链。
 
-- Enter 发送；Ctrl+J 换行；PgUp/PgDn 滚动；空输入不产生请求。
+- 键位以 [TUI 键位契约](tui-keys.md)（G1b.2.1）为准，对齐 Codex CLI / Claude Code 惯例：Enter 发送、Alt/Option+Enter 或 `\`+Enter 续行、Esc 中断 run、Ctrl+C 一次中断/清空且两次退出、Ctrl+D 空输入退出、Ctrl+L 重绘、Up/Down 输入草稿历史、PgUp/PgDn 滚动、Ctrl+N 新会话；键位经 `internal/tui/keys.go` 的 KeyMap 平台抽象，mac/linux 优先，Windows 预留同结构接口。空输入不产生请求。
 - Esc 取消当前 run；Ctrl+C 在执行中取消、空闲时退出。退出时取消请求、关闭流、刷出 trace 并恢复终端。
 - Ctrl+N 在空闲时创建新会话并清空当前上下文；运行中提示先取消，不暗中丢弃任务。
 - 首版同会话串行。运行中可编辑下一条草稿，但再次发送会被明确拒绝，不创建并发模型请求或隐式队列。

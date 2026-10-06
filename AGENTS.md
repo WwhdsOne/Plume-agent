@@ -260,6 +260,7 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 | `docs/reviews/G1a.md` | G1a 审核记录（已通过） |
 | `docs/reviews/` | 每个审核单元的交付证据 |
 | `docs/daily/` | 每日变更流水（`YYYY-MM-DD.md`） |
+| `docs/tui-keys.md` | TUI 键位契约与平台适配（G1b.2.1）：Codex/Claude Code 惯例对齐、KeyMap 抽象 |
 | `docs/runbooks/setup.md` | 首次设置向导的启动、验证与故障复现 |
 | `docs/roadmap.html` | 树状路线图：全部审核单元的状态快照（数据驱动，状态翻转时必须同步更新） |
 
