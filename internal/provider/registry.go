@@ -8,8 +8,9 @@
 package provider
 
 // Preset 是一个模型供应商选项。Protocol 是持久化进配置的协议适配选择器
-// （历史值 deepseek / openai-compatible，schema v1 原样保留），G1b.1 的注册工厂
-// 将其映射到自研适配器及内部 openai-chat-completions 协议族，见 ModelConfig.Protocol。
+// （历史值 deepseek / openai-compatible，schema v1 原样保留），G1b.1 的
+// 注册工厂将其映射到 openai-go SDK 适配器及内部 openai-chat-completions
+// 协议族，见 ModelConfig.Protocol。
 type Preset struct {
 	ID             string
 	DisplayName    string

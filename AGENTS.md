@@ -188,14 +188,14 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 | `cmd/herald/` | CLI 入口与命令分发；不承载业务逻辑 |
 | `internal/config/` | 配置 schema、校验、原子持久化、凭据引用；不承载 Agent 逻辑 |
 | `internal/setup/` | 首次设置向导的流程；只依赖 `Prompter` 接口，不依赖终端库 |
-| `internal/provider/` | 现有供应商预设；G1b.1 计划增加注册工厂与凭据解析，不依赖入口 |
-| `internal/model/` | 拟新增：自有模型契约、端点安全校验、openai-go 协议适配器与事件归一化 |
+| `internal/provider/` | 预设、ModelFactory 装配适配器、显式 Probe、凭据解析接口；保持零依赖（不 import config） |
+| `internal/model/` | G1b.1 已建：自有契约（消息/请求/响应/流/错误/能力）、endpoint 安全装配、openai-chat-completions 适配器（openai-go SDK）、deepseek 组合适配器、脚本化 fake |
 | `internal/tui/` | 拟新增：聊天输入、状态更新、渲染；不发送模型 HTTP、不执行工具 |
 | `internal/channel/` | 现有渠道注册表；第二阶段才实现消息适配器，不拼装 prompt |
 | `internal/app/` | 拟新增：会话/run 生命周期、串行与取消；后续扩展渠道去重和投递 |
 | `internal/agent/` | 拟新增：自研模型—工具循环、prompt 版本、工具装配与预算 |
-| `internal/telemetry/` | 现有 setup trace；计划增加自研运行时/模型/工具事件和应用 span，无 Eino callbacks |
-| `internal/eval/` | 拟新增：评分、统计、比较报告 |
+| `internal/telemetry/` | setup trace 与模型调用 trace（G1b.1 ModelRecorder）；后续增加应用/工具事件与 run 关联 |
+| `internal/eval/` | G1b.1 已建：12 个离线种子数据集（`eval/datasets/smoke.v1.jsonl`）与运行器；后续评分、统计、比较报告 |
 
 ### 三个必须理解的设计点
 
@@ -265,13 +265,13 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 
 ## 当前进度与禁区
 
-已完成：G0（计划与可行性，含 `docs/decisions/` 两份决策）、**G1a（首次设置向导与配置边界，已通过）**——含 `internal/config`、`internal/provider`、`internal/channel`、`internal/setup`、`internal/telemetry`、`cmd/herald` 的 cobra 命令树与 `herald setup`。
+已完成：G0（计划与可行性，含 `docs/decisions/` 两份决策）、**G1a（首次设置向导与配置边界，已通过）**——含 `internal/config`、`internal/provider`、`internal/channel`、`internal/setup`、`internal/telemetry`、`cmd/herald` 的 cobra 命令树与 `herald setup`。**G1b.1（OpenAI SDK 非流式模型接口，已交付待审核）**——含 `internal/model/`（契约、endpoint、openai/deepseek 适配器、fake）、`internal/provider` 工厂与 probe、`internal/telemetry` 模型 trace、`eval/datasets/smoke.v1.jsonl` 与 runner。
 
 **尚未实现，不要假设存在**：
 
-- openai-go、任何**模型调用**、任何**出站 HTTP 客户端**（`herald setup` 只做本地校验）；Eino 已明确不引入，不是等待实现的功能。
 - 聊天 TUI、`herald chat`、向导中显式「暂不接入渠道」选项和模型独立就绪校验；当前在渠道步骤取消会保留已保存模型，但还没有该菜单选项。裸 `herald` 目前仍显示帮助，CLI 简介仍写微信优先，G1b.2 再同步代码。
-- `internal/model/`、`internal/tui/`、`internal/app/`、`internal/agent/`、`internal/tools/`、`internal/store/`、`internal/eval/`。
+- **流式模型调用**（`Client.Stream` 当前一律返回 unsupported，G1b.3 启用）、**工具循环与工具声明**（请求携带 tools 返回 unsupported，G3）、cmd 侧任何模型命令接线（工厂/Probe 尚未被 cmd 调用）。
+- `internal/tui/`、`internal/app/`、`internal/agent/`、`internal/tools/`、`internal/store/`。
 - 微信扫码登录与收发；网关命令 `herald gateway …`（第二阶段 G2a）。向导里微信只记录为"待登录"。
 - 根目录**没有** `README.md`，`.claude/` 下**没有**规则文件。
 
@@ -284,6 +284,7 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 | `go.uber.org/zap` | v1.28.0 | 结构化日志、setup trace | +3.48 MB |
 | `github.com/charmbracelet/huh` | v1.0.0 | 终端交互（含 bubbletea/lipgloss 等传递依赖） | +1.60 MB |
 | `github.com/spf13/cobra` | v1.10.2 | 命令行框架（含 pflag） | +0.96 MB |
+| `github.com/openai/openai-go` | v1.12.0 | 模型传输与协议（G1b.1，Chat Completions 适配器） | +1.70 MB（`-s -w` 实测 6.41→8.11 MB） |
 | `github.com/mattn/go-isatty` | v0.0.20 | 判断 stdin 是否为真正的终端 | 可忽略 |
 
 新增依赖应发生在对应单元，并记录版本锁定、兼容性和实测依赖增量。2026-10-06 的路线切换同步只移除了代码中的 Eino 元数据/注释（`Preset.Component` 等），没有安装依赖或变更 `go.mod`。**模型传输已拍板 OpenAI 官方 Go SDK（`github.com/openai/openai-go`，锁定 v1.12.0，2026-10-06 决策），替代早先的 Resty 方案（原 v2/v3 比较作废）；G1b.1 引入时实测依赖增量。SDK 自动重试必须显式禁用（默认 2 次），DeepSeek 与自定义兼容服务同走 `openai-chat-completions` 协议适配器。**

@@ -1,0 +1,141 @@
+// Package model 定义 herald 的自有模型契约：消息、请求、响应、流事件、
+// 能力与统一错误。它不 import 任何 SDK、TUI 或渠道类型；协议适配器
+// （internal/model/openai 等）负责把各自协议转换到这里的类型，
+// Agent 与 TUI 只消费本包。见 docs/decisions/0003-model-runtime.md。
+package model
+
+import "context"
+
+// Protocol 是内部协议族标识（区别于持久化的适配选择器，见 0003 §7）。
+const ProtocolOpenAIChatCompletions = "openai-chat-completions"
+
+// Role 是一条对话消息的角色。
+type Role string
+
+const (
+	RoleSystem    Role = "system"
+	RoleUser      Role = "user"
+	RoleAssistant Role = "assistant"
+	RoleTool      Role = "tool"
+)
+
+// ToolCall 是一次工具调用：assistant 发起的请求，或经 call ID 关联的结果。
+// Arguments 保持原始 JSON 文本，交由工具层校验，适配器不解释其内容。
+type ToolCall struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"`
+}
+
+// Message 是一条对话消息。消息至少支持 system/user/assistant/tool、
+// 文本、tool calls 与 tool-call 关联 ID，不以单一字符串抹平工具消息。
+type Message struct {
+	Role       Role       `json:"role"`
+	Content    string     `json:"content"`
+	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`   // 仅 assistant：模型请求执行的工具调用
+	ToolCallID string     `json:"tool_call_id,omitempty"` // 仅 tool：本条结果对应的调用 ID
+}
+
+// ToolDeclaration 是发给模型的工具声明。G1b.1 的非流式路径不支持发送
+// 工具声明（工具执行在 G3），请求中出现时适配器明确返回 unsupported。
+type ToolDeclaration struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	// Parameters 是工具参数的 JSON Schema 文本。
+	Parameters string `json:"parameters"`
+}
+
+// ChatRequest 是跨协议的规范化生成请求。
+type ChatRequest struct {
+	// Model 是运行时配置的模型 ID（不是供应商品牌）。
+	Model string `json:"model"`
+	// Messages 是按顺序的完整对话上下文。
+	Messages []Message `json:"messages"`
+	// Temperature 为 nil 表示不发送该参数（由服务端取默认值）。
+	Temperature *float64 `json:"temperature,omitempty"`
+	// Tools 是可选的工具声明。G1b.1 非流式路径必须为空。
+	Tools []ToolDeclaration `json:"tools,omitempty"`
+}
+
+// ChatResponse 是跨协议的规范化响应。它不暴露任何 SDK 类型给调用方。
+type ChatResponse struct {
+	// ID 是供应商返回的请求/响应标识；取不到时为空串。
+	ID string
+	// Message 是完整的 assistant 消息（文本与/或工具调用）。
+	Message Message
+	// FinishReason 是规范化后的完成原因；协议未给出时为 FinishUnknown。
+	FinishReason FinishReason
+	// Usage 以可选值表达：供应商未提供时 Usage.OK 为 false（unknown），
+	// 绝不把缺失当 0。
+	Usage Usage
+	// Provider 是供应商品牌 ID，Protocol 是内部协议族。
+	Provider string
+	Protocol string
+}
+
+// FinishReason 是完成原因。
+type FinishReason string
+
+const (
+	FinishStop          FinishReason = "stop"
+	FinishLength        FinishReason = "length"
+	FinishToolCalls     FinishReason = "tool_calls"
+	FinishContentFilter FinishReason = "content_filter"
+	// FinishUnknown 表示协议未给出完成原因，不得当作任何已知值统计。
+	FinishUnknown FinishReason = "unknown"
+)
+
+// Usage 是 token 用量。OK 为 false 表示供应商本次未提供（unknown）。
+type Usage struct {
+	OK               bool
+	PromptTokens     int64
+	CompletionTokens int64
+	TotalTokens      int64
+}
+
+// EventKind 是规范化流事件的类别（0003 §5）。G1b.1 只定义契约，
+// 流式能力在 G1b.3 启用。
+type EventKind string
+
+const (
+	EventTextDelta    EventKind = "text_delta"
+	EventToolDelta    EventKind = "tool_delta"
+	EventUsageUpdate  EventKind = "usage_update"
+	EventModelDone    EventKind = "model_done"
+	EventUnsupported  EventKind = "unsupported"
+	EventStreamEnded  EventKind = "stream_ended"
+	EventStreamBroken EventKind = "stream_broken"
+)
+
+// Event 是一条规范化流事件。文本增量、工具调用增量（含稳定 index/ID）、
+// usage 更新与模型结束分别使用对应字段；usage 仍以可选值表达。
+type Event struct {
+	Kind         EventKind
+	TextDelta    string
+	ToolCall     *ToolCall // EventToolDelta 时非 nil
+	Usage        Usage
+	FinishReason FinishReason
+}
+
+// EventStream 是拉取式流事件读取器。所有权交给调用者：成功、失败、取消
+// 都必须调用 Close；Close 幂等；Next 支持 ctx 取消打断阻塞读取（0003 §3）。
+type EventStream interface {
+	// Next 推进到下一个事件；返回 false 表示流结束（用 Err 区分成败）。
+	Next(ctx context.Context) bool
+	// Event 返回当前事件；仅在 Next 返回 true 后有效。
+	Event() Event
+	// Err 返回流失败原因；正常结束时为 nil。
+	Err() error
+	// Close 释放底层资源；幂等。
+	Close() error
+}
+
+// Client 是模型消费接口：fake 与真实适配器实现同一接口（0003 §2）。
+// 实现必须尊重 ctx 的取消与超时。
+type Client interface {
+	// Generate 一次完整生成（非流式）。
+	Generate(ctx context.Context, req ChatRequest) (*ChatResponse, error)
+	// Stream 打开流式生成。G1b.1 的所有实现明确返回 unsupported（流式
+	// 能力在 G1b.3 启用），不能用整包响应冒充流。
+	Stream(ctx context.Context, req ChatRequest) (EventStream, error)
+}
