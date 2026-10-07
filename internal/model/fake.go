@@ -64,7 +64,7 @@ func (f *Fake) Calls() []ChatRequest {
 // ErrFakeExhausted 是 Fake 脚本耗尽时的哨兵错误。
 var ErrFakeExhausted = errors.New("fake model has no scripted responses left")
 
-// LoopFake 无限重复同一脚本响应，供 `herald chat --offline` 演示与
+// LoopFake 无限重复同一脚本响应，供 `plume chat --offline` 演示与
 // 长时间 UI 测试使用：与 Fake 一样只测本地运行时/协议/界面。
 type LoopFake struct {
 	mu     sync.Mutex

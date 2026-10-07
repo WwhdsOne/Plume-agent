@@ -1,4 +1,4 @@
-// Package telemetry 承载 herald 的可观测性：结构化事件、脱敏与（后续的）指标。
+// Package telemetry 承载 plume 的可观测性：结构化事件、脱敏与（后续的）指标。
 // 当前只包含首次设置向导的 setup trace。
 package telemetry
 

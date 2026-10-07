@@ -8,7 +8,7 @@ import (
 	"context"
 	"time"
 
-	"herald-agent/internal/model"
+	"plume-agent/internal/model"
 )
 
 // Runtime 是最小模型轮次执行器。一个 Runtime 绑定一个模型配置

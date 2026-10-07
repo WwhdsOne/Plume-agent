@@ -1,4 +1,4 @@
-// Package model 定义 herald 的自有模型契约：消息、请求、响应、流事件、
+// Package model 定义 plume 的自有模型契约：消息、请求、响应、流事件、
 // 能力与统一错误。它不 import 任何 SDK、TUI 或渠道类型；协议适配器
 // （internal/model/openai 等）负责把各自协议转换到这里的类型，
 // Agent 与 TUI 只消费本包。见 docs/decisions/0003-model-runtime.md。

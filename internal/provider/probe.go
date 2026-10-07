@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 
-	"herald-agent/internal/model"
+	"plume-agent/internal/model"
 )
 
 // Probe 向配置端点发送一次最小请求，验证连通性、鉴权与响应解析。

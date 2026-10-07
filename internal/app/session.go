@@ -6,7 +6,7 @@ package app
 import (
 	"sync"
 
-	"herald-agent/internal/model"
+	"plume-agent/internal/model"
 )
 
 // Session 是一个进程内聊天会话：有序消息历史与单调递增的轮次号。

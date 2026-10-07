@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"herald-agent/internal/agent"
-	"herald-agent/internal/model"
+	"plume-agent/internal/agent"
+	"plume-agent/internal/model"
 )
 
 // blockingFake 先阻塞到 release 再返回，模拟慢模型。

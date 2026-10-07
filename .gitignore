@@ -1,6 +1,6 @@
 # Go build and test artifacts
-/herald-agent
-/herald
+/plume-agent
+/plume
 /bin/
 /dist/
 /build/

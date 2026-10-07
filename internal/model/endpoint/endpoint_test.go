@@ -11,7 +11,7 @@ import (
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/option"
 
-	"herald-agent/internal/model"
+	"plume-agent/internal/model"
 )
 
 // callCountServer 返回始终以 status 应答的服务器与请求计数器。

@@ -8,7 +8,7 @@ import (
 )
 
 // 这三个变量由 scripts/build.sh 通过 -ldflags -X 注入。
-// 直接用 `go build` / `go run` 构建时保持下面的默认值，`herald version` 会诚实地说
+// 直接用 `go build` / `go run` 构建时保持下面的默认值，`plume version` 会诚实地说
 // 这是一个未打戳的构建，而不是伪装成某个版本。
 var (
 	version   = "dev"
@@ -33,6 +33,6 @@ func versionString() string {
 	if label != "dev" {
 		label = "v" + label
 	}
-	return fmt.Sprintf("herald-agent %s\ncommit  %s\nbuilt   %s\ngo      %s\nplatform %s/%s\n",
+	return fmt.Sprintf("plume-agent %s\ncommit  %s\nbuilt   %s\ngo      %s\nplatform %s/%s\n",
 		label, commit, buildTime, runtime.Version(), runtime.GOOS, runtime.GOARCH)
 }

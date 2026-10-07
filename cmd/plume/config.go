@@ -8,14 +8,14 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"herald-agent/internal/channel"
-	"herald-agent/internal/config"
+	"plume-agent/internal/channel"
+	"plume-agent/internal/config"
 )
 
 func newConfigCmd() *cobra.Command {
 	configCmd := &cobra.Command{
 		Use:   "config",
-		Short: "查看 herald 的配置",
+		Short: "查看 plume 的配置",
 		RunE: func(*cobra.Command, []string) error {
 			return errors.New("config: missing subcommand (path|show)")
 		},

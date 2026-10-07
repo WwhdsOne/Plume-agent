@@ -1,4 +1,4 @@
-module herald-agent
+module plume-agent
 
 go 1.27.1
 

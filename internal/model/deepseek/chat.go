@@ -7,8 +7,8 @@ package deepseek
 import (
 	"context"
 
-	"herald-agent/internal/model"
-	"herald-agent/internal/model/openai"
+	"plume-agent/internal/model"
+	"plume-agent/internal/model/openai"
 )
 
 // Adapter 是 DeepSeek 适配器。Provider 标识固定为 deepseek，

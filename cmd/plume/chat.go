@@ -11,12 +11,12 @@ import (
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 
-	"herald-agent/internal/agent"
-	"herald-agent/internal/app"
-	"herald-agent/internal/config"
-	"herald-agent/internal/model"
-	"herald-agent/internal/provider"
-	"herald-agent/internal/tui"
+	"plume-agent/internal/agent"
+	"plume-agent/internal/app"
+	"plume-agent/internal/config"
+	"plume-agent/internal/model"
+	"plume-agent/internal/provider"
+	"plume-agent/internal/tui"
 )
 
 func newChatCmd() *cobra.Command {
@@ -37,10 +37,10 @@ func newChatCmd() *cobra.Command {
 			if modelID == "" {
 				cfg, err := config.Load()
 				if err != nil {
-					return fmt.Errorf("load config: %w (run `herald setup` first)", err)
+					return fmt.Errorf("load config: %w (run `plume setup` first)", err)
 				}
 				if cfg.DefaultModel == "" {
-					return errors.New("no default_model in config (run `herald setup`)")
+					return errors.New("no default_model in config (run `plume setup`)")
 				}
 				modelID = cfg.DefaultModel
 			}
@@ -69,7 +69,7 @@ func (credentialSource) Key(ref string) (string, error) {
 func startChat(out io.Writer, modelFlag string, offline bool) error {
 	if f, ok := out.(*os.File); ok && !isatty.IsTerminal(f.Fd()) && !isatty.IsCygwinTerminal(f.Fd()) {
 		// 判定用 go-isatty，不用 os.ModeCharDevice（/dev/null 也是字符设备）。
-		return errors.New("chat needs an interactive terminal (run it inside a TTY; try `herald chat --offline` for scripted output)")
+		return errors.New("chat needs an interactive terminal (run it inside a TTY; try `plume chat --offline` for scripted output)")
 	}
 
 	var runtime *agent.Runtime
@@ -162,9 +162,9 @@ func selectModelConfig(cfg *config.Config, modelFlag string) (*config.ModelConfi
 
 func welcome(label string, offline bool) string {
 	if offline {
-		return "Welcome to herald chat — OFFLINE mode with the scripted fake. " +
+		return "Welcome to plume chat — OFFLINE mode with the scripted fake. " +
 			"Esc cancels a run, Ctrl+N starts a new session, Ctrl+C quits."
 	}
-	return "Welcome to herald chat (" + label + "). " +
+	return "Welcome to plume chat (" + label + "). " +
 		"Esc cancels a run, Ctrl+N starts a new session, Ctrl+C quits."
 }

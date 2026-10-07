@@ -1,7 +1,7 @@
 ---
 title: 0003 模型运行时：OpenAI SDK 适配、自研运行时与 TUI 优先
 status: active
-updated: 2026-10-06
+updated: 2026-10-07
 summary: 现行模型路线：openai-go SDK 传输、协议适配器与自研运行时、TUI 优先；接口契约、错误分类与预算
 ---
 

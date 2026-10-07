@@ -1,7 +1,7 @@
 ---
 title: 第一阶段：TUI Agent 开发计划
 status: active
-updated: 2026-10-06
+updated: 2026-10-07
 summary: 第一阶段审核计划：G1b.1→G1b.3→G3 单元拆分、TUI 生命周期、trace 与指标协议
 ---
 
@@ -19,7 +19,7 @@ summary: 第一阶段审核计划：G1b.1→G1b.3→G3 单元拆分、TUI 生命
 
 ## 1. 项目定位、现状与范围
 
-`herald-agent` 是以可解释执行过程和量化实验为重点的简历项目。借鉴 [Hermes](https://github.com/NousResearch/hermes-agent) 的个人 Agent 与多入口思路，不复刻全部功能。
+`plume-agent` 是以可解释执行过程和量化实验为重点的简历项目。借鉴 [Hermes](https://github.com/NousResearch/hermes-agent) 的个人 Agent 与多入口思路，不复刻全部功能。
 
 已完成并审核通过：G0 的范围与接入调研，G1a 的模型/渠道预设、配置与凭据原子保存、huh 设置向导、cobra 命令、setup trace 和构建脚本。证据保留在 [G0](reviews/G0.md)、[G1a](reviews/G1a.md)，不因改路线而改写历史测量结果。
 
@@ -44,15 +44,15 @@ summary: 第一阶段审核计划：G1b.1→G1b.3→G3 单元拆分、TUI 生命
 ### 目标命令（尚未实现的部分见下）
 
 ```text
-herald setup                 # 已有向导；计划调整为模型设置完成即可使用 TUI
-herald                       # 计划：配置就绪且为 TTY 时打开聊天；无配置提示 setup
-herald chat                  # 计划：显式打开 TUI，使用 default_model
-herald chat --model <配置ID>  # 计划：只选择已保存配置，不通过参数传入 Key
-herald chat --offline        # 计划：scripted fake 演示，无配置/Key/联网要求
-herald config show           # 已实现，脱敏查看配置
+plume setup                 # 已有向导；计划调整为模型设置完成即可使用 TUI
+plume                       # 计划：配置就绪且为 TTY 时打开聊天；无配置提示 setup
+plume chat                  # 计划：显式打开 TUI，使用 default_model
+plume chat --model <配置ID>  # 计划：只选择已保存配置，不通过参数传入 Key
+plume chat --offline        # 计划：scripted fake 演示，无配置/Key/联网要求
+plume config show           # 已实现，脱敏查看配置
 ```
 
-当前裸 `herald` 仍显示帮助；`chat` 命令不存在。以后非 TTY 调用聊天入口明确报错并退出，不进入交互等待；CI 通过应用接口或评测入口运行，不伪装 TTY。`--offline` 与 `--model` 互斥，离线模式不会保存虚假模型配置或覆盖用户配置。
+当前裸 `plume` 仍显示帮助；`chat` 命令不存在。以后非 TTY 调用聊天入口明确报错并退出，不进入交互等待；CI 通过应用接口或评测入口运行，不伪装 TTY。`--offline` 与 `--model` 互斥，离线模式不会保存虚假模型配置或覆盖用户配置。
 
 ### 设置向导的目标行为
 
@@ -60,7 +60,7 @@ herald config show           # 已实现，脱敏查看配置
 
 首批预设继续是 `deepseek` 和 `custom-openai`。有默认 URL 时不逐次询问，已有非默认 URL 不静默重置；切换供应商不复用旧 Key。模型名允许自定义，不依赖模型列表接口成功。
 
-配置目录继续使用 `HERALD_HOME` → POSIX `~/.herald` / Windows `%LOCALAPPDATA%\herald`，保留现有回退规则。`config.json` 只保存凭据引用，credentials 目录 0700、文件 0600；取消后保留此前已成功保存的数据，不将两阶段保存描述为全局事务。
+配置目录继续使用 `PLUME_HOME` → POSIX `~/.plume` / Windows `%LOCALAPPDATA%\plume`，保留现有回退规则。`config.json` 只保存凭据引用，credentials 目录 0700、文件 0600；取消后保留此前已成功保存的数据，不将两阶段保存描述为全局事务。
 
 TUI 启动检查 schema、所选模型及凭据；不探测网关、不检查微信登录凭据是否有效。结构损坏仍报错，但未登录或尚未接入的渠道不阻塞本地聊天。模型配置在下次启动聊天会话时生效，首版不做运行中热切换。
 
@@ -140,16 +140,16 @@ TUI → app（会话/run）→ agent（循环/预算）→ 模型接口 / 受控
 
 ### G1b.2：最小可交互 TUI 与多轮会话
 
-**拟改文件：** `cmd/herald/{main,chat,setup,prompter}.go`、`internal/setup/wizard.go`、`internal/config/config.go`、`internal/tui/{model,update,view}.go`、`internal/app/{service,session}.go`、`internal/agent/runtime.go`、对应 `_test.go`、`docs/runbooks/tui.md`、`README.md`。
+**拟改文件：** `cmd/plume/{main,chat,setup,prompter}.go`、`internal/setup/wizard.go`、`internal/config/config.go`、`internal/tui/{model,update,view}.go`、`internal/app/{service,session}.go`、`internal/agent/runtime.go`、对应 `_test.go`、`docs/runbooks/tui.md`、`README.md`。
 
 - [ ] 先写无 TTY 的状态更新测试与 fake 模型脚本；实现聊天记录、输入、滚动、缩放、忙碌状态和取消。此单元先显示完整回答，流式增量在 G1b.3 审核。
 - [ ] 按 §2 调整向导的跳过渠道路径；验证旧配置不被改写、没有任何渠道也能启动 TUI、未登录微信不影响 TUI。
-- [ ] 实现裸 `herald` / `chat` 入口和 `--offline`；无配置提示 setup；非 TTY 立即退出，不写真实配置。
+- [ ] 实现裸 `plume` / `chat` 入口和 `--offline`；无配置提示 setup；非 TTY 立即退出，不写真实配置。
 - [ ] 增加每轮 run ID、上下文关联、唯一终态与模型事件；连续两轮可引用上一轮信息，新建会话不串上下文。
 - [ ] 覆盖忙碌时重复发送、取消后继续聊天、错误不污染历史、退出释放资源、日志不破坏界面；输出控制字符按安全文本呈现。
-- [ ] 在隔离 `HERALD_HOME` 的真实 pty 演示，并请用户检查终端手感；交付 `docs/reviews/G1b.2.md` 后停止。
+- [ ] 在隔离 `PLUME_HOME` 的真实 pty 演示，并请用户检查终端手感；交付 `docs/reviews/G1b.2.md` 后停止。
 
-**目标演示命令：** `rtk go run ./cmd/herald chat --offline`；真实模型由用户手动运行 `rtk go run ./cmd/herald chat --model <配置ID>`。测试命令：`rtk go test ./internal/tui/... ./internal/app/... ./internal/agent/... ./cmd/herald/...`。
+**目标演示命令：** `rtk go run ./cmd/plume chat --offline`；真实模型由用户手动运行 `rtk go run ./cmd/plume chat --model <配置ID>`。测试命令：`rtk go test ./internal/tui/... ./internal/app/... ./internal/agent/... ./cmd/plume/...`。
 
 ### G1b.3：SDK 流式消费、TUI 增量输出与取消
 
@@ -270,7 +270,7 @@ Trace 记录可观测输入输出、状态转移和实际工具执行，不承�
 
 ## 9. 目录与展示材料
 
-当前入口已经是 `cmd/herald/`，不是根目录 Hello World。`internal/config`、`setup`、`provider`、`channel`、`telemetry` 已存在，其余目录在对应单元逐步创建；不预建空实现。
+当前入口已经是 `cmd/plume/`，不是根目录 Hello World。`internal/config`、`setup`、`provider`、`channel`、`telemetry` 已存在，其余目录在对应单元逐步创建；不预建空实现。
 
 新增设计集中于 `internal/model/`（协议与传输）、`internal/tui/`（界面）、`internal/app/`（会话/run）、`internal/agent/`（循环）、`internal/tools/`、`internal/eval/`。应用接口不返回 openai-go、Bubble Tea 等第三方类型。后续 `internal/store`、`memory`、`skills` 各自另行审核。
 

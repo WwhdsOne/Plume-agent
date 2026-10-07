@@ -13,8 +13,8 @@ import (
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/option"
 
-	"herald-agent/internal/model"
-	"herald-agent/internal/model/endpoint"
+	"plume-agent/internal/model"
+	"plume-agent/internal/model/endpoint"
 )
 
 // Adapter 是 openai-chat-completions 协议适配器。每个模型配置构造

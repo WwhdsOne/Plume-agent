@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"herald-agent/internal/model"
+	"plume-agent/internal/model"
 )
 
 // mapCreds 是脚本化凭据源。

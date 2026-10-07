@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"strings"
 
-	"herald-agent/internal/channel"
-	"herald-agent/internal/config"
-	"herald-agent/internal/provider"
-	"herald-agent/internal/telemetry"
+	"plume-agent/internal/channel"
+	"plume-agent/internal/config"
+	"plume-agent/internal/provider"
+	"plume-agent/internal/telemetry"
 )
 
 // ErrCancelled 表示用户主动取消（Ctrl+C 或选择退出）。
@@ -28,7 +28,7 @@ type Result struct {
 	CredentialRef string // 本次新写入的凭据引用；沿用旧凭据时为空
 }
 
-// Prompter 抽象向导所需的交互。真实实现基于 huh，见 cmd/herald/prompter.go。
+// Prompter 抽象向导所需的交互。真实实现基于 huh，见 cmd/plume/prompter.go。
 type Prompter interface {
 	// SelectProvider 让用户从预设中选一个供应商。
 	SelectProvider(presets []provider.Preset, initial string) (provider.Preset, error)
@@ -294,7 +294,7 @@ func (w *Wizard) runChannel(res *Result) error {
 	if skip {
 		done(nil)
 		w.trace.Event("channel_skipped_explicitly", telemetry.Field("reason", "user chose to skip channels"))
-		return w.prompter.Note("暂不接入渠道", "已保存模型配置。你可以随时重新运行 herald setup 配置渠道；TUI 聊天现在即可使用。")
+		return w.prompter.Note("暂不接入渠道", "已保存模型配置。你可以随时重新运行 plume setup 配置渠道；TUI 聊天现在即可使用。")
 	}
 	if !chType.Enabled {
 		err := fmt.Errorf("channel %q is not available yet", chType.ID)

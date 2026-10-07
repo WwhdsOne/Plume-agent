@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"herald-agent/internal/model"
+	"plume-agent/internal/model"
 )
 
 const completionBody = `{

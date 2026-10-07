@@ -9,9 +9,9 @@ import (
 
 	"github.com/charmbracelet/huh"
 
-	"herald-agent/internal/channel"
-	"herald-agent/internal/provider"
-	"herald-agent/internal/setup"
+	"plume-agent/internal/channel"
+	"plume-agent/internal/provider"
+	"plume-agent/internal/setup"
 )
 
 // prompter 是 setup.Prompter 的终端实现。它只负责交互与取值，业务判断留在

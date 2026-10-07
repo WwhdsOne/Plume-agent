@@ -1,5 +1,5 @@
-// Command herald 是本地入口：终端输入 `herald` 直接打开聊天 TUI
-// （模仿 Hermes 的零参数体验）；`herald setup` 首次配置；G2a 起它还会
+// Command plume 是本地入口：终端输入 `plume` 直接打开聊天 TUI
+// （模仿 Hermes 的零参数体验）；`plume setup` 首次配置；G2a 起它还会
 // 承载微信网关命令 gateway setup/start/status。
 package main
 
@@ -12,22 +12,22 @@ import (
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 
-	"herald-agent/internal/channel"
-	"herald-agent/internal/config"
-	"herald-agent/internal/provider"
+	"plume-agent/internal/channel"
+	"plume-agent/internal/config"
+	"plume-agent/internal/provider"
 )
 
 func main() {
 	if err := newRootCmd().Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "herald: %v\n", err)
+		fmt.Fprintf(os.Stderr, "plume: %v\n", err)
 		os.Exit(1)
 	}
 }
 
 func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
-		Use:   "herald",
-		Short: "herald-agent：终端聊天优先的个人 Agent（输入 herald 直接进入聊天）",
+		Use:   "plume",
+		Short: "plume-agent：终端聊天优先的个人 Agent（输入 plume 直接进入聊天）",
 		// 错误由 main 统一打印一次；业务失败不该顺带打印整篇用法说明。
 		SilenceErrors: true,
 		SilenceUsage:  true,
@@ -46,10 +46,10 @@ func newRootCmd() *cobra.Command {
 				return fmt.Errorf("load config: %w", err)
 			}
 			if cfg.DefaultModel == "" {
-				return errors.New("config has no default_model; run `herald setup`")
+				return errors.New("config has no default_model; run `plume setup`")
 			}
 			if f, ok := out.(*os.File); ok && !isatty.IsTerminal(f.Fd()) && !isatty.IsCygwinTerminal(f.Fd()) {
-				return errors.New("herald needs an interactive terminal; try `herald chat --offline` for scripted output")
+				return errors.New("plume needs an interactive terminal; try `plume chat --offline` for scripted output")
 			}
 			// 配置就绪且在 TTY：模仿 Hermes，零参数直接进入聊天。
 			return startChat(out, "", false)
@@ -63,7 +63,7 @@ func newRootCmd() *cobra.Command {
 func hintIfUnconfigured(w io.Writer) {
 	if _, err := config.Load(); errors.Is(err, os.ErrNotExist) {
 		if path, perr := config.Path(); perr == nil {
-			fmt.Fprintf(w, "\nNo configuration found at %s. Run `herald setup` to create one.\n", path)
+			fmt.Fprintf(w, "\nNo configuration found at %s. Run `plume setup` to create one.\n", path)
 		}
 	}
 }

@@ -10,10 +10,10 @@ import (
 	"testing"
 )
 
-// runForTest 在隔离的 HERALD_HOME 下执行一次 CLI，返回合并后的输出与错误。
+// runForTest 在隔离的 PLUME_HOME 下执行一次 CLI，返回合并后的输出与错误。
 func runForTest(t *testing.T, args ...string) (string, error) {
 	t.Helper()
-	t.Setenv("HERALD_HOME", t.TempDir())
+	t.Setenv("PLUME_HOME", t.TempDir())
 	return runWith(t, strings.NewReader(""), args...)
 }
 
@@ -49,7 +49,7 @@ func TestVersion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("run() error = %v", err)
 	}
-	for _, want := range []string{"herald-agent", "commit", "built", "go", "platform"} {
+	for _, want := range []string{"plume-agent", "commit", "built", "go", "platform"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("version output does not contain %q:\n%s", want, out)
 		}
@@ -64,7 +64,7 @@ func TestVersionStringReportsInjectedValues(t *testing.T) {
 	version, commit, buildTime = "1.2.3", "abc1234-dirty", "2026-10-06T00:00:00Z"
 	out := versionString()
 	for _, want := range []string{
-		"herald-agent v1.2.3",
+		"plume-agent v1.2.3",
 		"abc1234-dirty",
 		"2026-10-06T00:00:00Z",
 		runtime.Version(),
@@ -86,7 +86,7 @@ func TestVersionStringIsHonestWhenUnstamped(t *testing.T) {
 	if strings.Contains(out, "vdev") {
 		t.Errorf("未打戳时不应拼出 vdev 这种伪版本号:\n%s", out)
 	}
-	for _, want := range []string{"herald-agent dev", "commit  none", "built   unknown"} {
+	for _, want := range []string{"plume-agent dev", "commit  none", "built   unknown"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("versionString() does not contain %q:\n%s", want, out)
 		}
@@ -103,7 +103,7 @@ func TestUnknownCommandFails(t *testing.T) {
 // 传入的不是 *os.File（因此不是 TTY）时必须立刻报错退出。
 func TestSetupRefusesNonInteractiveStdin(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("HERALD_HOME", dir)
+	t.Setenv("PLUME_HOME", dir)
 
 	_, err := runWith(t, strings.NewReader(""), "setup")
 	if err == nil {
@@ -120,14 +120,14 @@ func TestSetupRefusesNonInteractiveStdin(t *testing.T) {
 }
 
 // TestSetupRefusesCharDeviceThatIsNotATerminal 守住一个容易踩的坑：/dev/null 是字符
-// 设备但不是终端。用 os.ModeCharDevice 判断会让 `herald setup < /dev/null` 进入 huh
+// 设备但不是终端。用 os.ModeCharDevice 判断会让 `plume setup < /dev/null` 进入 huh
 // 并挂住，所以必须用真正的 isatty 判定。
 func TestSetupRefusesCharDeviceThatIsNotATerminal(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("/dev/null 是 POSIX 设备")
 	}
 	dir := t.TempDir()
-	t.Setenv("HERALD_HOME", dir)
+	t.Setenv("PLUME_HOME", dir)
 
 	devNull, err := os.Open(os.DevNull)
 	if err != nil {
@@ -143,9 +143,9 @@ func TestSetupRefusesCharDeviceThatIsNotATerminal(t *testing.T) {
 	}
 }
 
-func TestConfigPathUsesHeraldHome(t *testing.T) {
+func TestConfigPathUsesPlumeHome(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("HERALD_HOME", dir)
+	t.Setenv("PLUME_HOME", dir)
 
 	out, err := runWith(t, strings.NewReader(""), "config", "path")
 	if err != nil {
@@ -169,7 +169,7 @@ func TestConfigShowWithoutConfigIsNotAnError(t *testing.T) {
 // TestConfigShowRedactsSecretValues 是 G1a 的验收检查：CLI 永不打印凭据值。
 func TestConfigShowRedactsSecretValues(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("HERALD_HOME", dir)
+	t.Setenv("PLUME_HOME", dir)
 
 	const secret = "sk-test-DO-NOT-LEAK"
 	// 写一份引用了凭据的配置，以及一个取值可辨认的凭据文件。

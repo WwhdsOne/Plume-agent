@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	"herald-agent/internal/model"
+	"plume-agent/internal/model"
 )
 
 // 模型调用 trace 事件（0003 §9）。事件名保持英文，便于 grep 与测试断言。

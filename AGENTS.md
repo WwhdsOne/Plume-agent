@@ -1,7 +1,7 @@
 ---
 title: AGENTS.md
 status: active
-updated: 2026-10-06
+updated: 2026-10-07
 summary: 仓库长期快照：语言约定、审核制度、架构边界、codegraph MCP、依赖与文档维护规则；动手前必读
 ---
 
@@ -19,11 +19,11 @@ This file provides guidance to CodeBuddy Code when working with code in this rep
 
 ## 项目定位
 
-`herald-agent`：用 Go 构建的个人 Agent，首版入口是 **TUI 聊天界面**，不是微信登录。模型层传输与协议解析采用 **OpenAI 官方 Go SDK（openai-go）**，其上以协议适配器归一化（为未来 Anthropic/Gemini 协议预留同一接口），Agent 循环自研，不引入 Eino。微信 iLink Bot、飞书、QQ 属于后续渠道扩展。目标是展示完整执行链路与可复现的量化改造收益。
+`plume-agent`：用 Go 构建的个人 Agent，首版入口是 **TUI 聊天界面**，不是微信登录。模型层传输与协议解析采用 **OpenAI 官方 Go SDK（openai-go）**，其上以协议适配器归一化（为未来 Anthropic/Gemini 协议预留同一接口），Agent 循环自研，不引入 Eino。微信 iLink Bot、飞书、QQ 属于后续渠道扩展。目标是展示完整执行链路与可复现的量化改造收益。
 
 上述是 2026-10-06 更新的目标架构；当前代码仅完成 G0/G1a。实际实现与设计差异见「当前进度与禁区」，以 `docs/decisions/0003-model-runtime.md` 为新路线依据。
 
-模块名是 `herald-agent`，CLI 命令名是 `herald`。
+模块名是 `plume-agent`，CLI 命令名是 `plume`。
 
 ## 常用命令
 
@@ -36,14 +36,14 @@ go test -race ./...            # 竞态检测；提交前应通过
 go test ./internal/config -run TestSaveFailureKeepsExistingConfig   # 单个测试
 go test ./internal/config -v                                        # 单包详细输出
 
-./scripts/build.sh             # 构建带版本信息的 ./herald
+./scripts/build.sh             # 构建带版本信息的 ./plume
 ./scripts/build.sh --install   # 安装到 GOBIN
 ./scripts/build.sh --debug     # 保留符号表（默认为发布式 -s -w）
 
-go run ./cmd/herald setup              # 首次设置向导（需要交互式终端）
-go run ./cmd/herald config path
-go run ./cmd/herald config show        # 脱敏输出
-go run ./cmd/herald version
+go run ./cmd/plume setup              # 首次设置向导（需要交互式终端）
+go run ./cmd/plume config path
+go run ./cmd/plume config show        # 脱敏输出
+go run ./cmd/plume version
 ```
 
 - Go 1.27.1，`GOPROXY=https://goproxy.cn,direct`。
@@ -51,16 +51,16 @@ go run ./cmd/herald version
 
 ### 构建与版本注入
 
-**发布/安装一律走 `scripts/build.sh`，不要用裸 `go build`**——裸构建不会注入版本，`herald version` 会显示 `dev/unknown`。
+**发布/安装一律走 `scripts/build.sh`，不要用裸 `go build`**——裸构建不会注入版本，`plume version` 会显示 `dev/unknown`。
 
 - 版本号来自仓库根的 `VERSION` 文件（人工维护的语义版本），commit 取自 `git rev-parse --short HEAD`（工作区脏则加 `-dirty`），构建时间取当前 UTC。
-- 三个值经 `-ldflags -X main.{version,commit,buildTime}` 注入 `cmd/herald/version.go`；变量默认值是 `dev`/`none`/`unknown`，未打戳时**如实显示**，不伪造版本号。
+- 三个值经 `-ldflags -X main.{version,commit,buildTime}` 注入 `cmd/plume/version.go`；变量默认值是 `dev`/`none`/`unknown`，未打戳时**如实显示**，不伪造版本号。
 - 默认加 `-s -w`：约 6.75 MB；不加约 9.75 MB。
 - 仓库根没有 git tag，所以 `git describe` 不可用——这是选 `VERSION` 文件而非 tag 驱动的原因。
 
 ### 验证交互式向导
 
-`herald setup` 需要 TTY，非交互环境会直接报错退出（这是刻意行为，不是缺陷）。要在脚本里跑通完整流程，需要分配 pty **并应答终端能力查询**（`ESC]11;?`、`ESC[6n`），否则 termenv 会超时报错：
+`plume setup` 需要 TTY，非交互环境会直接报错退出（这是刻意行为，不是缺陷）。要在脚本里跑通完整流程，需要分配 pty **并应答终端能力查询**（`ESC]11;?`、`ESC[6n`），否则 termenv 会超时报错：
 
 ```
 OSC 11 背景色查询 -> 回 \x1b]11;rgb:0000/0000/0000\x1b\\
@@ -71,10 +71,10 @@ ESC[6n 光标位置   -> 回 \x1b[1;1R
 
 ### 开发时不要污染真实配置
 
-配置目录默认是 `~/.herald`。测试通过 `t.Setenv("HERALD_HOME", t.TempDir())` 隔离；手工试验时同样设置 `HERALD_HOME` 指向临时目录：
+配置目录默认是 `~/.plume`。测试通过 `t.Setenv("PLUME_HOME", t.TempDir())` 隔离；手工试验时同样设置 `PLUME_HOME` 指向临时目录：
 
 ```bash
-HERALD_HOME=$(mktemp -d) go run ./cmd/herald config show
+PLUME_HOME=$(mktemp -d) go run ./cmd/plume config show
 ```
 
 ### codegraph MCP（代码图谱，2026-10-06 接入）
@@ -185,7 +185,7 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 
 | 目录 | 职责与边界 |
 | --- | --- |
-| `cmd/herald/` | CLI 入口与命令分发；不承载业务逻辑 |
+| `cmd/plume/` | CLI 入口与命令分发；不承载业务逻辑 |
 | `internal/config/` | 配置 schema、校验、原子持久化、凭据引用；不承载 Agent 逻辑 |
 | `internal/setup/` | 首次设置向导的流程；只依赖 `Prompter` 接口，不依赖终端库 |
 | `internal/provider/` | 预设、ModelFactory 装配适配器、显式 Probe、凭据解析接口；保持零依赖（不 import config） |
@@ -203,18 +203,18 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 
 **2. `internal/config` 通过小接口做校验，不 import `provider`/`channel`。** 见 `config.go` 的 `ProviderCatalog`/`ChannelCatalog`。此 seam 隔离预设校验与未来模型 SDK/协议实现，让配置测试不需要联网。**新增校验沿用这条约定；模型消费接口不暴露 openai-go/TUI 类型。**
 
-**3. 配置里永不出现密钥值。** `~/.herald/config.json` 只存 `api_key_ref` 这类引用；密钥本身在 `~/.herald/credentials/`（目录 0700、文件 0600）。`config show` 只输出"已设置/未设置 (ref: …)"。token、二维码内容、登录 URL 同样不得进入日志或 trace。
+**3. 配置里永不出现密钥值。** `~/.plume/config.json` 只存 `api_key_ref` 这类引用；密钥本身在 `~/.plume/credentials/`（目录 0700、文件 0600）。`config show` 只输出"已设置/未设置 (ref: …)"。token、二维码内容、登录 URL 同样不得进入日志或 trace。
 
 ### 配置目录解析
 
-`HERALD_HOME`（展开 `~` 与 `$VAR`）→ 否则 POSIX `~/.herald` → 否则 Windows `%LOCALAPPDATA%\herald`。
+`PLUME_HOME`（展开 `~` 与 `$VAR`）→ 否则 POSIX `~/.plume` → 否则 Windows `%LOCALAPPDATA%\plume`。
 
 **不使用 `os.UserConfigDir()`**：macOS 上它落到 `~/Library/Application Support`（含空格，且与 Hermes/Codex 的约定的家目录点目录不一致）。Hermes/Codex 分别用 `~/.hermes`(`HERMES_HOME`)、`~/.codex`(`CODEX_HOME`)。
 
 目录布局：
 
 ```text
-~/.herald/
+~/.plume/
   config.json          # 含 schema_version，非敏感
   credentials/         # 0700，文件 0600
   logs/                # 0700；setup.jsonl 等结构化 trace，文件 0600
@@ -233,18 +233,18 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 
 ### 命令行层
 
-- CLI 用 `github.com/spf13/cobra`（G1a-2 引入 `v1.10.2`）。命令构造集中在 `cmd/herald/{main,setup,config}.go`，每个命令一个 `newXxxCmd()`；`SilenceErrors`/`SilenceUsage` 都开着，错误只由 `main` 打印一次。
+- CLI 用 `github.com/spf13/cobra`（G1a-2 引入 `v1.10.2`）。命令构造集中在 `cmd/plume/{main,setup,config}.go`，每个命令一个 `newXxxCmd()`；`SilenceErrors`/`SilenceUsage` 都开着，错误只由 `main` 打印一次。
 - **业务逻辑不写进 cobra 的 `RunE`**：`RunE` 只做参数取值与转发（`cmd.InOrStdin()` / `cmd.OutOrStdout()`），实现留在 `internal/`。
 
 ### 交互层
 
-- **设置表单**用 huh（G1a-2 引入 `v1.0.0`），只出现在 `cmd/herald/prompter.go`；不能把现有表单称为聊天 TUI。**v2 迁移（`charm.land/huh/v2`）已立项 G1b.2.1，随终端栈整体升级。**
+- **设置表单**用 huh（G1a-2 引入 `v1.0.0`），只出现在 `cmd/plume/prompter.go`；不能把现有表单称为聊天 TUI。**v2 迁移（`charm.land/huh/v2`）已立项 G1b.2.1，随终端栈整体升级。**
 - **聊天 TUI（G1b.2 已实现）**当前用 Bubble Tea v1（bubbles v0.21.1 连带 bubbletea v1.3.10、lipgloss v1.1.0）。**终端栈升级 v2（`charm.land/*` 全家桶，全部 GA）已随 G1b.2.1 立项**：先迁 v2 保持行为不变，再落键位契约（Shift+Enter 三层渐进、Ctrl+C 三段语义、KeyMap 平台抽象），契约见 `docs/tui-keys.md`。`internal/tui` 的 Model/Update 是纯状态转移，副作用只经 `Hooks` 注入；`TeaModel` 是到 tea.Model 的适配层（指针接收者，`tea.NewProgram(&tui.TeaModel{...})` 传指针）。普通日志/trace 写文件，不破坏屏幕；模型输出经 `sanitize` 过滤终端控制序列后才渲染。
-- 未来裸 `herald` 默认进入 TUI，缺配置提示 setup；`herald chat --offline` 不需要配置/Key。setup 计划增加「暂不接入渠道」，不伪造渠道账号、不要求扫码、不清理旧渠道。**G1b.2 已实现以上行为（待审核）**：裸 `herald` 配置就绪+TTY 直接进入聊天。
+- 未来裸 `plume` 默认进入 TUI，缺配置提示 setup；`plume chat --offline` 不需要配置/Key。setup 计划增加「暂不接入渠道」，不伪造渠道账号、不要求扫码、不清理旧渠道。**G1b.2 已实现以上行为（待审核）**：裸 `plume` 配置就绪+TTY 直接进入聊天。
 - **向导流程与终端库分离**：`internal/setup` 只依赖 `Prompter` 接口，新增一步交互时先加接口方法，再在 `prompter.go` 实现，不要把 huh 的类型渗进 `internal/setup`。
 - **Base URL 不再逐次询问**（2026-10-06）：有预填默认值的预设直接跳过；只有无默认值的预设才问。已有配置里的地址与默认值不同时**原样保留**，不要"顺手"重置——`TestWizardPreservesExistingNonDefaultBaseURL` 守住这条。
 - **模型走列表选择**：模型 ID 来自 `provider.Preset.Models`，列表末尾附"自定义…"才落到文本输入。新增预设时把候选模型写进 `Models`。
-- 没有 TTY 时**先判断再退出**，不要进入 huh 让它阻塞。判定必须用 `mattn/go-isatty` 的 `IsTerminal`／`IsCygwinTerminal`，**不要用 `os.ModeCharDevice`**——`/dev/null` 也是字符设备，用它判断会让 `herald setup < /dev/null` 进入 huh 并挂住（已由 `TestSetupRefusesCharDeviceThatIsNotATerminal` 守住）。
+- 没有 TTY 时**先判断再退出**，不要进入 huh 让它阻塞。判定必须用 `mattn/go-isatty` 的 `IsTerminal`／`IsCygwinTerminal`，**不要用 `os.ModeCharDevice`**——`/dev/null` 也是字符设备，用它判断会让 `plume setup < /dev/null` 进入 huh 并挂住（已由 `TestSetupRefusesCharDeviceThatIsNotATerminal` 守住）。
 - 在 pty 里跑向导必须应答终端能力查询，否则 termenv 超时退出（见「验证交互式向导」）。
 
 ## 文档地图
@@ -266,7 +266,7 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 
 ## 当前进度与禁区
 
-已完成：G0（计划与可行性，含 `docs/decisions/` 两份决策）、**G1a（首次设置向导与配置边界，已通过）**——含 `internal/config`、`internal/provider`、`internal/channel`、`internal/setup`、`internal/telemetry`、`cmd/herald` 的 cobra 命令树与 `herald setup`。**G1b.1（OpenAI SDK 非流式模型接口，已通过）**——含 `internal/model/`（契约、endpoint、openai/deepseek 适配器、fake）、`internal/provider` 工厂与 probe、`internal/telemetry` 模型 trace、`eval/datasets/smoke.v1.jsonl` 与 runner。**G1b.2（最小可交互 TUI 与多轮会话，已通过）**——含 `internal/tui`（Bubble Tea 聊天界面）、`internal/app`（会话与 run 生命周期）、`internal/agent`（最小单轮）、`internal/model` LoopFake、`herald chat`/裸 `herald` 入口、`--offline`、setup「暂不接入渠道」、README 与 TUI runbook。审核期间修复了模型名装配 bug（agent 绑定 API 模型名而非配置 ID，`buildRuntime` 测试守住）。
+已完成：G0（计划与可行性，含 `docs/decisions/` 两份决策）、**G1a（首次设置向导与配置边界，已通过）**——含 `internal/config`、`internal/provider`、`internal/channel`、`internal/setup`、`internal/telemetry`、`cmd/plume` 的 cobra 命令树与 `plume setup`。**G1b.1（OpenAI SDK 非流式模型接口，已通过）**——含 `internal/model/`（契约、endpoint、openai/deepseek 适配器、fake）、`internal/provider` 工厂与 probe、`internal/telemetry` 模型 trace、`eval/datasets/smoke.v1.jsonl` 与 runner。**G1b.2（最小可交互 TUI 与多轮会话，已通过）**——含 `internal/tui`（Bubble Tea 聊天界面）、`internal/app`（会话与 run 生命周期）、`internal/agent`（最小单轮）、`internal/model` LoopFake、`plume chat`/裸 `plume` 入口、`--offline`、setup「暂不接入渠道」、README 与 TUI runbook。审核期间修复了模型名装配 bug（agent 绑定 API 模型名而非配置 ID，`buildRuntime` 测试守住）。
 
 **尚未实现，不要假设存在**：
 
@@ -274,7 +274,7 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 - **流式模型调用**（`Client.Stream` 当前一律返回 unsupported，G1b.3 启用）、**工具循环与工具声明**（请求携带 tools 返回 unsupported，G3）、cmd/eval 比较命令。
 - 聊天 run 事件的落盘 trace（UI 当前消费内存事件）；模型独立就绪校验（启动只校验配置与凭据存在，不发探测请求）。
 - `internal/tools/`、`internal/store/`。
-- 微信扫码登录与收发；网关命令 `herald gateway …`（第二阶段 G2a）。向导里微信只记录为"待登录"。
+- 微信扫码登录与收发；网关命令 `plume gateway …`（第二阶段 G2a）。向导里微信只记录为"待登录"。
 - 根目录 `README.md` 已于 G1b.2 建立；`.claude/` 下**没有**规则文件。
 
 ### 外部依赖
@@ -295,6 +295,6 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 ### 与需求文档的常见偏差
 
 - 百炼/Qwen 与原生协议供应商**已明确延后**，`TestDeferredPresetsAreAbsent` 会拦截其意外回归。
-- 计划里提到的 `herald gateway setup/start/status`、`cmd/eval` 都是**待实现**，不代表可用。
+- 计划里提到的 `plume gateway setup/start/status`、`cmd/eval` 都是**待实现**，不代表可用。
 - 代码中的 Eino 注释与 `Preset.Component` 已于 2026-10-06 清理完毕；CLI 入口简介与 setup 渠道步骤已于 G1b.2 同步为 TUI 优先/可选跳过。不能据此恢复旧路线，也不能声称文档变更已经实现新行为。
 - 根目录 `README.md` 已于 G1b.2 建立；`.claude/` 下**没有**规则文件。

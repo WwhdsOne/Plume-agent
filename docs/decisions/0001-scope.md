@@ -1,14 +1,14 @@
 ---
 title: 0001 范围、供应商预设与配置边界（G0）
 status: superseded-part
-updated: 2026-10-06
+updated: 2026-10-07
 summary: G0 范围决策：两家预设、配置边界、评测预算、运行环境；Eino 组件绑定已由 0003 替代
 ---
 
 # 0001 范围、供应商预设与配置边界（G0）
 
 - 状态：G0 历史决策（2026-10-06 通过）；模型实现路线已由 [0003](0003-model-runtime.md) 部分替代
-- 用户已确认：目录用 `~/.herald/`；首批只启用 2 个预设（DeepSeek + 自定义兼容服务，百炼/Qwen 延后）；单次联网评测无费用上限；本机（含 TUN 代理）可用于评测
+- 用户已确认：目录用 `~/.plume/`；首批只启用 2 个预设（DeepSeek + 自定义兼容服务，百炼/Qwen 延后）；单次联网评测无费用上限；本机（含 TUN 代理）可用于评测
 - 日期：2026-10-06
 - 关联：`docs/phase-01-tui-agent.md`（当前首阶段）、`docs/phase-02-channel-gateway.md`（后续渠道）、`docs/decisions/0002-wechat.md`（微信调研）
 - 复核口径：所有 Base URL 于 2026-10-06 现场复核，来源见下表；Eino 适配路径以 `cloudwego/eino-ext` 仓库 `main` 的目录清单为准，具体版本在 G1b 编译验证后锁定。
@@ -90,16 +90,16 @@ G0 需要冻结四件事，作为 G1a/G1b 的输入：
 
 解析顺序：
 
-1. 环境变量 `HERALD_HOME` 非空 → 用它（展开 `~` 与 `$VAR`）。
-2. 否则 POSIX：`~/.herald`。
-3. 否则 Windows：`%LOCALAPPDATA%\herald`（无 `LOCALAPPDATA` 时回退 `%USERPROFILE%\AppData\Local\herald`）。
+1. 环境变量 `PLUME_HOME` 非空 → 用它（展开 `~` 与 `$VAR`）。
+2. 否则 POSIX：`~/.plume`。
+3. 否则 Windows：`%LOCALAPPDATA%\plume`（无 `LOCALAPPDATA` 时回退 `%USERPROFILE%\AppData\Local\plume`）。
 
-对齐依据：Hermes 默认 `~/.hermes`（`HERMES_HOME` 覆盖，见其 `hermes_constants.py:_get_platform_default_hermes_home()`），Codex 默认 `~/.codex`（`CODEX_HOME` 覆盖）。命名用 `.herald` 与命令名 `herald` 一致。
+对齐依据：Hermes 默认 `~/.hermes`（`HERMES_HOME` 覆盖，见其 `hermes_constants.py:_get_platform_default_hermes_home()`），Codex 默认 `~/.codex`（`CODEX_HOME` 覆盖）。命名用 `.plume` 与命令名 `plume` 一致。
 
 目录布局（全部内容集中在此，便于备份与清理）：
 
 ```text
-~/.herald/
+~/.plume/
   config.json          # 非敏感配置，含 schema_version
   credentials/         # 0700
     <...>              # 凭据文件 0600
@@ -108,7 +108,7 @@ G0 需要冻结四件事，作为 G1a/G1b 的输入：
 
 - 非敏感配置：带 `schema_version` 的 `config.json`。
 - 敏感凭据：同目录 `credentials/`，目录权限 `0700`、文件权限 `0600`（类 Unix）；明文 Key 不混入普通配置、不进入日志与 trace。
-- 后续允许用命令行标志显式指定目录（覆盖 `HERALD_HOME`）；首版只实现环境变量与默认值。
+- 后续允许用命令行标志显式指定目录（覆盖 `PLUME_HOME`）；首版只实现环境变量与默认值。
 - 首次运行创建目录时按上述权限设置；已存在但权限过宽时告警，不静默放宽。
 
 字段（首版）：
@@ -172,6 +172,6 @@ G0 需要冻结四件事，作为 G1a/G1b 的输入：
 ## 5. 确认状态（G0 关闭条件）
 
 - [x] 冻结首批 2 个供应商预设（`deepseek` / `custom-openai`）：分别绑定 `components/model/deepseek` 与 `components/model/openai`，`protocol` 存适配器 ID；百炼/Qwen 及其他供应商延后。（2026-10-06 用户确认）
-- [x] 配置目录：`HERALD_HOME` → `~/.herald`（POSIX）/ `%LOCALAPPDATA%\herald`（Windows）。（2026-10-06 用户确认）
+- [x] 配置目录：`PLUME_HOME` → `~/.plume`（POSIX）/ `%LOCALAPPDATA%\plume`（Windows）。（2026-10-06 用户确认）
 - [x] 评测预算：单次联网评测无费用上限，本机（含 TUN 代理）可作评测环境。（2026-10-06 用户确认）
 - [x] 用户审核通过 G0，进入 G1a。（2026-10-06）

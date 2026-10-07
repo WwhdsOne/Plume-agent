@@ -1,26 +1,26 @@
 ---
-title: Runbook：herald setup
+title: Runbook：plume setup
 status: active
-updated: 2026-10-06
+updated: 2026-10-07
 summary: 首次设置向导的启动、验证、重置与 7 类故障复现（G1a 交付版本）
 ---
 
-# Runbook：herald setup
+# Runbook：plume setup
 
 首次设置向导的启动、验证与故障复现。适用于 G1a 交付的版本。
 
-> 路线更新：项目首版已改为 TUI，但本文仍描述当前已交付的 G1a 命令。`herald chat` 和跳过渠道的目标流程尚未实现；实现后再更新本 runbook，不能按计划假设当前已有聊天功能。
+> 路线更新：项目首版已改为 TUI，但本文仍描述当前已交付的 G1a 命令。`plume chat` 和跳过渠道的目标流程尚未实现；实现后再更新本 runbook，不能按计划假设当前已有聊天功能。
 
 ## 前置
 
 - **交互式终端**。向导用 huh 渲染 ↑/↓ 菜单，非 TTY 会直接报错退出（见下）。
 - 安装二进制：`./scripts/build.sh --install`（不要用裸 `go build`，那样没有版本信息）。
-- 只想试一下、不想动真实配置：`HERALD_HOME=$(mktemp -d) herald setup`。
+- 只想试一下、不想动真实配置：`PLUME_HOME=$(mktemp -d) plume setup`。
 
 ## 正常流程
 
 ```bash
-herald setup
+plume setup
 ```
 
 | 步骤 | 交互 | 说明 |
@@ -39,7 +39,7 @@ Ctrl+C 可取消当前步骤：模型配置保存前取消，不提交本轮模�
 ## 产物位置
 
 ```text
-~/.herald/                    0700
+~/.plume/                    0700
   config.json                 0600   非敏感配置（含 schema_version）
   credentials/                0700
     deepseek-default          0600   密钥本体
@@ -47,24 +47,24 @@ Ctrl+C 可取消当前步骤：模型配置保存前取消，不提交本轮模�
     setup.jsonl               0600   结构化 trace（JSON Lines）
 ```
 
-`HERALD_HOME` 可覆盖整个位置；未设置时 POSIX 用 `~/.herald`，Windows 用 `%LOCALAPPDATA%\herald`。
+`PLUME_HOME` 可覆盖整个位置；未设置时 POSIX 用 `~/.plume`，Windows 用 `%LOCALAPPDATA%\plume`。
 
 ## 验证
 
 ```bash
-herald config show        # 脱敏输出：凭据只显示「已设置 (ref: ...)」
-ls -l ~/.herald ~/.herald/credentials
+plume config show        # 脱敏输出：凭据只显示「已设置 (ref: ...)」
+ls -l ~/.plume ~/.plume/credentials
 
 # 确认密钥没有进入非敏感文件
-grep -c 'sk-' ~/.herald/config.json      # 期望 0
-grep -c 'sk-' ~/.herald/logs/setup.jsonl # 期望 0
+grep -c 'sk-' ~/.plume/config.json      # 期望 0
+grep -c 'sk-' ~/.plume/logs/setup.jsonl # 期望 0
 ```
 
 ## 重置
 
 ```bash
-rm -rf ~/.herald          # 完全重置
-herald setup              # 重新配置
+rm -rf ~/.plume          # 完全重置
+plume setup              # 重新配置
 ```
 
 ## 故障复现与排查
@@ -72,8 +72,8 @@ herald setup              # 重新配置
 ### 1. 非交互终端直接报错
 
 ```bash
-herald setup < /dev/null
-# herald: setup needs an interactive terminal, but stdin is not a TTY; run `herald setup` in a shell (config path: ...)
+plume setup < /dev/null
+# plume: setup needs an interactive terminal, but stdin is not a TTY; run `plume setup` in a shell (config path: ...)
 # exit 1
 ```
 
@@ -97,8 +97,8 @@ herald setup < /dev/null
 向导对**有默认值**的预设不再询问地址。要改就直接编辑：
 
 ```bash
-$EDITOR ~/.herald/config.json      # 改 models[].base_url
-herald config show                  # 确认
+$EDITOR ~/.plume/config.json      # 改 models[].base_url
+plume config show                  # 确认
 ```
 
 注意：重进向导**不会**把已有地址重置回默认值（这条有测试守住）；但向导也不提供输入入口。
@@ -106,8 +106,8 @@ herald config show                  # 确认
 ### 4. 查看某次设置的 trace
 
 ```bash
-tail -n 20 ~/.herald/logs/setup.jsonl
-grep '"setup_id":"setup-20261006T051836-001"' ~/.herald/logs/setup.jsonl
+tail -n 20 ~/.plume/logs/setup.jsonl
+grep '"setup_id":"setup-20261006T051836-001"' ~/.plume/logs/setup.jsonl
 ```
 
 一次运行的事件链：`setup_start → 各 step → setup_completed`，每个 step 带 `duration_ms` 与 `status`。
@@ -118,8 +118,8 @@ grep '"setup_id":"setup-20261006T051836-001"' ~/.herald/logs/setup.jsonl
 `credentials/` 权限过宽时只**告警**、不静默收紧：
 
 ```bash
-chmod 755 ~/.herald/credentials
-herald setup    # 会打印一条 chmod 700 的建议，但不改
+chmod 755 ~/.plume/credentials
+plume setup    # 会打印一条 chmod 700 的建议，但不改
 ```
 
 ### 6. 换供应商后旧 Key 还能用吗

@@ -10,15 +10,15 @@ import (
 	"testing"
 )
 
-// withTempDir 把 HERALD_HOME 指向一个全新目录，确保没有测试会碰到开发者真实的 ~/.herald。
+// withTempDir 把 PLUME_HOME 指向一个全新目录，确保没有测试会碰到开发者真实的 ~/.plume。
 func withTempDir(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	t.Setenv("HERALD_HOME", dir)
+	t.Setenv("PLUME_HOME", dir)
 	return dir
 }
 
-func TestDirHonorsHeraldHome(t *testing.T) {
+func TestDirHonorsPlumeHome(t *testing.T) {
 	dir := withTempDir(t)
 	got, err := Dir()
 	if err != nil {
@@ -29,25 +29,25 @@ func TestDirHonorsHeraldHome(t *testing.T) {
 	}
 }
 
-func TestDirExpandsTildeInHeraldHome(t *testing.T) {
+func TestDirExpandsTildeInPlumeHome(t *testing.T) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		t.Skipf("no home directory: %v", err)
 	}
-	t.Setenv("HERALD_HOME", "~/herald-test-home")
+	t.Setenv("PLUME_HOME", "~/plume-test-home")
 	got, err := Dir()
 	if err != nil {
 		t.Fatalf("Dir() error = %v", err)
 	}
-	if want := filepath.Join(home, "herald-test-home"); got != want {
+	if want := filepath.Join(home, "plume-test-home"); got != want {
 		t.Fatalf("Dir() = %q, want %q", got, want)
 	}
 }
 
-func TestDirExpandsEnvVarInHeraldHome(t *testing.T) {
+func TestDirExpandsEnvVarInPlumeHome(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("HERALD_TEST_BASE", dir)
-	t.Setenv("HERALD_HOME", "$HERALD_TEST_BASE/sub")
+	t.Setenv("PLUME_TEST_BASE", dir)
+	t.Setenv("PLUME_HOME", "$PLUME_TEST_BASE/sub")
 	got, err := Dir()
 	if err != nil {
 		t.Fatalf("Dir() error = %v", err)

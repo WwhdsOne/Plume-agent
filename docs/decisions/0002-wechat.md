@@ -1,7 +1,7 @@
 ---
 title: 0002 微信 iLink Bot 接入验证（G0）
 status: historical
-updated: 2026-10-06
+updated: 2026-10-07
 summary: 微信 iLink Bot 参考实现的接口快照与 fixture 设计；第二阶段实施前须重新复核
 ---
 

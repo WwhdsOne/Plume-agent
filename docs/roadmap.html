@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <!--
-title: herald-agent 路线图
+title: plume-agent 路线图
 status: active
-updated: 2026-10-06
+updated: 2026-10-07
 summary: 数据驱动的树状路线图页面：13 个审核单元的状态快照；维护约定见 AGENTS.md
 -->
 
@@ -10,7 +10,7 @@ summary: 数据驱动的树状路线图页面：13 个审核单元的状态快�
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>herald-agent 路线图</title>
+<title>plume-agent 路线图</title>
 <style>
   :root {
     /* 4 态色系统 */
@@ -162,7 +162,7 @@ summary: 数据驱动的树状路线图页面：13 个审核单元的状态快�
 <body>
 <div class="wrap">
   <header>
-    <h1>herald-agent 路线图</h1>
+    <h1>plume-agent 路线图</h1>
     <p class="meta">状态来源：AGENTS.md「当前进度与禁区」与 docs/reviews/ · 更新方法见页面底部 · 打开日期：<span id="generated-at"></span></p>
   </header>
 
@@ -205,7 +205,7 @@ const ROADMAP = [
         { id: "G1b.1", title: "OpenAI SDK 请求、非流式解析与可测量模型接口", status: "passed",
           desc: "锁 openai-go v1.12.0（禁自动重试）、协议适配器与工厂、httptest 断言、12 个离线种子", updated: "2026-10-06" },
         { id: "G1b.2", title: "最小可交互 TUI 与多轮会话", status: "passed",
-          desc: "Bubble Tea 聊天界面、herald/chat 入口、「暂不接入渠道」、run 事件", updated: "2026-10-06" },
+          desc: "Bubble Tea 聊天界面、plume/chat 入口、「暂不接入渠道」、run 事件", updated: "2026-10-06" },
         { id: "G1b.2.1", title: "终端栈升级 v2 与键位重设计", status: "todo",
           desc: "charm.land v2 全家桶迁移（huh 同步）+ 对齐 Codex/Claude Code 键位（Shift+Enter 三层渐进、Ctrl+C 三段、草稿历史、KeyMap 抽象为 Windows 预留）", updated: "2026-10-06" },
         { id: "G1b.3", title: "SDK 流式消费与增量输出", status: "todo",

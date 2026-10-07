@@ -7,8 +7,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"herald-agent/internal/app"
-	"herald-agent/internal/model"
+	"plume-agent/internal/app"
+	"plume-agent/internal/model"
 )
 
 func newTestModel(t *testing.T, hooks Hooks) Model {
@@ -34,18 +34,18 @@ func TestSubmitSendsInputAndShowsUserLine(t *testing.T) {
 		return "run-000001", nil
 	}}
 	m := newTestModel(t, hooks)
-	m.input.SetValue("  hello herald  ")
+	m.input.SetValue("  hello plume  ")
 
 	updated, _ := m.Update(specialKey(tea.KeyEnter))
 	m = updated
 
-	if got, _ := submitted.Load().(string); got != "hello herald" {
+	if got, _ := submitted.Load().(string); got != "hello plume" {
 		t.Errorf("submit input = %q, want trimmed text", got)
 	}
 	if m.state != stateRunning || m.runID != "run-000001" {
 		t.Errorf("state = %s runID = %q, want running", m.state, m.runID)
 	}
-	if len(m.lines) != 1 || m.lines[0].kind != lineUser || m.lines[0].text != "hello herald" {
+	if len(m.lines) != 1 || m.lines[0].kind != lineUser || m.lines[0].text != "hello plume" {
 		t.Errorf("lines = %+v, want one user line", m.lines)
 	}
 	if m.input.Value() != "" {

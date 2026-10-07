@@ -18,9 +18,9 @@ import (
 	"testing"
 	"time"
 
-	"herald-agent/internal/model"
-	"herald-agent/internal/model/openai"
-	"herald-agent/internal/telemetry"
+	"plume-agent/internal/model"
+	"plume-agent/internal/model/openai"
+	"plume-agent/internal/telemetry"
 )
 
 // smokeCase 对应数据集一行的结构。

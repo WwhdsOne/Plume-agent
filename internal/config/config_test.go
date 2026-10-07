@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"herald-agent/internal/channel"
-	"herald-agent/internal/provider"
+	"plume-agent/internal/channel"
+	"plume-agent/internal/provider"
 )
 
 func catalogs() (*provider.Registry, *channel.Registry) {

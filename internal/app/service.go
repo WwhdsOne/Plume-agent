@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"herald-agent/internal/agent"
-	"herald-agent/internal/model"
+	"plume-agent/internal/agent"
+	"plume-agent/internal/model"
 )
 
 // EventKind 是 app 推送给 UI 的事件类别。一次 run 恰好一个终态事件。

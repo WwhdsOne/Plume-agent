@@ -15,7 +15,7 @@ import (
 
 	"github.com/openai/openai-go/option"
 
-	"herald-agent/internal/model"
+	"plume-agent/internal/model"
 )
 
 // MaxResponseBytes 是非流式响应体声明的上限（0003 §4：8 MiB）。

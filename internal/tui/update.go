@@ -8,8 +8,8 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"herald-agent/internal/app"
-	"herald-agent/internal/model"
+	"plume-agent/internal/app"
+	"plume-agent/internal/model"
 )
 
 // Update 处理按键、窗口尺寸与 app 事件。它是纯状态转移：

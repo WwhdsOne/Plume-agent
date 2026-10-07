@@ -1,7 +1,7 @@
 ---
 title: G1b.1 审核记录：OpenAI SDK 请求、非流式解析与可测量模型接口
 status: passed
-updated: 2026-10-06
+updated: 2026-10-07
 summary: G1b.1 交付：模型契约与 openai-chat-completions 适配器、端点安全策略、工厂/probe、模型 trace、12 个离线种子；已通过审核
 ---
 
@@ -41,13 +41,13 @@ summary: G1b.1 交付：模型契约与 openai-chat-completions 适配器、端�
 
 ```
 go test -timeout 120s ./internal/model/... ./internal/provider/... ./internal/telemetry/... ./internal/eval/...
-ok  herald-agent/internal/model          (cached)
-ok  herald-agent/internal/model/deepseek 1.049s
-ok  herald-agent/internal/model/endpoint 2.508s
-ok  herald-agent/internal/model/openai   4.947s
-ok  herald-agent/internal/provider       0.625s
-ok  herald-agent/internal/telemetry      (cached)
-ok  herald-agent/internal/eval           5.630s
+ok  plume-agent/internal/model          (cached)
+ok  plume-agent/internal/model/deepseek 1.049s
+ok  plume-agent/internal/model/endpoint 2.508s
+ok  plume-agent/internal/model/openai   4.947s
+ok  plume-agent/internal/provider       0.625s
+ok  plume-agent/internal/telemetry      (cached)
+ok  plume-agent/internal/eval           5.630s
 ```
 
 覆盖要点：URL 路径变体（根地址//v1/尾斜线/代理前缀，不猜补 /v1）；Bearer 鉴权与空 key 不发送任何鉴权头（含环境变量泄漏防护）；**禁自动重试**（500 只发 1 次，SDK 默认重试 2 次）；**禁重定向**（301/302 只发 1 次且不转往他址）；Content-Length 超限拒绝（response_too_large）；usage 缺失记 unknown 不当 0；choices≠1 拒绝；401/403→authentication、429→rate_limited、5xx→upstream、其余 4xx→invalid_response、非 JSON/畸形 JSON→invalid_response、超时→timeout、取消→cancelled。

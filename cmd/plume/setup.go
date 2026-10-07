@@ -10,9 +10,9 @@ import (
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 
-	"herald-agent/internal/config"
-	"herald-agent/internal/setup"
-	"herald-agent/internal/telemetry"
+	"plume-agent/internal/config"
+	"plume-agent/internal/setup"
+	"plume-agent/internal/telemetry"
 )
 
 func newSetupCmd() *cobra.Command {
@@ -34,7 +34,7 @@ func runSetup(stdin io.Reader, stdout, stderr io.Writer) error {
 	inFile, isFile := stdin.(*os.File)
 	if !isFile || !isTerminal(inFile) {
 		path, _ := config.Path()
-		return fmt.Errorf("setup needs an interactive terminal, but stdin is not a TTY; run `herald setup` in a shell (config path: %s)", path)
+		return fmt.Errorf("setup needs an interactive terminal, but stdin is not a TTY; run `plume setup` in a shell (config path: %s)", path)
 	}
 	outFile, isOutFile := stdout.(*os.File)
 	if !isOutFile {
@@ -44,7 +44,7 @@ func runSetup(stdin io.Reader, stdout, stderr io.Writer) error {
 	trace, tracePath, err := openSetupTrace()
 	if err != nil {
 		// trace 打不开不该阻止用户完成设置，但要让用户知道这次没有 trace。
-		fmt.Fprintf(stderr, "herald: 无法写入 setup trace: %v\n", err)
+		fmt.Fprintf(stderr, "plume: 无法写入 setup trace: %v\n", err)
 	}
 	var recorder *telemetry.SetupRecorder
 	if trace != nil {
@@ -69,7 +69,7 @@ func runSetup(stdin io.Reader, stdout, stderr io.Writer) error {
 		fmt.Fprintln(stdout, "\n已取消，磁盘上未写入任何内容。")
 		return nil
 	case errors.Is(runErr, setup.ErrChannelSkipped):
-		fmt.Fprintln(stdout, "\n渠道步骤已跳过。模型配置已保存，可以先做本地调试；稍后重跑 `herald setup` 继续。")
+		fmt.Fprintln(stdout, "\n渠道步骤已跳过。模型配置已保存，可以先做本地调试；稍后重跑 `plume setup` 继续。")
 	case runErr != nil:
 		return runErr
 	}
@@ -78,7 +78,7 @@ func runSetup(stdin io.Reader, stdout, stderr io.Writer) error {
 	return nil
 }
 
-// openSetupTrace 以追加方式打开 ~/.herald/logs/setup.jsonl。
+// openSetupTrace 以追加方式打开 ~/.plume/logs/setup.jsonl。
 func openSetupTrace() (*os.File, string, error) {
 	dir, err := config.Dir()
 	if err != nil {
@@ -115,13 +115,13 @@ func printSetupSummary(w io.Writer, result *setup.Result, tracePath string) {
 	if tracePath != "" {
 		fmt.Fprintf(w, "  trace:    %s\n", tracePath)
 	}
-	fmt.Fprintln(w, "\n查看当前配置: herald config show")
+	fmt.Fprintln(w, "\n查看当前配置: plume config show")
 }
 
 // isTerminal 判断文件是不是真正的终端。
 //
 // 刻意不用 os.ModeCharDevice：/dev/null 也是字符设备，却不是一个终端，
-// 用它判断会让 `herald setup < /dev/null` 进入 huh 并挂住。
+// 用它判断会让 `plume setup < /dev/null` 进入 huh 并挂住。
 func isTerminal(f *os.File) bool {
 	fd := f.Fd()
 	return isatty.IsTerminal(fd) || isatty.IsCygwinTerminal(fd)

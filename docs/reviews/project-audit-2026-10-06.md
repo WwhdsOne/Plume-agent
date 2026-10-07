@@ -1,7 +1,7 @@
 ---
 title: 项目现状审核与优化建议（2026-10-06）
 status: active
-updated: 2026-10-06
+updated: 2026-10-07
 summary: 审核 HEAD 85f7ac6：G1b.2 当前能力、两轴缺陷、9 条离线复现与量化优化方案
 ---
 
@@ -17,7 +17,7 @@ summary: 审核 HEAD 85f7ac6：G1b.2 当前能力、两轴缺陷、9 条离线�
 | --- | --- | --- |
 | G0 / G1a | 已通过 | 配置、凭据、供应商/渠道注册、设置向导与 setup trace |
 | G1b.1 | 已通过 | openai-go v1.12.0 非流式适配、受控端点、fake、12 个离线种子 |
-| G1b.2 | 已通过 | 裸 herald/chat、离线模式、多轮会话、串行提交、取消、新会话、基础 TUI |
+| G1b.2 | 已通过 | 裸 plume/chat、离线模式、多轮会话、串行提交、取消、新会话、基础 TUI |
 | 模型传输方案 | 已改为 OpenAI 官方 SDK | 0003 明确替代此前 Resty 方案；本次依据最新仓库决策审核 |
 | G1b.2.1 | 契约已写，迁移未实现 | 当前仍是 Bubble Tea/huh v1 与旧键位；v2/输入历史不作为本轮缺陷 |
 | G1b.3 / G3 | 未实现 | 流式调用、工具声明与循环尚未开启；接口明确返回 unsupported |
@@ -34,20 +34,20 @@ summary: 审核 HEAD 85f7ac6：G1b.2 当前能力、两轴缺陷、9 条离线�
 | `DEEPSEEK_LIVE_KEY= go test ./... -count=1 -cover` | 14 个包全部通过 |
 | `DEEPSEEK_LIVE_KEY= go test -race ./... -count=1` | 14 个包全部通过，无竞态报告 |
 | `DEEPSEEK_LIVE_KEY= go vet ./...` | 通过 |
-| `gofmt -l cmd internal` | 列出 `cmd/herald/chat_test.go`，需要格式化；未代为修改 |
+| `gofmt -l cmd internal` | 列出 `cmd/plume/chat_test.go`，需要格式化；未代为修改 |
 | 12 个离线 smoke | 12/12 通过；这是工程回归，不是模型质量或延迟基线 |
 | 现有 `-bench . -benchmem` | 没有 Benchmark 行；PASS 不代表已有性能数据 |
 | 临时 overlay 的 9 条边界断言 | 全部失败，分别复现下文问题；不属于原仓库测试失败 |
 
 当前语句覆盖率的部分结果：app 97.4%、openai 87.3%、telemetry 82.0%、config 75.9%、tui 62.7%、cmd 26.6%。覆盖率只能帮助发现未执行代码，不能证明异常语义或显示宽度正确。
 
-诊断文件放在临时目录 `/tmp/herald-audit.3NNTg8/`，没有加入源码目录。复现命令：
+诊断文件放在临时目录 `/tmp/plume-audit.3NNTg8/`，没有加入源码目录。复现命令：
 
 ```bash
 rtk proxy env DEEPSEEK_LIVE_KEY= go test \
-  -overlay=/tmp/herald-audit.3NNTg8/overlay.json \
+  -overlay=/tmp/plume-audit.3NNTg8/overlay.json \
   -run '^TestAudit' -count=1 -v \
-  ./internal/model/openai ./internal/tui ./internal/app ./cmd/herald
+  ./internal/model/openai ./internal/tui ./internal/app ./cmd/plume
 ```
 
 此命令预期退出 1，因为断言表达的是应有行为；该目录只作为本次诊断证据，系统清理后需依据下列 fixture 重建。
@@ -94,7 +94,7 @@ SDK 的 `Error()` 含请求 URL 和原始错误正文。当前适配器只裁剪
 
 ### S4 — P2：默认模型调用超时没有实施
 
-位置：`internal/model/endpoint/endpoint.go:73`、`internal/model/openai/chat.go:40`、`internal/app/service.go:98`、`cmd/herald/chat.go:92`。
+位置：`internal/model/endpoint/endpoint.go:73`、`internal/model/openai/chat.go:40`、`internal/app/service.go:98`、`cmd/plume/chat.go:92`。
 
 生产路径只有 Background/WithCancel，没有 WithTimeout、WithDeadline、SDK RequestTimeout 或 http.Client.Timeout。不会返回的端点可让 TUI 一直 busy，直到人工取消。现有超时用例是测试主动设置 100/200ms deadline，不能证明默认 120s 生效。
 
@@ -110,7 +110,7 @@ SDK 的 `Error()` 含请求 URL 和原始错误正文。当前适配器只裁剪
 | R2，P2 | 0003 §4：每次模型调用默认 120s；`endpoint/endpoint.go:73` | 生产路径没有默认 deadline，见 S4 |
 | R3，P2 | 0003 §3/§4：无法表达的语义拒绝，2xx 协议错误仍失败；`openai/chat.go:159` | `choices:[{}]` 被归一化成成功空回答；缺 message/无效 content 等未校验 SDK JSON 字段元数据 |
 | R4，P2 | 0003 §3：usage 缺失不是 0；`openai/chat.go:176` | 只有 total_tokens 时缺失分项被宣称为已知，见 S3 |
-| R5，P2 | 0003 §7：兼容旧配置；`cmd/herald/chat.go:135` | 没有调用 ModelConfig.ResolveBaseURL，config.Validate 接受的默认地址配置被工厂拒绝 |
+| R5，P2 | 0003 §7：兼容旧配置；`cmd/plume/chat.go:135` | 没有调用 ModelConfig.ResolveBaseURL，config.Validate 接受的默认地址配置被工厂拒绝 |
 | R6，P2 | 0003 §4：错误正文最多读取 16 KiB；`endpoint/endpoint.go:104` | 仅存在 8 MiB 声明长度预检，见 S2 |
 
 R3 建议：先检查候选、message、角色、文本/工具字段及 finish reason 是否满足本阶段契约，明确拒绝不支持的响应。SDK 反序列化没有返回 error 不等于业务响应完整。避免对拒绝、音频或旧 function_call 等有语义的字段静默丢弃；本阶段无需实现这些能力，但应表达“不支持/不完整”。
@@ -123,7 +123,7 @@ R5 建议：在模型装配处使用现有 `ResolveBaseURL` 规则，同时保�
 
 位置：`internal/tui/view.go:60`，以及该文件 `renderLines` 的前缀拼接。
 
-`len(paragraph)` 与 `paragraph[:width]` 都以字节计量。中文/emoji 被截在 UTF-8 编码中间，渲染出现替换字符或丢字；即便纯 ASCII，也没有给 `Herald >` 前缀预留宽度，20 列输入实测输出 30 列。实际窗口宽度决定问题是否出现，因此英文短文本的 pty 演示不会发现它。
+`len(paragraph)` 与 `paragraph[:width]` 都以字节计量。中文/emoji 被截在 UTF-8 编码中间，渲染出现替换字符或丢字；即便纯 ASCII，也没有给 `Plume >` 前缀预留宽度，20 列输入实测输出 30 列。实际窗口宽度决定问题是否出现，因此英文短文本的 pty 演示不会发现它。
 
 建议按 grapheme 和终端列宽折行，并扣除前缀/缩进。不能仅将 byte 改 rune，因为汉字宽度、组合 emoji、变音符的显示宽度仍不同。使用当前终端栈已有宽度工具，迁移 v2 时保留同一组语义测试。
 
@@ -144,7 +144,7 @@ R5 建议：在模型装配处使用现有 `ResolveBaseURL` 规则，同时保�
 以下尚未按真实 UI 路径复现为用户故障，单列为设计隐患：
 
 - `Service.finish` 在 Append 前设 busy=false（`service.go:116`）；若其他调用方此时 Submit/Reset，下一轮可能在前一轮历史提交前开始。未来渠道复用前，应把“提交结果/历史 → 发布终态 → 允许下一轮”的顺序写成契约并测试。
-- `cmd/herald/chat.go:106` 的事件桥没有关闭信号，Service.Close 也不关闭事件 channel。CLI 退出会回收整个进程，但若后续支持同进程重开聊天，应保证 bridge 退出并等待其结束。
+- `cmd/plume/chat.go:106` 的事件桥没有关闭信号，Service.Close 也不关闭事件 channel。CLI 退出会回收整个进程，但若后续支持同进程重开聊天，应保证 bridge 退出并等待其结束。
 - `Service.emit` 无条件丢弃满队列事件。当前 TUI 每轮只有两个事件且阻止重复发送，尚未复现正常路径终态丢失；流式上线前必须保证错误/终态不因文本增量拥塞被丢弃，不能沿用“满时直接丢”的假设。
 
 ## 7. 三个具体、可量化的改进

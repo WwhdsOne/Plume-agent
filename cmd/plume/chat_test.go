@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"herald-agent/internal/config"
+	"plume-agent/internal/config"
 )
 
 // TestBuildRuntimeBindsAPIModelNameNotConfigID 守住 G1b.2 踩过的坑：
@@ -22,7 +22,7 @@ func TestBuildRuntimeBindsAPIModelNameNotConfigID(t *testing.T) {
 			ID:       "deepseek-default",
 			Provider: "deepseek",
 			Protocol: "deepseek",
-			BaseURL:  srv.URL, // 回环 httptest，Build 只装配不请求
+			BaseURL:  srv.URL,          // 回环 httptest，Build 只装配不请求
 			Model:    "deepseek-flash", // API 模型名
 		}},
 	}

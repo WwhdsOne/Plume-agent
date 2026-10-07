@@ -1,12 +1,12 @@
 #!/bin/sh
-# 构建带版本信息的 herald 二进制。
+# 构建带版本信息的 plume 二进制。
 #
 # 版本号来自仓库根的 VERSION 文件，commit 来自 git，构建时间取当前 UTC 时间。
-# 三者通过 -ldflags -X 注入 cmd/herald，`herald version` 会如实打印出来。
+# 三者通过 -ldflags -X 注入 cmd/plume，`plume version` 会如实打印出来。
 #
 # 用法：
-#   scripts/build.sh                    构建 ./herald（默认剥掉符号表）
-#   scripts/build.sh -o /tmp/herald     指定输出路径
+#   scripts/build.sh                    构建 ./plume（默认剥掉符号表）
+#   scripts/build.sh -o /tmp/plume     指定输出路径
 #   scripts/build.sh --install          安装到 GOBIN（$GOBIN/bin 通常在 PATH 上）
 #   scripts/build.sh --debug            保留符号表，便于看 panic 栈
 #   scripts/build.sh -h                 显示帮助
@@ -19,7 +19,7 @@ usage() {
 	cat <<'EOF'
 用法: scripts/build.sh [选项]
 
-  -o, --output PATH   输出路径（默认 ./herald）
+  -o, --output PATH   输出路径（默认 ./plume）
       --install       改为 go install 到 GOBIN，不产出本地文件
       --debug         保留符号表与 DWARF（默认加 -s -w 剥离）
   -h, --help          显示本帮助
@@ -29,7 +29,7 @@ usage() {
 EOF
 }
 
-output="herald"
+output="plume"
 install=0
 strip=1
 
@@ -100,16 +100,16 @@ echo "built    $build_time"
 echo "flags    $ldflags"
 
 if [ "$install" -eq 1 ]; then
-	echo "run      go install -ldflags \"$ldflags\" ./cmd/herald"
-	go install -ldflags "$ldflags" ./cmd/herald
+	echo "run      go install -ldflags \"$ldflags\" ./cmd/plume"
+	go install -ldflags "$ldflags" ./cmd/plume
 	bin=$(go env GOBIN)
 	[ -n "$bin" ] || bin="$(go env GOPATH)/bin"
-	echo "installed $bin/herald"
+	echo "installed $bin/plume"
 	echo
-	"$bin/herald" version
+	"$bin/plume" version
 else
-	echo "run      go build -ldflags \"$ldflags\" -o $output ./cmd/herald"
-	go build -ldflags "$ldflags" -o "$output" ./cmd/herald
+	echo "run      go build -ldflags \"$ldflags\" -o $output ./cmd/plume"
+	go build -ldflags "$ldflags" -o "$output" ./cmd/plume
 	echo "built    $output"
 	echo
 	# 绝对路径直接用；相对路径补 ./，避免 shell 在 PATH 里找。

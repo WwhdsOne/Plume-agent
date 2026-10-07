@@ -49,7 +49,7 @@ func lineStyle(kind lineKind) (prefix string, style lipgloss.Style) {
 	case lineUser:
 		return "You > ", styleUser
 	case lineAssistant:
-		return "Herald > ", styleAssistant
+		return "Plume > ", styleAssistant
 	case lineError:
 		return "Error > ", styleError
 	default:

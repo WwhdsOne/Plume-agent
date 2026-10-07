@@ -1,7 +1,7 @@
 ---
 title: TUI 键位契约与平台适配（G1b.2.1）
 status: active
-updated: 2026-10-06
+updated: 2026-10-07
 summary: 终端栈升级 charm.land v2 全家桶并重设计键位：对齐 Codex CLI/Claude Code 惯例，Shift+Enter 三层渐进，KeyMap 抽象支撑 Windows
 ---
 
@@ -49,7 +49,7 @@ huh **同步迁 v2**，不留 v1/v2 两套渲染栈并存（并存虽可行但�
 | View 类型 | `View() string` | `View() tea.View` | `internal/tui/view.go`、`TeaModel` |
 | viewport 构造 | `viewport.New(w, h)` | `viewport.New(opts ...Option)` | `internal/tui/update.go` resize |
 | textarea | 同构 | `charm.land/bubbles/v2/textarea`（SetValue/Value/Focus/InsertString/Reset 保留） | 低风险 |
-| huh | v1 API | v2 同构（NewForm/NewGroup/NewSelect/ErrUserAborted 保留） | `cmd/herald/prompter.go` 小改 |
+| huh | v1 API | v2 同构（NewForm/NewGroup/NewSelect/ErrUserAborted 保留） | `cmd/plume/prompter.go` 小改 |
 | Model 接口 | `Update(Msg) (Model, Cmd)` | 不变 | 无 |
 | 键盘增强 | 无（kitty protocol 不支持） | 内置自动协商（kitty + Windows Console API），`KeyboardEnhancementsMsg` 可感知协商结果 | 新能力 |
 
@@ -58,7 +58,7 @@ huh **同步迁 v2**，不留 v1/v2 两套渲染栈并存（并存虽可行但�
 1. **先迁 v2、保持行为不变**：替换 import、适配 KeyMsg/View/viewport/huh，全部既有测试改写后通过，pty 离线演示（G1b.2 的 6 项判据）复跑通过。此步**不改任何键位语义**。
 2. **再落键位契约**（§3）：KeyMap 平台抽象 + 新键位 + 草稿历史。两步分别可验证，审核时一起交付。
 
-## 3. herald 新键位表
+## 3. plume 新键位表
 
 ### 3.1 换行：三层渐进（核心改进）
 

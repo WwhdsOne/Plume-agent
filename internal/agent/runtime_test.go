@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"herald-agent/internal/model"
+	"plume-agent/internal/model"
 )
 
 func TestRunMergesHistoryAndInput(t *testing.T) {

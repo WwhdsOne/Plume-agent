@@ -10,7 +10,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"herald-agent/internal/app"
+	"plume-agent/internal/app"
 )
 
 // lineKind 是聊天记录一行的类别。

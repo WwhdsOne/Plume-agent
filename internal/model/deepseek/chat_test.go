@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"herald-agent/internal/model"
+	"plume-agent/internal/model"
 )
 
 func TestDeepseekAdapterComposesCompatibleImplementation(t *testing.T) {

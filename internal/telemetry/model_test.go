@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"herald-agent/internal/model"
+	"plume-agent/internal/model"
 )
 
 // parseEvents 把 JSON Lines 解析成 map 切片，msg 字段即事件名。

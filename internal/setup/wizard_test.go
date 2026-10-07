@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"herald-agent/internal/channel"
-	"herald-agent/internal/config"
-	"herald-agent/internal/provider"
-	"herald-agent/internal/telemetry"
+	"plume-agent/internal/channel"
+	"plume-agent/internal/config"
+	"plume-agent/internal/provider"
+	"plume-agent/internal/telemetry"
 )
 
 // fakePrompter 是脚本化的 Prompter：答案预先给定，同时记录向导传进来的初始值，
@@ -102,7 +102,7 @@ func (f *fakePrompter) Note(title, _ string) error {
 	return nil
 }
 
-// harness 搭好一个隔离的 HERALD_HOME、注册表与 trace 缓冲。
+// harness 搭好一个隔离的 PLUME_HOME、注册表与 trace 缓冲。
 type harness struct {
 	fake  *fakePrompter
 	trace bytes.Buffer
@@ -111,7 +111,7 @@ type harness struct {
 
 func newHarness(t *testing.T, fake *fakePrompter) *harness {
 	t.Helper()
-	t.Setenv("HERALD_HOME", t.TempDir())
+	t.Setenv("PLUME_HOME", t.TempDir())
 	h := &harness{fake: fake}
 	rec := telemetry.NewSetupRecorder(&h.trace)
 	h.wiz = New(provider.NewRegistry(), channel.NewRegistry(), fake, rec)

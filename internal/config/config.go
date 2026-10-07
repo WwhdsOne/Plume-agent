@@ -1,4 +1,4 @@
-// Package config 保存 herald 的非敏感用户配置：schema、校验规则、原子持久化，
+// Package config 保存 plume 的非敏感用户配置：schema、校验规则、原子持久化，
 // 以及配置所引用的凭据引用。密钥值从不放在这里——它们存放在 credentials 目录下，
 // 通过引用名指向。
 package config

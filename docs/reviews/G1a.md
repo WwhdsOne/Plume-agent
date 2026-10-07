@@ -1,7 +1,7 @@
 ---
 title: G1a 审核记录：首次设置向导与配置边界
 status: passed
-updated: 2026-10-06
+updated: 2026-10-07
 summary: G1a 已通过（2026-10-06）：配置、凭据、向导、setup trace 的交付与验证证据
 ---
 
@@ -21,11 +21,11 @@ summary: G1a 已通过（2026-10-06）：配置、凭据、向导、setup trace 
 | 文件 | 内容 |
 | --- | --- |
 | `internal/config/config.go` | schema（`Config`/`ModelConfig`/`ChannelConfig`）、`Validate` 一次性报全部问题 |
-| `internal/config/store.go` | `HERALD_HOME` → `~/.herald` → `%LOCALAPPDATA%\herald`；原子写（temp→fsync→rename→fsync dir） |
+| `internal/config/store.go` | `PLUME_HOME` → `~/.plume` → `%LOCALAPPDATA%\plume`；原子写（temp→fsync→rename→fsync dir） |
 | `internal/config/credentials.go` | 凭据 0700/0600、ref 校验（不可越出目录）、增删查 |
 | `internal/provider/registry.go` | 预设注册表，可 `Register` 扩展 |
 | `internal/channel/registry.go` | 微信启用；飞书/QQ 标记待支持 |
-| `cmd/herald/` | 入口从根目录 `main.go` 迁入 |
+| `cmd/plume/` | 入口从根目录 `main.go` 迁入 |
 
 **关键设计**：`internal/config` 通过 `ProviderCatalog`/`ChannelCatalog` 两个小接口做校验，**不 import** `provider`/`channel`——避免 G1b 的 Eino 依赖污染纯配置包。
 
@@ -35,9 +35,9 @@ summary: G1a 已通过（2026-10-06）：配置、凭据、向导、setup trace 
 | --- | --- |
 | `internal/setup/wizard.go` | 向导流程，只依赖 `Prompter` 接口，可在无 TTY 下完整测试；两阶段落盘（先模型含凭据，后渠道） |
 | `internal/telemetry/events.go` | zap 版 setup trace；`SetupRecorder` 方法**不接受密钥参数** |
-| `cmd/herald/prompter.go` | huh 实现 |
-| `cmd/herald/setup.go` | 装配、TTY 判定、`~/.herald/logs/setup.jsonl` |
-| `cmd/herald/{main,config,version}.go` | cobra 命令树 |
+| `cmd/plume/prompter.go` | huh 实现 |
+| `cmd/plume/setup.go` | 装配、TTY 判定、`~/.plume/logs/setup.jsonl` |
+| `cmd/plume/{main,config,version}.go` | cobra 命令树 |
 
 ### 按用户反馈的四处返工（同日）
 
@@ -58,19 +58,19 @@ summary: G1a 已通过（2026-10-06）：配置、凭据、向导、setup trace 
 | 静态检查 | `go vet ./...` | 通过 |
 | 测试 | `go test ./...` | **77 passed / 6 packages** |
 | 竞态 | `go test -race ./...` | **77 passed / 6 packages** |
-| 真实安装 | `herald setup`（无 `HERALD_HOME`）+ `herald config show` | exit 0；见下 |
-| 非 TTY | `herald setup < /dev/null` | 立即报错，exit 1，不创建任何文件 |
-| 版本戳 | `./scripts/build.sh --install` → `herald version` | 打印 `v0.1.0 / commit / built` |
+| 真实安装 | `plume setup`（无 `PLUME_HOME`）+ `plume config show` | exit 0；见下 |
+| 非 TTY | `plume setup < /dev/null` | 立即报错，exit 1，不创建任何文件 |
+| 版本戳 | `./scripts/build.sh --install` → `plume version` | 打印 `v0.1.0 / commit / built` |
 
 真实路径下的落盘（实测，之后已清理）：
 
 ```text
-0700  dir   ~/.herald/
-0600  file  ~/.herald/config.json
-0700  dir   ~/.herald/credentials/
-0600  file  ~/.herald/credentials/deepseek-default
-0700  dir   ~/.herald/logs/
-0600  file  ~/.herald/logs/setup.jsonl
+0700  dir   ~/.plume/
+0600  file  ~/.plume/config.json
+0700  dir   ~/.plume/credentials/
+0600  file  ~/.plume/credentials/deepseek-default
+0700  dir   ~/.plume/logs/
+0600  file  ~/.plume/logs/setup.jsonl
 ```
 
 pty 端到端（脚本化驱动真实 huh）事件链：
@@ -112,10 +112,10 @@ setup_start → select_provider → resolve_base_url(source=preset_default) → 
 
 ## 5. 需要用户检查的内容
 
-- [ ] 在真终端跑一次 `herald setup`（或 `HERALD_HOME=$(mktemp -d) herald setup`），确认菜单手感与隐藏输入。
+- [ ] 在真终端跑一次 `plume setup`（或 `PLUME_HOME=$(mktemp -d) plume setup`），确认菜单手感与隐藏输入。
 - [ ] 确认依赖取舍：zap +3.48 MB / huh +1.60 MB / cobra +0.96 MB。
 - [ ] 确认 Base URL 跳过策略可接受（代价：改地址要手改 `config.json`）。
-- [ ] 确认 `~/.herald` 的目录布局与权限符合预期。
+- [ ] 确认 `~/.plume` 的目录布局与权限符合预期。
 - [ ] 回「通过 G1a」以关闭本单元。
 
 ## 6. 下一步

@@ -1,7 +1,7 @@
 ---
 title: 第二阶段：渠道网关接入计划
 status: active
-updated: 2026-10-06
+updated: 2026-10-07
 summary: 第二阶段草案：微信扫码、真实收发、消息可靠性；第一阶段通过后另行授权
 ---
 
@@ -29,12 +29,12 @@ G0 核实的是 Hermes 参考实现，不代表本项目已实测账号。原调
 首个渠道只做一个活动微信实例、私聊文本；群聊、媒体、多渠道并行、账号跨平台绑定和共享记忆不在本阶段。飞书/QQ 保留禁用预设；接入各自协议时另立审核单元，不收集未支持渠道的凭据。
 
 ```text
-herald gateway setup    # 选择渠道、扫码/重连；独立于 TUI 模型设置
-herald gateway start    # 恢复凭据、接收、调用已有 app/agent、回复
-herald gateway status   # 脱敏连接状态及最近收发时间
+plume gateway setup    # 选择渠道、扫码/重连；独立于 TUI 模型设置
+plume gateway start    # 恢复凭据、接收、调用已有 app/agent、回复
+plume gateway status   # 脱敏连接状态及最近收发时间
 ```
 
-这些命令尚未实现。裸 `herald` 仍以 TUI 为默认入口，不因用户保存过微信配置而自动启动网关。首版不承诺 TUI 和网关跨进程同时写同一会话存储；如需同时运行须增加所有权/锁定审核。
+这些命令尚未实现。裸 `plume` 仍以 TUI 为默认入口，不因用户保存过微信配置而自动启动网关。首版不承诺 TUI 和网关跨进程同时写同一会话存储；如需同时运行须增加所有权/锁定审核。
 
 ## 3. 模块与可靠性约束
 
@@ -50,7 +50,7 @@ herald gateway status   # 脱敏连接状态及最近收发时间
 
 ### G2a.1：扫码连接 bot
 
-**拟改文件：** `cmd/herald/gateway.go`、`internal/channel/wechat/{client,login,credentials}.go`、对应 `_test.go`、`docs/runbooks/wechat.md`。
+**拟改文件：** `cmd/plume/gateway.go`、`internal/channel/wechat/{client,login,credentials}.go`、对应 `_test.go`、`docs/runbooks/wechat.md`。
 
 - [ ] 复核 0002 的接口快照，记录本次参考 commit、状态字段与鉴权契约。
 - [ ] 实现二维码获取/终端渲染、状态轮询、手机确认和凭据保存；复用 G1a 的安全存储约定。
@@ -62,7 +62,7 @@ herald gateway status   # 脱敏连接状态及最近收发时间
 
 ### G2a.2：真实收发与已有 Agent 复用
 
-**拟改文件：** `internal/channel/{message,registry}.go`、`internal/channel/wechat/adapter.go`、`internal/app/{service,session}.go`、`cmd/herald/gateway.go`、对应 `_test.go`、`docs/runbooks/wechat.md`。
+**拟改文件：** `internal/channel/{message,registry}.go`、`internal/channel/wechat/adapter.go`、`internal/app/{service,session}.go`、`cmd/plume/gateway.go`、对应 `_test.go`、`docs/runbooks/wechat.md`。
 
 - [ ] 实现 gateway start、长轮询、会话映射、文本发送和按账号/对话保存回复上下文。
 - [ ] 通过 `model_ref` 使用第一阶段工厂与运行时；用测试渠道验证无微信字段泄漏到 Agent/TUI 模型契约。

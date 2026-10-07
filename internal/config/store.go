@@ -9,36 +9,36 @@ import (
 	"strings"
 )
 
-// Dir 返回 herald 的配置目录，位置在仓库之外：
+// Dir 返回 plume 的配置目录，位置在仓库之外：
 //
-//  1. 设置了 $HERALD_HOME 时用它（展开 ~ 与 $VAR），
-//  2. 否则 POSIX 下用 ~/.herald，
-//  3. 否则 Windows 下用 %LOCALAPPDATA%\herald。
+//  1. 设置了 $PLUME_HOME 时用它（展开 ~ 与 $VAR），
+//  2. 否则 POSIX 下用 ~/.plume，
+//  3. 否则 Windows 下用 %LOCALAPPDATA%\plume。
 //
 // 刻意不使用 os.UserConfigDir()：它在 macOS 上解析为
 // ~/Library/Application Support，既与 Hermes/Codex 的惯例不同，路径里还带空格。
 // 见 docs/decisions/0001-scope.md §2。
 func Dir() (string, error) {
-	if v := strings.TrimSpace(os.Getenv("HERALD_HOME")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("PLUME_HOME")); v != "" {
 		return filepath.Clean(expandPath(v)), nil
 	}
 
 	if runtime.GOOS == "windows" {
 		if local := strings.TrimSpace(os.Getenv("LOCALAPPDATA")); local != "" {
-			return filepath.Join(local, "herald"), nil
+			return filepath.Join(local, "plume"), nil
 		}
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return "", fmt.Errorf("resolve home directory: %w", err)
 		}
-		return filepath.Join(home, "AppData", "Local", "herald"), nil
+		return filepath.Join(home, "AppData", "Local", "plume"), nil
 	}
 
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("resolve home directory: %w", err)
 	}
-	return filepath.Join(home, ".herald"), nil
+	return filepath.Join(home, ".plume"), nil
 }
 
 // Path 返回 config.json 的绝对路径。

@@ -3,9 +3,9 @@ package provider
 import (
 	"fmt"
 
-	"herald-agent/internal/model"
-	"herald-agent/internal/model/deepseek"
-	"herald-agent/internal/model/openai"
+	"plume-agent/internal/model"
+	"plume-agent/internal/model/deepseek"
+	"plume-agent/internal/model/openai"
 )
 
 // 持久化协议适配选择器的历史值（schema v1 原样保留，0003 §7）。
