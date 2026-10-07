@@ -97,10 +97,15 @@ func startChat(out io.Writer, modelFlag string, offline bool) error {
 		ResetSession: func() { service.Session().Reset() },
 	})
 
-	// 欢迎行必须在包装 TeaModel 之前追加：AddSystemLine 改的是本地值，
-	// 包装后再改不会反映进 program 持有的状态。alt screen/鼠标模式由
-	// TeaModel.View 声明（v2 没有 WithAltScreen 选项）。
-	chatModel.AddSystemLine(welcome(label, offline))
+	// 开屏（docs/tui-splash.md）：方框 + 羽毛 LOGO + 键位提示 + 真实信息，
+	// 首次 resize 按真实窗口宽度渲染进记录区头部；必须包装 TeaModel 之前
+	// 注入（包装后再改不会反映进 program 持有的状态）。
+	dir, _ := os.Getwd()
+	chatModel.SetSplash(tui.Splash{
+		Version: splashVersion(),
+		Label:   label,
+		Dir:     dir,
+	})
 	program := tea.NewProgram(&tui.TeaModel{M: chatModel})
 	// 事件桥：app 事件投递进 Bubble Tea 主循环。channel 无关闭约定，
 	// 桥随进程退出回收（有界缓冲 + UI 持续消费）。
@@ -161,13 +166,11 @@ func selectModelConfig(cfg *config.Config, modelFlag string) (*config.ModelConfi
 	return nil, fmt.Errorf("model config %q not found in config.json", id)
 }
 
-func welcome(label string, offline bool) string {
-	mode := ""
-	if offline {
-		mode = "OFFLINE mode with the scripted fake. "
+// splashVersion 组装开屏版本段；未打戳的构建如实显示 dev (none)。
+func splashVersion() string {
+	label := version
+	if label != "dev" {
+		label = "v" + label
 	}
-	// 键位提示按契约只列 Shift+Enter 与 `\` 续行，不罗列全部层级。
-	return "Welcome to plume chat (" + label + "). " + mode +
-		"Enter sends, Shift+Enter or \\+Enter adds a newline, Esc cancels a run, " +
-		"Ctrl+C cancels/clears (press twice on empty to quit), Ctrl+D quits, Ctrl+N new session."
+	return fmt.Sprintf("%s (%s)", label, commit)
 }

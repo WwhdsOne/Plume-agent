@@ -1,8 +1,8 @@
 ---
 title: G1b.2.1 审核交付：终端栈 v2 迁移与键位重设计
-status: pending-review
+status: passed
 updated: 2026-10-07
-summary: charm.land v2 全家桶迁移（v1 全移除）+ 键位契约落地 + 输入区动态高度最多 4 行；测试与 pty 证据齐备，待用户审核
+summary: charm.land v2 全家桶迁移（v1 全移除）+ 键位契约落地 + 输入区动态高度最多 4 行；2026-10-07 用户审核通过
 ---
 
 # G1b.2.1 审核交付

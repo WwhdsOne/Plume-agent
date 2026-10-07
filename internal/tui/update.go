@@ -167,8 +167,8 @@ func (m *Model) submitInput() (Model, tea.Cmd) {
 	raw := m.input.Value()
 	// 续行兜底（契约 §3.1 层级 3）：行尾 `\` 的 Enter 不发送，
 	// 去掉 `\` 换行。判定只看原始值末尾，不做 trim。
-	if strings.HasSuffix(raw, "\\") {
-		m.input.SetValue(strings.TrimSuffix(raw, "\\"))
+	if before, ok := strings.CutSuffix(raw, "\\"); ok {
+		m.input.SetValue(before)
 		m.input.InsertString("\n")
 		return *m, nil
 	}
@@ -292,6 +292,11 @@ func classifyFailure(err error) string {
 
 // resize 依据窗口大小与输入区当前高度重排组件。
 func (m *Model) resize() {
+	if m.splash != nil {
+		// 开屏按当前宽度一次性渲染（窄端降级为纯文本标题），之后不再重排。
+		m.lines = append(buildSplashLines(m.width, *m.splash), m.lines...)
+		m.splash = nil
+	}
 	m.input.SetWidth(m.width)
 	logHeight := max(
 		// 状态栏一行

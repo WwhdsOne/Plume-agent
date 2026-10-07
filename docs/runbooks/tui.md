@@ -24,6 +24,10 @@ PLUME_HOME=$(mktemp -d) go run ./cmd/plume setup
 PLUME_HOME=$(mktemp -d) go run ./cmd/plume chat --offline
 ```
 
+## 开屏（G1b.2.2）
+
+启动后聊天记录区顶部先渲染 `PLUME-AGENT` **像素块字**（主色，5 行，按可见列宽居中），下方是**四边完整**的圆角方框（雾青主色描边，宽上限 88 列）：左栏 **64×80 点位的盲文羽毛**（每字符 2×4 点位，显示为 32 列×20 行，右上深青→左下浅青三色渐变，保留羽轴留白与碎羽），与右栏之间主色分隔竖线，右栏版本行、9 行对齐的 `Tips for getting started` 键位提示、模型标签与工作目录。开屏总高 27 行，随记录滚动，只出现一次（Ctrl+N 后不复活）；终端 32–79 列降级为羽毛竖排（无大标题无方框），32 列以下显示小标题与折行文本。长版本、模型和中文路径按终端列宽裁剪。契约见 `docs/tui-splash.md`，色值集中在 `internal/tui/theme.go`。
+
 ## 键位（契约 docs/tui-keys.md §3）
 
 | 键 | 行为 |

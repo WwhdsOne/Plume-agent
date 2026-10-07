@@ -33,11 +33,13 @@ const (
 	lineAssistant
 	lineSystem // 状态/提示（会话重置、取消确认等）
 	lineError  // 失败与被拒绝的提交
+	lineSplash // 开屏行（docs/tui-splash.md；不折行，role 决定配色）
 )
 
 type chatLine struct {
 	kind lineKind
 	text string
+	role splashRole // 仅 kind==lineSplash 时使用
 }
 
 // busyState 是状态栏的运行状态。
@@ -87,6 +89,10 @@ type Model struct {
 
 	lastCtrlC       time.Time // Ctrl+C 双击判定窗口
 	lastInputHeight int       // 上次同步给 viewport 的输入区高度
+
+	// splash 是开屏数据（cmd 注入）。首次 resize 按当前宽度渲染进 lines
+	// 头部后置空——开屏只出现一次，窗口变化不重排，新会话不复活。
+	splash *Splash
 }
 
 // AppEvent 包装一条 app.Service 事件供 Update 消费。cmd 层的桥接
@@ -125,6 +131,9 @@ func (m *Model) Init() tea.Cmd { return nil }
 
 // AddSystemLine 追加一条系统提示行（装配层启动时展示欢迎/键位说明）。
 func (m *Model) AddSystemLine(text string) { m.appendLine(lineSystem, text) }
+
+// SetSplash 注入开屏数据；首次 resize（拿到真实窗口宽度）时渲染进记录区头部。
+func (m *Model) SetSplash(s Splash) { m.splash = &s }
 
 // TeaModel 把 Model 适配为 tea.Model：Bubble Tea 的接口要求 Update 返回
 // tea.Model，而 Model 的值语义 Update 返回自身（便于测试直接调用）。

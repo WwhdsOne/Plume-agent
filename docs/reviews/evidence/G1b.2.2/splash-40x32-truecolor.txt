@@ -1,0 +1,32 @@
+                               ▄
+                              █▀
+                           ▄█
+                          ██ ▄█
+                      ▄▄ ▄▀
+                  ▄▄████  ▄▄▀
+              ▄██████▀█ ▄█▀▀
+            ▄████████▀   ▄
+         ▄█▄███████▀▀▄▄██▀
+       ▄████████▀█▄█████▀
+      ███████▀█▄██████▀
+     ██▀███▀▄█████▀▀
+    █████▀▄████████▀
+    ███▀▄██▀████▀▀
+    █▀▄█████▀▀▀
+    ▄███▀
+   ▄█▀
+  ██
+▄█▀
+▀▀
+plume-agent v0.1.0 (4995641-dirty) ·
+fake/offline
+Enter send · Shift+Enter or \+Enter
+newline · Esc cancel · double Ctrl+C
+quit · Ctrl+N new session
+
+
+
+
+
+┃  1 Say something… (Enter to send,
+fake/offline │ idle

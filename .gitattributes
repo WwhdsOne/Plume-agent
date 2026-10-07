@@ -1,0 +1,2 @@
+# 原始终端 trace 含控制字节与回车，保留捕获字节，不按普通文本合并或转换。
+docs/reviews/evidence/**/*.ansi binary

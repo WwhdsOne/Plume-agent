@@ -1,0 +1,10 @@
+{
+  "columns": 40,
+  "rows": 32,
+  "checks": {
+    "version_visible": true,
+    "offline_visible": true,
+    "clean_exit": true,
+    "plain_layout": true
+  }
+}

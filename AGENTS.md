@@ -240,6 +240,7 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 
 - **设置表单**用 huh v2（`charm.land/huh/v2`，G1b.2.1 随终端栈整体迁 v2），只出现在 `cmd/plume/prompter.go`；不能把现有表单称为聊天 TUI。
 - **聊天 TUI（G1b.2.1 起）用 v2 栈**：`charm.land/bubbletea/v2` + `charm.land/bubbles/v2` + `charm.land/lipgloss/v2`，huh 同走 v2，不留 v1/v2 双栈。键位按契约 `docs/tui-keys.md`：Enter 发送；换行三层渐进（Shift+Enter（kitty 终端，v2 自动协商）→ Alt/Option+Enter → 行尾 `\`+Enter 兜底）；Esc 中断 run；Ctrl+C 三段语义（running 取消 / idle 有草稿清空 / 空草稿 1s 内两次退出）；Ctrl+D 空输入退出；Ctrl+L 清屏；Up/Down 草稿历史（边缘导航：光标在输入第一行/最后一行才翻历史，多行输入中间先移光标，对齐 Codex CLI）；PgUp/PgDn 滚动；Ctrl+N 新会话；鼠标滚轮滚动。键位经 `internal/tui/keys.go` 的 KeyMap 平台抽象（`newKeyMap(goos)`，darwin/linux 同表、帮助文本区分 Option/Alt，windows 预留 G-win 实测），**Update/View 不出现键名硬编码与平台分支**。输入区高度用 textarea 的 DynamicHeight 一次最多可见 4 行（超出输入框内滚动）。`internal/tui` 的 Model/Update 是纯状态转移，副作用只经 `Hooks` 注入；`TeaModel` 是到 tea.Model 的适配层（指针接收者，`tea.NewProgram(&tui.TeaModel{...})` 传指针；v2 的 alt screen 与鼠标模式在 `TeaModel.View` 的 `tea.View` 上声明，没有 `WithAltScreen` 选项）。普通日志/trace 写文件，不破坏屏幕；模型输出经 `sanitize` 过滤终端控制序列后才渲染。
+- **开屏与主题色（G1b.2.2）**：启动时记录区头部渲染**像素字标题** `PLUME-AGENT`（5 行块字，主色，字内空白不显示占位点，按可见列宽居中）+ **圆角方框**（主色描边、四边完整不嵌字）：左栏参考图等比例采样的 **64×80 三色羽毛点阵**，以每字符 **2×4 点位的 Unicode 盲文**显示为 **32 列×20 行**（右上深青→中段主青→左下浅青，保留羽轴斜缝/碎羽/细茎，两侧各留白 2 列；字符矩阵 `featherBraille`，运行时不加载图片，点间不填背景）与右栏之间主色分隔竖线，右栏版本 + 9 行对齐的 Tips 键位提示 + 模型标签 + 工作目录（契约 `docs/tui-splash.md`）；开屏总高 27 行（更矮终端靠滚动），随记录滚动、只出现一次（Ctrl+N 后不复活）、窄于 80 列降级为羽毛竖排，窄于 32 列降级为小标题与文本；原始 art 行不折行，窄端信息/提示按可见列宽折行。宽端版本/模型/路径按终端列宽裁剪，已染色整行以 `splashRawRole` 直出。主题雾青三色 token（主 `#5BC8C8` / 浅 `#7DD3D8` / 深 `#3A9EA3`）集中在 `internal/tui/theme.go`，**其他文件不得出现裸色值**；错误红/提示黄/中性灰是语义色不占用主题色。开屏内容只写真实存在的信息（无工具/技能系统前不伪造清单），版本取 build 注入值，未打戳如实显示 dev (none)。
 - 未来裸 `plume` 默认进入 TUI，缺配置提示 setup；`plume chat --offline` 不需要配置/Key。setup 计划增加「暂不接入渠道」，不伪造渠道账号、不要求扫码、不清理旧渠道。**G1b.2 已实现以上行为（待审核）**：裸 `plume` 配置就绪+TTY 直接进入聊天。
 - **向导流程与终端库分离**：`internal/setup` 只依赖 `Prompter` 接口，新增一步交互时先加接口方法，再在 `prompter.go` 实现，不要把 huh 的类型渗进 `internal/setup`。
 - **Base URL 不再逐次询问**（2026-10-06）：有预填默认值的预设直接跳过；只有无默认值的预设才问。已有配置里的地址与默认值不同时**原样保留**，不要"顺手"重置——`TestWizardPreservesExistingNonDefaultBaseURL` 守住这条。
@@ -260,13 +261,14 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 | `docs/reviews/G1a.md` | G1a 审核记录（已通过） |
 | `docs/reviews/` | 每个审核单元的交付证据 |
 | `docs/daily/` | 每日变更流水（`YYYY-MM-DD.md`） |
-| `docs/tui-keys.md` | TUI 键位契约与平台适配（G1b.2.1）：Codex/Claude Code 惯例对齐、KeyMap 抽象 |
+| `docs/tui-keys.md` | TUI 键位契约与平台适配（G1b.2.1，已通过）：Codex/Claude Code 惯例对齐、KeyMap 抽象 |
+| `docs/tui-splash.md` | TUI 开屏与主题色契约（G1b.2.2）：内容清单、雾青三色 token、降级规则 |
 | `docs/runbooks/setup.md` | 首次设置向导的启动、验证与故障复现 |
 | `docs/roadmap.html` | 树状路线图：全部审核单元的状态快照（数据驱动，状态翻转时必须同步更新） |
 
 ## 当前进度与禁区
 
-已完成：G0（计划与可行性，含 `docs/decisions/` 两份决策）、**G1a（首次设置向导与配置边界，已通过）**——含 `internal/config`、`internal/provider`、`internal/channel`、`internal/setup`、`internal/telemetry`、`cmd/plume` 的 cobra 命令树与 `plume setup`。**G1b.1（OpenAI SDK 非流式模型接口，已通过）**——含 `internal/model/`（契约、endpoint、openai/deepseek 适配器、fake）、`internal/provider` 工厂与 probe、`internal/telemetry` 模型 trace、`eval/datasets/smoke.v1.jsonl` 与 runner。**G1b.2（最小可交互 TUI 与多轮会话，已通过）**——含 `internal/tui`（Bubble Tea 聊天界面）、`internal/app`（会话与 run 生命周期）、`internal/agent`（最小单轮）、`internal/model` LoopFake、`plume chat`/裸 `plume` 入口、`--offline`、setup「暂不接入渠道」、README 与 TUI runbook。审核期间修复了模型名装配 bug（agent 绑定 API 模型名而非配置 ID，`buildRuntime` 测试守住）。**G1b.2.1（终端栈 v2 迁移与键位重设计，已交付待审核）**——`charm.land/*` v2 全家桶（bubbletea v2.0.10 / bubbles v2.2.1 / lipgloss v2.0.6 / huh v2.0.3，v1 栈全部移除）、键位契约落地（三层渐进换行、Ctrl+C 三段、Ctrl+D/Ctrl+L、Up/Down 草稿历史、KeyMap 抽象 `internal/tui/keys.go`）、输入区动态高度最多可见 4 行；用户在契约外追加输入区 4 行要求并已实现。
+已完成：G0（计划与可行性，含 `docs/decisions/` 两份决策）、**G1a（首次设置向导与配置边界，已通过）**——含 `internal/config`、`internal/provider`、`internal/channel`、`internal/setup`、`internal/telemetry`、`cmd/plume` 的 cobra 命令树与 `plume setup`。**G1b.1（OpenAI SDK 非流式模型接口，已通过）**——含 `internal/model/`（契约、endpoint、openai/deepseek 适配器、fake）、`internal/provider` 工厂与 probe、`internal/telemetry` 模型 trace、`eval/datasets/smoke.v1.jsonl` 与 runner。**G1b.2（最小可交互 TUI 与多轮会话，已通过）**——含 `internal/tui`（Bubble Tea 聊天界面）、`internal/app`（会话与 run 生命周期）、`internal/agent`（最小单轮）、`internal/model` LoopFake、`plume chat`/裸 `plume` 入口、`--offline`、setup「暂不接入渠道」、README 与 TUI runbook。审核期间修复了模型名装配 bug（agent 绑定 API 模型名而非配置 ID，`buildRuntime` 测试守住）。**G1b.2.1（终端栈 v2 迁移与键位重设计，已通过）**——`charm.land/*` v2 全家桶（bubbletea v2.0.10 / bubbles v2.2.1 / lipgloss v2.0.6 / huh v2.0.3，v1 栈全部移除）、键位契约落地（三层渐进换行、Ctrl+C 三段、Ctrl+D/Ctrl+L、Up/Down 草稿历史边缘导航、KeyMap 抽象 `internal/tui/keys.go`）、输入区动态高度最多可见 4 行；用户在契约外追加输入区 4 行要求并已实现。**G1b.2.2（TUI 开屏与主题色，已通过）**——`internal/tui/theme.go` 雾青三色 token 全局应用、`internal/tui/splash.go` 开屏渲染（PLUME art + 版本/模型 + 键位提示，窄端降级，只出现一次），契约 `docs/tui-splash.md`；用户拍板插队 G1b.3 之前。
 
 **尚未实现，不要假设存在**：
 

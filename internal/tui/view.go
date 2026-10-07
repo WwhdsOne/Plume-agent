@@ -7,14 +7,16 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// 渲染样式。克制的单屏配色：前缀标来源，正文不加花哨装饰。
+// 渲染样式。主题三色 token 见 theme.go（雾青，G1b.2.2）；错误红/提示黄/
+// 中性灰是语义色不占用主题色。克制的单屏配色：前缀标来源，正文不加花哨装饰。
 var (
-	styleUser      = lipgloss.NewStyle().Foreground(lipgloss.Color("6"))  // 青
-	styleAssistant = lipgloss.NewStyle().Foreground(lipgloss.Color("10")) // 绿
-	styleSystem    = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))  // 暗
-	styleError     = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))  // 红
-	styleStatus    = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-	styleNotice    = lipgloss.NewStyle().Foreground(lipgloss.Color("11")) // 黄
+	styleUser      = lipgloss.NewStyle().Foreground(themeDark)    // 深色态
+	styleAssistant = lipgloss.NewStyle().Foreground(themePrimary) // 主色
+	styleSystem    = lipgloss.NewStyle().Foreground(colorMuted)
+	styleError     = lipgloss.NewStyle().Foreground(colorError)
+	styleStatus    = lipgloss.NewStyle().Foreground(colorMuted)
+	styleNotice    = lipgloss.NewStyle().Foreground(colorNotice)
+	styleRunning   = lipgloss.NewStyle().Foreground(themeDark) // running 强调
 )
 
 // View 渲染单屏三段：聊天记录（可滚动）、输入区、状态栏。
@@ -29,9 +31,20 @@ func (m *Model) View() string {
 }
 
 // renderLines 把聊天记录渲染为纯文本行（viewport 内容）。
+// 开屏行不折行：已染色整行（方框/羽毛）原样直出，纯文本行按角色配色；
+// 其余行按显示宽度折行。
 func renderLines(lines []chatLine, width int) string {
 	var b strings.Builder
 	for _, line := range lines {
+		if line.kind == lineSplash {
+			if line.role == splashRawRole {
+				b.WriteString(line.text)
+			} else {
+				b.WriteString(splashStyle(line.role).Render(line.text))
+			}
+			b.WriteString("\n")
+			continue
+		}
 		prefix, style := lineStyle(line.kind)
 		for i, chunk := range wrapText(line.text, width) {
 			if i == 0 {
@@ -83,7 +96,7 @@ func (m *Model) statusBar() string {
 	b.WriteString(styleStatus.Render(m.modelLabel))
 	b.WriteString(styleStatus.Render(" │ "))
 	if m.state == stateRunning {
-		b.WriteString(styleNotice.Render("running"))
+		b.WriteString(styleRunning.Render("running"))
 		if m.runID != "" {
 			b.WriteString(styleStatus.Render(" " + m.runID))
 		}
