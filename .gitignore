@@ -29,6 +29,7 @@
 /tmp/
 /.cache/
 /.codegraph/
+/.code-review-graph/
 *.log
 *.db
 *.db-shm

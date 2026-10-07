@@ -7,7 +7,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 
@@ -98,9 +98,10 @@ func startChat(out io.Writer, modelFlag string, offline bool) error {
 	})
 
 	// 欢迎行必须在包装 TeaModel 之前追加：AddSystemLine 改的是本地值，
-	// 包装后再改不会反映进 program 持有的状态。
+	// 包装后再改不会反映进 program 持有的状态。alt screen/鼠标模式由
+	// TeaModel.View 声明（v2 没有 WithAltScreen 选项）。
 	chatModel.AddSystemLine(welcome(label, offline))
-	program := tea.NewProgram(&tui.TeaModel{M: chatModel}, tea.WithAltScreen())
+	program := tea.NewProgram(&tui.TeaModel{M: chatModel})
 	// 事件桥：app 事件投递进 Bubble Tea 主循环。channel 无关闭约定，
 	// 桥随进程退出回收（有界缓冲 + UI 持续消费）。
 	go func() {
@@ -161,10 +162,12 @@ func selectModelConfig(cfg *config.Config, modelFlag string) (*config.ModelConfi
 }
 
 func welcome(label string, offline bool) string {
+	mode := ""
 	if offline {
-		return "Welcome to plume chat — OFFLINE mode with the scripted fake. " +
-			"Esc cancels a run, Ctrl+N starts a new session, Ctrl+C quits."
+		mode = "OFFLINE mode with the scripted fake. "
 	}
-	return "Welcome to plume chat (" + label + "). " +
-		"Esc cancels a run, Ctrl+N starts a new session, Ctrl+C quits."
+	// 键位提示按契约只列 Shift+Enter 与 `\` 续行，不罗列全部层级。
+	return "Welcome to plume chat (" + label + "). " + mode +
+		"Enter sends, Shift+Enter or \\+Enter adds a newline, Esc cancels a run, " +
+		"Ctrl+C cancels/clears (press twice on empty to quit), Ctrl+D quits, Ctrl+N new session."
 }

@@ -2,7 +2,7 @@
 title: Runbook：plume setup
 status: active
 updated: 2026-10-07
-summary: 首次设置向导的启动、验证、重置与 7 类故障复现（G1a 交付版本）
+summary: 首次设置向导的启动、验证、重置与 7 类故障复现（G1a 交付，G1b.2.1 迁 v2 栈后修订）
 ---
 
 # Runbook：plume setup
@@ -82,15 +82,16 @@ plume setup < /dev/null
 
 ### 2. 在脚本 / CI 里驱动向导
 
-需要分配 pty，**并且应答终端能力查询**，否则 termenv 会超时报错：
+需要分配 pty（G1b.2.1 起向导基于 charm.land v2 终端栈，不再使用 termenv）。向导会发送
+终端能力查询（OSC 11 背景色、DA1、kitty 键盘、光标位置），**应答可加快启动，不应答
+也会在超时后继续**（G1b.2.1 实测无应答可完整走通）：
 
 ```text
 收到  ESC]11;?   →  回 \x1b]11;rgb:0000/0000/0000\x1b\\
 收到  ESC[6n     →  回 \x1b[1;1R
 收到  ESC[c      →  回 \x1b[?62;c
+收到  ESC[?u     →  回 \x1b[?0u（不支持 kitty 协议）
 ```
-
-不回这些查询时，向导会在启动阶段就退出（不是卡在菜单上）。
 
 ### 3. 想改已有配置的 Base URL
 

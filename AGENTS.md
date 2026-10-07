@@ -60,7 +60,7 @@ go run ./cmd/plume version
 
 ### 验证交互式向导
 
-`plume setup` 需要 TTY，非交互环境会直接报错退出（这是刻意行为，不是缺陷）。要在脚本里跑通完整流程，需要分配 pty **并应答终端能力查询**（`ESC]11;?`、`ESC[6n`），否则 termenv 会超时报错：
+`plume setup` 需要 TTY，非交互环境会直接报错退出（这是刻意行为，不是缺陷）。在脚本里跑通完整流程需要分配 pty。G1b.2.1 起向导基于 charm.land v2 终端栈（不再用 termenv）：向导会发送终端能力查询（`ESC]11;?`、`ESC[6n`、`ESC[c`、`ESC[?u`），**应答可加快启动，不应答也会在超时后继续**（G1b.2.1 实测无应答可完整走通）：
 
 ```
 OSC 11 背景色查询 -> 回 \x1b]11;rgb:0000/0000/0000\x1b\\
@@ -190,7 +190,7 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 | `internal/setup/` | 首次设置向导的流程；只依赖 `Prompter` 接口，不依赖终端库 |
 | `internal/provider/` | 预设、ModelFactory 装配适配器、显式 Probe、凭据解析接口；保持零依赖（不 import config） |
 | `internal/model/` | G1b.1 已建：自有契约（消息/请求/响应/流/错误/能力）、endpoint 安全装配、openai-chat-completions 适配器（openai-go SDK）、deepseek 组合适配器、脚本化 fake |
-| `internal/tui/` | G1b.2 已建：Bubble Tea 聊天界面（记录/输入/状态栏、控制序列净化）；不发送模型 HTTP、不执行工具，副作用经 Hooks 注入 |
+| `internal/tui/` | G1b.2 已建、G1b.2.1 迁 v2：Bubble Tea v2 聊天界面（记录/输入/状态栏、控制序列净化、KeyMap 键位抽象、草稿历史）；不发送模型 HTTP、不执行工具，副作用经 Hooks 注入 |
 | `internal/channel/` | 现有渠道注册表；第二阶段才实现消息适配器，不拼装 prompt |
 | `internal/app/` | G1b.2 已建：会话历史、run 生命周期（串行、取消、有界事件流）；后续扩展持久化与渠道调度 |
 | `internal/agent/` | G1b.2 已建最小单轮（历史+输入→Generate）；G3 扩展工具循环、prompt 版本与预算 |
@@ -238,14 +238,14 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 
 ### 交互层
 
-- **设置表单**用 huh（G1a-2 引入 `v1.0.0`），只出现在 `cmd/plume/prompter.go`；不能把现有表单称为聊天 TUI。**v2 迁移（`charm.land/huh/v2`）已立项 G1b.2.1，随终端栈整体升级。**
-- **聊天 TUI（G1b.2 已实现）**当前用 Bubble Tea v1（bubbles v0.21.1 连带 bubbletea v1.3.10、lipgloss v1.1.0）。**终端栈升级 v2（`charm.land/*` 全家桶，全部 GA）已随 G1b.2.1 立项**：先迁 v2 保持行为不变，再落键位契约（Shift+Enter 三层渐进、Ctrl+C 三段语义、KeyMap 平台抽象），契约见 `docs/tui-keys.md`。`internal/tui` 的 Model/Update 是纯状态转移，副作用只经 `Hooks` 注入；`TeaModel` 是到 tea.Model 的适配层（指针接收者，`tea.NewProgram(&tui.TeaModel{...})` 传指针）。普通日志/trace 写文件，不破坏屏幕；模型输出经 `sanitize` 过滤终端控制序列后才渲染。
+- **设置表单**用 huh v2（`charm.land/huh/v2`，G1b.2.1 随终端栈整体迁 v2），只出现在 `cmd/plume/prompter.go`；不能把现有表单称为聊天 TUI。
+- **聊天 TUI（G1b.2.1 起）用 v2 栈**：`charm.land/bubbletea/v2` + `charm.land/bubbles/v2` + `charm.land/lipgloss/v2`，huh 同走 v2，不留 v1/v2 双栈。键位按契约 `docs/tui-keys.md`：Enter 发送；换行三层渐进（Shift+Enter（kitty 终端，v2 自动协商）→ Alt/Option+Enter → 行尾 `\`+Enter 兜底）；Esc 中断 run；Ctrl+C 三段语义（running 取消 / idle 有草稿清空 / 空草稿 1s 内两次退出）；Ctrl+D 空输入退出；Ctrl+L 清屏；Up/Down 草稿历史（边缘导航：光标在输入第一行/最后一行才翻历史，多行输入中间先移光标，对齐 Codex CLI）；PgUp/PgDn 滚动；Ctrl+N 新会话；鼠标滚轮滚动。键位经 `internal/tui/keys.go` 的 KeyMap 平台抽象（`newKeyMap(goos)`，darwin/linux 同表、帮助文本区分 Option/Alt，windows 预留 G-win 实测），**Update/View 不出现键名硬编码与平台分支**。输入区高度用 textarea 的 DynamicHeight 一次最多可见 4 行（超出输入框内滚动）。`internal/tui` 的 Model/Update 是纯状态转移，副作用只经 `Hooks` 注入；`TeaModel` 是到 tea.Model 的适配层（指针接收者，`tea.NewProgram(&tui.TeaModel{...})` 传指针；v2 的 alt screen 与鼠标模式在 `TeaModel.View` 的 `tea.View` 上声明，没有 `WithAltScreen` 选项）。普通日志/trace 写文件，不破坏屏幕；模型输出经 `sanitize` 过滤终端控制序列后才渲染。
 - 未来裸 `plume` 默认进入 TUI，缺配置提示 setup；`plume chat --offline` 不需要配置/Key。setup 计划增加「暂不接入渠道」，不伪造渠道账号、不要求扫码、不清理旧渠道。**G1b.2 已实现以上行为（待审核）**：裸 `plume` 配置就绪+TTY 直接进入聊天。
 - **向导流程与终端库分离**：`internal/setup` 只依赖 `Prompter` 接口，新增一步交互时先加接口方法，再在 `prompter.go` 实现，不要把 huh 的类型渗进 `internal/setup`。
 - **Base URL 不再逐次询问**（2026-10-06）：有预填默认值的预设直接跳过；只有无默认值的预设才问。已有配置里的地址与默认值不同时**原样保留**，不要"顺手"重置——`TestWizardPreservesExistingNonDefaultBaseURL` 守住这条。
 - **模型走列表选择**：模型 ID 来自 `provider.Preset.Models`，列表末尾附"自定义…"才落到文本输入。新增预设时把候选模型写进 `Models`。
 - 没有 TTY 时**先判断再退出**，不要进入 huh 让它阻塞。判定必须用 `mattn/go-isatty` 的 `IsTerminal`／`IsCygwinTerminal`，**不要用 `os.ModeCharDevice`**——`/dev/null` 也是字符设备，用它判断会让 `plume setup < /dev/null` 进入 huh 并挂住（已由 `TestSetupRefusesCharDeviceThatIsNotATerminal` 守住）。
-- 在 pty 里跑向导必须应答终端能力查询，否则 termenv 超时退出（见「验证交互式向导」）。
+- 在 pty 里跑向导/聊天时可应答终端能力查询以加快启动；v2 栈下不应答也会超时后继续（见「验证交互式向导」）。
 
 ## 文档地图
 
@@ -266,12 +266,12 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 
 ## 当前进度与禁区
 
-已完成：G0（计划与可行性，含 `docs/decisions/` 两份决策）、**G1a（首次设置向导与配置边界，已通过）**——含 `internal/config`、`internal/provider`、`internal/channel`、`internal/setup`、`internal/telemetry`、`cmd/plume` 的 cobra 命令树与 `plume setup`。**G1b.1（OpenAI SDK 非流式模型接口，已通过）**——含 `internal/model/`（契约、endpoint、openai/deepseek 适配器、fake）、`internal/provider` 工厂与 probe、`internal/telemetry` 模型 trace、`eval/datasets/smoke.v1.jsonl` 与 runner。**G1b.2（最小可交互 TUI 与多轮会话，已通过）**——含 `internal/tui`（Bubble Tea 聊天界面）、`internal/app`（会话与 run 生命周期）、`internal/agent`（最小单轮）、`internal/model` LoopFake、`plume chat`/裸 `plume` 入口、`--offline`、setup「暂不接入渠道」、README 与 TUI runbook。审核期间修复了模型名装配 bug（agent 绑定 API 模型名而非配置 ID，`buildRuntime` 测试守住）。
+已完成：G0（计划与可行性，含 `docs/decisions/` 两份决策）、**G1a（首次设置向导与配置边界，已通过）**——含 `internal/config`、`internal/provider`、`internal/channel`、`internal/setup`、`internal/telemetry`、`cmd/plume` 的 cobra 命令树与 `plume setup`。**G1b.1（OpenAI SDK 非流式模型接口，已通过）**——含 `internal/model/`（契约、endpoint、openai/deepseek 适配器、fake）、`internal/provider` 工厂与 probe、`internal/telemetry` 模型 trace、`eval/datasets/smoke.v1.jsonl` 与 runner。**G1b.2（最小可交互 TUI 与多轮会话，已通过）**——含 `internal/tui`（Bubble Tea 聊天界面）、`internal/app`（会话与 run 生命周期）、`internal/agent`（最小单轮）、`internal/model` LoopFake、`plume chat`/裸 `plume` 入口、`--offline`、setup「暂不接入渠道」、README 与 TUI runbook。审核期间修复了模型名装配 bug（agent 绑定 API 模型名而非配置 ID，`buildRuntime` 测试守住）。**G1b.2.1（终端栈 v2 迁移与键位重设计，已交付待审核）**——`charm.land/*` v2 全家桶（bubbletea v2.0.10 / bubbles v2.2.1 / lipgloss v2.0.6 / huh v2.0.3，v1 栈全部移除）、键位契约落地（三层渐进换行、Ctrl+C 三段、Ctrl+D/Ctrl+L、Up/Down 草稿历史、KeyMap 抽象 `internal/tui/keys.go`）、输入区动态高度最多可见 4 行；用户在契约外追加输入区 4 行要求并已实现。
 
 **尚未实现，不要假设存在**：
 
-- **终端栈 v2 迁移与键位重设计（G1b.2.1）**：契约已交付待确认（`docs/tui-keys.md`），`charm.land/*` v2 依赖未安装、键位未改、草稿历史未实现——当前代码仍是 v1 栈与 G1b.2 键位（Ctrl+J 换行、单击 Ctrl+C 空闲退出）。
 - **流式模型调用**（`Client.Stream` 当前一律返回 unsupported，G1b.3 启用）、**工具循环与工具声明**（请求携带 tools 返回 unsupported，G3）、cmd/eval 比较命令。
+- Shift+Enter 在真实 kitty 终端（WezTerm/iTerm2）的**人工**验证与 Windows 实测（G-win 单元）——G1b.2.1 只在 pty 里用 CSI u 编码验证过解析路径。
 - 聊天 run 事件的落盘 trace（UI 当前消费内存事件）；模型独立就绪校验（启动只校验配置与凭据存在，不发探测请求）。
 - `internal/tools/`、`internal/store/`。
 - 微信扫码登录与收发；网关命令 `plume gateway …`（第二阶段 G2a）。向导里微信只记录为"待登录"。
@@ -279,16 +279,20 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 
 ### 外部依赖
 
-`go.mod` 目前有**两组**直接依赖，均于 G1a-2 引入并验证（Go 1.27.1 / darwin-arm64 干净编译，`-s -w` 二进制增量实测）：
+`go.mod` 的直接依赖如下（Go 1.27.1 / darwin-arm64 干净编译，`-s -w` 二进制增量实测；终端栈已于 G1b.2.1 整体迁 `charm.land` v2）：
 
 | 依赖 | 版本 | 用途 | 增量 |
 | --- | --- | --- | --- |
 | `go.uber.org/zap` | v1.28.0 | 结构化日志、setup trace | +3.48 MB |
-| `github.com/charmbracelet/huh` | v1.0.0 | 终端交互（含 bubbletea/lipgloss 等传递依赖） | +1.60 MB |
+| `charm.land/bubbletea/v2` | v2.0.10 | 聊天 TUI 运行时（G1b.2.1 起，替代 v1 bubbletea） | 见下行合计 |
+| `charm.land/bubbles/v2` | v2.2.1 | TUI 组件（textarea 动态高度/viewport/key；替代 v1 bubbles） | 合计 +0.92 MB（实测 10.70→11.62 MB） |
+| `charm.land/lipgloss/v2` | v2.0.6 | 样式渲染（替代 v1 lipgloss） | （随上行） |
+| `charm.land/huh/v2` | v2.0.3 | setup 表单（替代 v1 huh，随 G1b.2.1 同批迁移） | （随上行） |
 | `github.com/spf13/cobra` | v1.10.2 | 命令行框架（含 pflag） | +0.96 MB |
 | `github.com/openai/openai-go` | v1.12.0 | 模型传输与协议（G1b.1，Chat Completions 适配器） | +1.70 MB（`-s -w` 实测 6.41→8.11 MB） |
-| `github.com/charmbracelet/bubbles` | v0.21.1 | TUI 组件（textarea/viewport；G1b.2 提升，连带 bubbletea v1.3.10、lipgloss v1.1.0） | +2.59 MB（实测 8.11→10.70 MB）。**v2 迁移（`charm.land/*`，全 GA）已立项 G1b.2.1，迁移后本表更新** |
 | `github.com/mattn/go-isatty` | v0.0.20 | 判断 stdin/stdout 是否为真正的终端 | 可忽略 |
+
+v1 栈（`github.com/charmbracelet/{bubbletea,bubbles,lipgloss,huh}`）已于 G1b.2.1 全部移除，`rg 'github.com/charmbracelet/(bubbletea|bubbles|lipgloss|huh)'` 应为空。
 
 新增依赖应发生在对应单元，并记录版本锁定、兼容性和实测依赖增量。2026-10-06 的路线切换同步只移除了代码中的 Eino 元数据/注释（`Preset.Component` 等），没有安装依赖或变更 `go.mod`。**模型传输已拍板 OpenAI 官方 Go SDK（`github.com/openai/openai-go`，锁定 v1.12.0，2026-10-06 决策），替代早先的 Resty 方案（原 v2/v3 比较作废）；G1b.1 引入时实测依赖增量。SDK 自动重试必须显式禁用（默认 2 次），DeepSeek 与自定义兼容服务同走 `openai-chat-completions` 协议适配器。**
 
