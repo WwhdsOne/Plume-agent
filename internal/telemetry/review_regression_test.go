@@ -14,7 +14,7 @@ import (
 func reviewModelTerminal(t *testing.T, out *bytes.Buffer) map[string]any {
 	t.Helper()
 	var terminal map[string]any
-	for _, line := range strings.Split(strings.TrimSpace(out.String()), "\n") {
+	for line := range strings.SplitSeq(strings.TrimSpace(out.String()), "\n") {
 		var event map[string]any
 		if err := json.Unmarshal([]byte(line), &event); err != nil {
 			t.Fatal(err)

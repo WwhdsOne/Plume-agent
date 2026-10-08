@@ -168,10 +168,7 @@ func newFakeStream(ctx context.Context, script FakeScript) (EventStream, error) 
 		appendText := func(kind EventKind, text string) {
 			runes := []rune(text)
 			for len(runes) > 0 {
-				n := 8
-				if len(runes) < n {
-					n = len(runes)
-				}
+				n := min(len(runes), 8)
 				e := Event{Kind: kind}
 				if kind == EventReasoningDelta {
 					e.ReasoningDelta = string(runes[:n])

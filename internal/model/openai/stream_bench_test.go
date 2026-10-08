@@ -18,10 +18,7 @@ func BenchmarkSDKStreamNormalization(b *testing.B) {
 		b.Run(fmt.Sprintf("%dKiB", size>>10), func(b *testing.B) {
 			var fixture strings.Builder
 			for left := size; left > 0; {
-				n := 256
-				if left < n {
-					n = left
-				}
+				n := min(left, 256)
 				chunk, _ := json.Marshal(map[string]any{"choices": []any{map[string]any{"index": 0, "delta": map[string]any{"content": strings.Repeat("a", n)}}}})
 				fixture.WriteString("data: ")
 				fixture.Write(chunk)
