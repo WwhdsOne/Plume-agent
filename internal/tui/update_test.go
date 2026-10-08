@@ -129,7 +129,7 @@ func TestFailedEventAddsErrorLineOnly(t *testing.T) {
 	m := newTestModel(t, Hooks{})
 	m.startRun("run-000001")
 
-	updated, _ := m.Update(AppEvent{Event: app.Event{Kind: app.EventRunFailed, Err: errRateLimited()}})
+	updated, _ := m.Update(AppEvent{Event: app.Event{Kind: app.EventRunFailed, RunID: "run-000001", Err: errRateLimited()}})
 	m = updated
 
 	if m.state != stateIdle {

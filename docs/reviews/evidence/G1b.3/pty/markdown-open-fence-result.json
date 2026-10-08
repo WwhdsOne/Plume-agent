@@ -1,0 +1,18 @@
+{
+  "case": "markdown-open-fence-80x24-none",
+  "status": "passed",
+  "metrics": {
+    "level": "info",
+    "ts": "2026-10-08T12:19:08.438+0800",
+    "msg": "run_ended",
+    "run_id": "run-000001",
+    "status": "ok",
+    "error_code": "",
+    "duration_ms": 257.921458,
+    "preparation_ms": 0.369208,
+    "first_reasoning_ms": null,
+    "first_answer_ms": 257.310167,
+    "reasoning_bytes": 0,
+    "answer_bytes": 110
+  }
+}

@@ -6,6 +6,7 @@ package openai
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -22,6 +23,7 @@ import (
 type Adapter struct {
 	provider string
 	client   openai.Client
+	deepseek bool
 }
 
 // NewAdapter 构造适配器：校验 Base URL、装配受控传输并禁用 SDK 自动
@@ -36,6 +38,52 @@ func NewAdapter(provider, baseURL, apiKey string) (*Adapter, error) {
 	return &Adapter{provider: provider, client: openai.NewClient(opts...)}, nil
 }
 
+// NewDeepSeekAdapter 显式选择已经验证的 DeepSeek 扩展，不从品牌字符串猜测能力。
+func NewDeepSeekAdapter(baseURL, apiKey string) (*Adapter, error) {
+	a, err := NewAdapter("deepseek", baseURL, apiKey)
+	if err == nil {
+		a.deepseek = true
+	}
+	return a, err
+}
+
+// requestOptions 验证控制偏好，并把供应商差异保留在协议适配器中。
+func (a *Adapter) requestOptions(req model.ChatRequest) ([]option.RequestOption, error) {
+	if req.ReasoningEffort == "" {
+		return nil, nil
+	}
+	if !a.deepseek {
+		return nil, model.NewError(model.ErrUnsupported).WithSummary("reasoning control is unverified for this adapter")
+	}
+	if req.ReasoningEffort == model.ReasoningNone {
+		return []option.RequestOption{option.WithJSONSet("thinking.type", "disabled")}, nil
+	}
+	effort := req.ReasoningEffort
+	if effort == model.ReasoningMedium {
+		effort = model.ReasoningHigh
+	}
+	switch effort {
+	case model.ReasoningLow, model.ReasoningHigh, model.ReasoningMax:
+		return []option.RequestOption{option.WithJSONSet("thinking.type", "enabled"), option.WithJSONSet("reasoning_effort", string(effort))}, nil
+	default:
+		return nil, model.NewError(model.ErrUnsupported).WithSummary("unsupported reasoning effort")
+	}
+}
+
+// reasoningField 只读取已验证的独立字段，不从答案文本猜测思考。
+func reasoningField(raw string) (string, error) {
+	var data struct {
+		Reasoning *string `json:"reasoning_content"`
+	}
+	if err := json.Unmarshal([]byte(raw), &data); err != nil {
+		return "", model.NewError(model.ErrInvalidResponse).WithSummary("invalid reasoning_content field")
+	}
+	if data.Reasoning == nil {
+		return "", nil
+	}
+	return *data.Reasoning, nil
+}
+
 // Generate 执行一次非流式补全并把响应归一化为项目契约。
 func (a *Adapter) Generate(ctx context.Context, req model.ChatRequest) (*model.ChatResponse, error) {
 	params, err := encodeRequest(req)
@@ -43,8 +91,12 @@ func (a *Adapter) Generate(ctx context.Context, req model.ChatRequest) (*model.C
 		return nil, a.wrap(ctx, err, nil)
 	}
 
+	opts, err := a.requestOptions(req)
+	if err != nil {
+		return nil, a.wrap(ctx, err, nil)
+	}
 	var httpResp *http.Response
-	opts := append(reqOptionParams(), option.WithResponseInto(&httpResp))
+	opts = append(opts, option.WithResponseInto(&httpResp))
 	completion, err := a.client.Chat.Completions.New(ctx, params, opts...)
 	if err != nil {
 		return nil, a.wrap(ctx, err, httpResp)
@@ -54,20 +106,20 @@ func (a *Adapter) Generate(ctx context.Context, req model.ChatRequest) (*model.C
 	if err != nil {
 		return nil, a.wrap(ctx, err, httpResp)
 	}
+	if a.deepseek {
+		resp.Message.Reasoning, err = reasoningField(completion.Choices[0].Message.RawJSON())
+		if err != nil {
+			return nil, a.wrap(ctx, err, httpResp)
+		}
+		if req.ReasoningEffort == model.ReasoningNone && resp.Message.Reasoning != "" {
+			return nil, a.wrap(ctx, model.NewError(model.ErrUnsupported).WithSummary("reasoning returned while disabled"), httpResp)
+		}
+	}
+	if resp.Message.Content == "" && len(resp.Message.ToolCalls) == 0 {
+		return nil, a.wrap(ctx, model.NewError(model.ErrInvalidResponse).WithSummary("no answer text"), httpResp)
+	}
 	return resp, nil
 }
-
-// Stream 在 G1b.1 明确返回 unsupported；流式能力在 G1b.3 启用，
-// 不用整包响应冒充流（0003 §3）。
-func (a *Adapter) Stream(_ context.Context, _ model.ChatRequest) (model.EventStream, error) {
-	return nil, model.NewError(model.ErrUnsupported).
-		WithProvider(a.provider, model.ProtocolOpenAIChatCompletions).
-		WithSummary("streaming is not enabled until G1b.3")
-}
-
-// reqOptionParams 返回每次调用固定的请求级选项。G1b.1 无额外参数，
-// 保留独立函数便于后续单元注入 trace 中间件。
-func reqOptionParams() []option.RequestOption { return nil }
 
 // encodeRequest 把规范化请求编码为 SDK 参数。G1b.1 不发送工具声明
 // （工具执行在 G3），出现即明确拒绝，不静默忽略（0003 §3）。
@@ -135,6 +187,10 @@ func encodeAssistant(m model.Message) openai.ChatCompletionMessageParamUnion {
 // decodeResponse 把 SDK 响应归一化：单候选校验、finish reason、可选 usage
 // 与供应商请求 ID。HTTP 2xx 之后的协议错误仍是失败（0003 §4）。
 func decodeResponse(provider string, completion *openai.ChatCompletion, httpResp *http.Response) (*model.ChatResponse, error) {
+	usage, err := validateResponse(completion.RawJSON(), false)
+	if err != nil {
+		return nil, err
+	}
 	resp := &model.ChatResponse{
 		ID:       completion.ID,
 		Provider: provider,
@@ -160,8 +216,13 @@ func decodeResponse(provider string, completion *openai.ChatCompletion, httpResp
 	resp.FinishReason = decodeFinishReason(choice.FinishReason)
 	msg := model.Message{Role: model.RoleAssistant, Content: choice.Message.Content}
 	if len(choice.Message.ToolCalls) > 0 {
+		ids := make(map[string]bool, len(choice.Message.ToolCalls))
 		msg.ToolCalls = make([]model.ToolCall, 0, len(choice.Message.ToolCalls))
 		for _, tc := range choice.Message.ToolCalls {
+			if ids[tc.ID] {
+				return nil, model.NewError(model.ErrInvalidResponse).WithSummary("duplicate tool call ID")
+			}
+			ids[tc.ID] = true
 			msg.ToolCalls = append(msg.ToolCalls, model.ToolCall{
 				ID:        tc.ID,
 				Name:      tc.Function.Name,
@@ -171,16 +232,8 @@ func decodeResponse(provider string, completion *openai.ChatCompletion, httpResp
 	}
 	resp.Message = msg
 
-	// usage 以可选值表达：SDK 用 JSON 字段存在性记录缺失，缺失即 unknown，
-	// 绝不当 0（0003 §3）。
-	if completion.Usage.JSON.TotalTokens.Valid() {
-		resp.Usage = model.Usage{
-			OK:               true,
-			PromptTokens:     completion.Usage.PromptTokens,
-			CompletionTokens: completion.Usage.CompletionTokens,
-			TotalTokens:      completion.Usage.TotalTokens,
-		}
-	}
+	// usage 只有三个必要计数均存在且合法时才已知，缺失不能补成 0。
+	resp.Usage = usage
 	return resp, nil
 }
 
@@ -309,4 +362,14 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+// Capabilities 表示适配器已实现的协议读取能力；控制参数的端点/模型
+// 验证仍由 provider 完成，不能从品牌或任意 Base URL 推断支持。
+func (a *Adapter) Capabilities() model.CapabilitySet {
+	caps := model.NewCapabilitySet().Set(model.CapText, model.CapSupported).Set(model.CapStream, model.CapSupported).Set(model.CapUsage, model.CapSupported).Set(model.CapTools, model.CapUnsupported)
+	if a.deepseek {
+		caps = caps.Set(model.CapReasoningOutput, model.CapSupported)
+	}
+	return caps
 }

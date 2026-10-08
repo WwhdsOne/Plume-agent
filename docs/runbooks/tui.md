@@ -1,11 +1,13 @@
 ---
 title: TUI 聊天 runbook
 status: active
-updated: 2026-10-07
-summary: plume chat 的启动方式、键位、离线演示、真实模型验证与常见故障复现
+updated: 2026-10-08
+summary: plume chat 的启动、流式思考配置、键位、隔离演示与 trace 排查
 ---
 
-# TUI 聊天 runbook（G1b.2.1 起按 v2 栈与键位契约）
+# TUI 聊天 runbook
+
+G1b.2.1 起使用 v2 终端栈；G1b.3 流式与思考展示已通过审核。
 
 ## 启动方式
 
@@ -43,11 +45,32 @@ PLUME_HOME=$(mktemp -d) go run ./cmd/plume chat --offline
 | `Ctrl+D` | 退出（仅空输入时；有草稿时忽略） |
 | `Ctrl+L` | 清屏并回到聊天记录底部 |
 | `Ctrl+N` | 新会话（清空上下文与草稿历史；运行中会先被拒绝并提示） |
+| `Ctrl+O` | 展开/收起当前轮或空闲时最近一轮的思考；无内容时忽略 |
 | 鼠标滚轮 | 滚动聊天记录（与终端文本选择冲突时按住 Shift 选择） |
 
 输入区高度随换行/折行自动长高，一次最多可见 4 行，超出在输入框内滚动。
 
 同一会话串行：运行中再次 Enter 被拒绝并提示，不排队、不并发。
+
+## 流式输出与配置（G1b.3，已通过）
+
+用户以 `>`、助手以 `●` 显示，`Thought` 标题与二者同列，三点动画占标题左侧固定槽。思考默认预览最新三行，首答案自动折叠；Ctrl+O 手动选择优先。答案增量按 50ms 合并渲染，首答案和终态立即刷新；主动上滚暂停跟随，手动回到底部恢复。失败或取消保留屏幕上的部分内容，下一轮上下文只包含成功轮次。
+
+模型配置可添加 `"reasoning_effort": "none"` 关闭思考，省略字段默认偏好 `high`；setup 不询问强度。仅已验证的官方 DeepSeek 端点和模型映射参数，未验证服务缺省时省略参数，显式设置则启动报错。`plume config show` 显示请求值、生效值、来源和能力状态；不把 unknown 显示成已生效的 high。
+
+可选 `tui.status_messages` 使用 preparing/waiting/thinking/responding 四个键，每个值为字符串数组。空值回退默认文案，thinking 默认显示 `Thought`。配置启动时读取一次，示例见 [流式契约](../tui-streaming.md)。
+
+在线聊天事件写入 `$PLUME_HOME/logs/chat-UTC-pid.jsonl`（默认 `~/.plume/logs/`），关联 run/model ID，记录阶段、字节数、首思考、模型首答案和 UI 首答案；缺失值为 null，不记录正文或凭据。离线启动不读取配置。
+
+带版本构建后可复跑本地 HTTP fixture + pty 演示：
+
+```bash
+./scripts/build.sh
+python3 scripts/pty_demo_g1b3.py
+# 期望：G1B3_PTY_OK cases=13
+```
+
+脚本仅使用临时 PLUME_HOME、临时凭据与本地服务器，覆盖三个尺寸、三种颜色模式及纯答案、仅思考、断流、取消。证据位于 `docs/reviews/evidence/G1b.3/pty/`，本地 fixture 不能代表真实模型延迟。
 
 ## pty 演示脚本
 

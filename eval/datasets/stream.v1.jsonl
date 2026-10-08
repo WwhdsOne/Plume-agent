@@ -1,0 +1,5 @@
+{"id":"stream-success","scenario":"success","expected":"ok"}
+{"id":"stream-answer-only","scenario":"answer-only","expected":"ok"}
+{"id":"stream-reasoning-only","scenario":"reasoning-only","expected":"invalid_response"}
+{"id":"stream-disconnect","scenario":"disconnect","expected":"stream_interrupted"}
+{"id":"stream-cancel","scenario":"cancel","expected":"cancelled"}

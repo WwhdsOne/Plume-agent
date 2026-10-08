@@ -220,10 +220,21 @@ func (w *Wizard) runModel(existing *config.Config) (*Result, error) {
 		Model:     modelName,
 		APIKeyRef: keyRef,
 	}
+	// 复用同一供应商配置时保留用户的显式偏好；向导不增加思考强度问题。
+	if prev != nil && prev.Provider == preset.ID && prev.ReasoningEffort != nil {
+		effort := *prev.ReasoningEffort
+		model.ReasoningEffort = &effort
+	}
 	cfg := &config.Config{
 		SchemaVersion: config.SchemaVersion,
 		DefaultModel:  model.ID,
 		Models:        []config.ModelConfig{model},
+	}
+	if existing != nil && existing.TUI != nil {
+		cfg.TUI = &config.TUIConfig{StatusMessages: make(map[string][]string)}
+		for phase, messages := range existing.TUI.StatusMessages {
+			cfg.TUI.StatusMessages[phase] = append([]string(nil), messages...)
+		}
 	}
 	// 保留已有渠道，但把它们重新指向新的默认模型。
 	for _, ch := range existingChannels(existing) {
@@ -234,6 +245,9 @@ func (w *Wizard) runModel(existing *config.Config) (*Result, error) {
 	{
 		done := w.trace.Step("validate")
 		err := cfg.Validate(w.providers, w.channels)
+		if err == nil {
+			_, err = provider.ResolveReasoning(provider.ModelSpec{Provider: model.Provider, Protocol: model.Protocol, BaseURL: model.BaseURL, Model: model.Model, ReasoningEffort: model.ReasoningEffort})
+		}
 		done(err)
 		if err != nil {
 			return nil, err

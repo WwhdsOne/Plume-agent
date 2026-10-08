@@ -32,6 +32,7 @@ type ToolCall struct {
 type Message struct {
 	Role       Role       `json:"role"`
 	Content    string     `json:"content"`
+	Reasoning  string     `json:"reasoning,omitempty"`
 	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`   // 仅 assistant：模型请求执行的工具调用
 	ToolCallID string     `json:"tool_call_id,omitempty"` // 仅 tool：本条结果对应的调用 ID
 }
@@ -45,10 +46,22 @@ type ToolDeclaration struct {
 	Parameters string `json:"parameters"`
 }
 
+// ReasoningEffort 是已验证的供应商思考请求偏好；空值不发送参数。
+type ReasoningEffort string
+
+const (
+	ReasoningNone   ReasoningEffort = "none"
+	ReasoningLow    ReasoningEffort = "low"
+	ReasoningMedium ReasoningEffort = "medium"
+	ReasoningHigh   ReasoningEffort = "high"
+	ReasoningMax    ReasoningEffort = "max"
+)
+
 // ChatRequest 是跨协议的规范化生成请求。
 type ChatRequest struct {
 	// Model 是运行时配置的模型 ID（不是供应商品牌）。
-	Model string `json:"model"`
+	Model           string          `json:"model"`
+	ReasoningEffort ReasoningEffort `json:"reasoning_effort,omitempty"`
 	// Messages 是按顺序的完整对话上下文。
 	Messages []Message `json:"messages"`
 	// Temperature 为 nil 表示不发送该参数（由服务端取默认值）。
@@ -93,28 +106,30 @@ type Usage struct {
 	TotalTokens      int64
 }
 
-// EventKind 是规范化流事件的类别（0003 §5）。G1b.1 只定义契约，
-// 流式能力在 G1b.3 启用。
+// EventKind 是规范化流事件的类别（0003 §5）；思考与答案独立输出。
 type EventKind string
 
 const (
-	EventTextDelta    EventKind = "text_delta"
-	EventToolDelta    EventKind = "tool_delta"
-	EventUsageUpdate  EventKind = "usage_update"
-	EventModelDone    EventKind = "model_done"
-	EventUnsupported  EventKind = "unsupported"
-	EventStreamEnded  EventKind = "stream_ended"
-	EventStreamBroken EventKind = "stream_broken"
+	EventTextDelta      EventKind = "text_delta"
+	EventReasoningDelta EventKind = "reasoning_delta"
+	EventToolDelta      EventKind = "tool_delta"
+	EventUsageUpdate    EventKind = "usage_update"
+	EventModelDone      EventKind = "model_done"
+	EventUnsupported    EventKind = "unsupported"
+	EventStreamEnded    EventKind = "stream_ended"
+	EventStreamBroken   EventKind = "stream_broken"
 )
 
 // Event 是一条规范化流事件。文本增量、工具调用增量（含稳定 index/ID）、
 // usage 更新与模型结束分别使用对应字段；usage 仍以可选值表达。
 type Event struct {
-	Kind         EventKind
-	TextDelta    string
-	ToolCall     *ToolCall // EventToolDelta 时非 nil
-	Usage        Usage
-	FinishReason FinishReason
+	Kind           EventKind
+	TextDelta      string
+	ReasoningDelta string
+	ToolIndex      int
+	ToolCall       *ToolCall // EventToolDelta 时非 nil
+	Usage          Usage
+	FinishReason   FinishReason
 }
 
 // EventStream 是拉取式流事件读取器。所有权交给调用者：成功、失败、取消
@@ -135,7 +150,6 @@ type EventStream interface {
 type Client interface {
 	// Generate 一次完整生成（非流式）。
 	Generate(ctx context.Context, req ChatRequest) (*ChatResponse, error)
-	// Stream 打开流式生成。G1b.1 的所有实现明确返回 unsupported（流式
-	// 能力在 G1b.3 启用），不能用整包响应冒充流。
+	// Stream 打开拉取式流生成，协议适配器保持模型结束与流结束的区别。
 	Stream(ctx context.Context, req ChatRequest) (EventStream, error)
 }

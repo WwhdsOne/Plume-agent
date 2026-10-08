@@ -65,10 +65,12 @@ func (r *ModelRecorder) StartModel(callID, provider, protocol, modelID string) *
 // ModelSpan 是一次模型调用的生命周期。End 无论成功、失败还是重复调用，
 // 都只产生一个终态事件。
 type ModelSpan struct {
-	rec    *ModelRecorder
-	callID string
-	start  time.Time
-	once   sync.Once
+	rec                         *ModelRecorder
+	callID                      string
+	start                       time.Time
+	once                        sync.Once
+	firstReasoning, firstAnswer time.Duration
+	reasoningBytes, answerBytes int
 }
 
 // End 记录终态：err == nil 视为成功（resp 提供 finish reason 与 usage），
@@ -80,6 +82,16 @@ func (s *ModelSpan) End(resp *model.ChatResponse, err error) {
 		fields := []zap.Field{
 			zap.String("model_call_id", s.callID),
 			zap.Int64("duration_ms", duration),
+			optionalMillis("first_reasoning_ms", s.firstReasoning), optionalMillis("first_answer_ms", s.firstAnswer),
+			zap.Int("reasoning_bytes", s.reasoningBytes), zap.Int("answer_bytes", s.answerBytes),
+		}
+		if resp != nil {
+			fields = append(fields, zap.String("finish_reason", string(resp.FinishReason)), zap.Bool("usage_known", resp.Usage.OK))
+			if resp.Usage.OK {
+				fields = append(fields, zap.Int64("prompt_tokens", resp.Usage.PromptTokens), zap.Int64("completion_tokens", resp.Usage.CompletionTokens), zap.Int64("total_tokens", resp.Usage.TotalTokens))
+			}
+		} else {
+			fields = append(fields, zap.Bool("usage_known", false))
 		}
 		if err != nil {
 			fields = append(fields,
@@ -93,11 +105,15 @@ func (s *ModelSpan) End(resp *model.ChatResponse, err error) {
 				if mErr.RequestID != "" {
 					fields = append(fields, zap.String("request_id", mErr.RequestID))
 				}
-				fields = append(fields, zap.String("error", mErr.Error()))
+				fields = append(fields, zap.String("error", string(mErr.Code)))
 			} else {
+				code := string(model.ClassifyContext(err))
+				if code == "" {
+					code = "unknown"
+				}
 				fields = append(fields,
-					zap.String("error_code", "unknown"),
-					zap.String("error", truncate(err.Error(), maxModelErrorLogRunes)),
+					zap.String("error_code", code),
+					zap.String("error", code),
 				)
 			}
 			s.rec.logger.Info(EventModelFailed, fields...)
@@ -105,17 +121,6 @@ func (s *ModelSpan) End(resp *model.ChatResponse, err error) {
 		}
 
 		fields = append(fields, zap.String("status", "ok"))
-		if resp != nil {
-			fields = append(fields, zap.String("finish_reason", string(resp.FinishReason)))
-			fields = append(fields, zap.Bool("usage_known", resp.Usage.OK))
-			if resp.Usage.OK {
-				fields = append(fields,
-					zap.Int64("prompt_tokens", resp.Usage.PromptTokens),
-					zap.Int64("completion_tokens", resp.Usage.CompletionTokens),
-					zap.Int64("total_tokens", resp.Usage.TotalTokens),
-				)
-			}
-		}
 		s.rec.logger.Info(EventModelCompleted, fields...)
 	})
 }

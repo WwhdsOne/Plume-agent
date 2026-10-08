@@ -1,6 +1,6 @@
 # plume-agent
 
-用 Go 构建的个人 Agent：终端输入 `plume` 直接进入聊天 TUI（模仿 [Hermes](https://github.com/NousResearch/hermes-agent) 的零参数体验）。当前实现 TUI 多轮聊天与受控模型调用；微信 iLink Bot、飞书、QQ 属于后续渠道扩展（第二阶段，另行授权）。
+用 Go 构建的个人 Agent：终端输入 `plume` 直接进入聊天 TUI（模仿 [Hermes](https://github.com/NousResearch/hermes-agent) 的零参数体验）。当前实现多轮流式聊天、Markdown 答案与独立思考展示（G1b.3 已通过）；微信 iLink Bot、飞书、QQ 属于后续渠道扩展（第二阶段，另行授权）。
 
 项目按审核单元推进（G0 → G1a → G1b.1 → G1b.2 → …），单元边界、审核记录与指标协议见 [`docs/`](docs/)。
 
@@ -17,7 +17,9 @@ plume chat --model <配置ID>        # 显式指定 config.json 里的模型配�
 plume config show                 # 脱敏查看配置
 ```
 
-聊天键位：`Enter` 发送；`Ctrl+J` 换行；`PgUp/PgDn` 滚动；`Esc` 取消当前 run；`Ctrl+C` 运行中取消、空闲时退出；`Ctrl+N` 新会话（清空上下文）。
+聊天键位：`Enter` 发送；`Shift+Enter`、`Alt/Option+Enter` 或行尾 `\`+`Enter` 换行；`PgUp/PgDn` 滚动；`Esc` 取消；`Ctrl+C` 运行中取消、空闲有草稿时清空、空草稿时两次退出；`Ctrl+D` 空输入退出；`Ctrl+L` 清屏；`Ctrl+N` 新会话；`Ctrl+O` 展开/收起思考。
+
+模型级 `reasoning_effort` 省略时默认偏好 `high`，`none` 关闭思考，setup 不增加问题。支持范围由端点和模型能力共同验证，未验证服务不会自动发送 high 参数；`plume config show` 显示来源与实际生效状态。四阶段文案可在 `tui.status_messages` 中自定义，详见 [流式契约](docs/tui-streaming.md)。
 
 模型传输用 [OpenAI 官方 Go SDK](https://github.com/openai/openai-go)（自动重试/重定向已显式禁用），DeepSeek 与自定义 OpenAI 兼容服务同走 Chat Completions 适配器；Anthropic/Gemini 等协议未来以新增适配器接入同一接口。配置里永不出现密钥值——`config.json` 只存引用，密钥在 `~/.plume/credentials/`（0700/0600）。
 
@@ -39,7 +41,7 @@ TUI → app（会话/run）→ agent（循环/预算）→ 模型接口 / 受控
 | `internal/tui/` | 聊天界面（Bubble Tea；不发送 HTTP、不执行工具） |
 | `internal/app/` | 会话与 run 生命周期（串行、取消、事件） |
 | `internal/agent/` | 模型—工具循环（工具在 G3） |
-| `internal/telemetry/` | JSON Lines trace（setup/模型） |
+| `internal/telemetry/` | 脱敏 JSON Lines trace（setup/模型/run/UI 首答案） |
 | `internal/eval/` | 离线种子数据集与运行器 |
 
 文档：[第一阶段计划](docs/phase-01-tui-agent.md) · [决策 0003 模型运行时](docs/decisions/0003-model-runtime.md) · [审核记录](docs/reviews/) · [路线图](docs/roadmap.html) · [TUI runbook](docs/runbooks/tui.md)

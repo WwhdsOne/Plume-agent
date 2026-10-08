@@ -1,0 +1,237 @@
+[
+  {
+    "case": "success-100x32-truecolor",
+    "status": "passed",
+    "metrics": {
+      "level": "info",
+      "ts": "2026-10-08T14:02:18.682+0800",
+      "msg": "run_ended",
+      "run_id": "run-000001",
+      "status": "ok",
+      "error_code": "",
+      "duration_ms": 1387.5115,
+      "preparation_ms": 0.694542,
+      "first_reasoning_ms": 260.159958,
+      "first_answer_ms": 876.464666,
+      "reasoning_bytes": 125,
+      "answer_bytes": 138
+    }
+  },
+  {
+    "case": "success-100x32-256",
+    "status": "passed",
+    "metrics": {
+      "level": "info",
+      "ts": "2026-10-08T14:02:23.435+0800",
+      "msg": "run_ended",
+      "run_id": "run-000001",
+      "status": "ok",
+      "error_code": "",
+      "duration_ms": 1392.6675,
+      "preparation_ms": 0.514542,
+      "first_reasoning_ms": 258.007416,
+      "first_answer_ms": 872.43,
+      "reasoning_bytes": 125,
+      "answer_bytes": 138
+    }
+  },
+  {
+    "case": "success-100x32-none",
+    "status": "passed",
+    "metrics": {
+      "level": "info",
+      "ts": "2026-10-08T14:02:28.186+0800",
+      "msg": "run_ended",
+      "run_id": "run-000001",
+      "status": "ok",
+      "error_code": "",
+      "duration_ms": 1391.360125,
+      "preparation_ms": 0.388083,
+      "first_reasoning_ms": 258.10775,
+      "first_answer_ms": 873.905709,
+      "reasoning_bytes": 125,
+      "answer_bytes": 138
+    }
+  },
+  {
+    "case": "success-80x24-truecolor",
+    "status": "passed",
+    "metrics": {
+      "level": "info",
+      "ts": "2026-10-08T14:02:32.969+0800",
+      "msg": "run_ended",
+      "run_id": "run-000001",
+      "status": "ok",
+      "error_code": "",
+      "duration_ms": 1424.294708,
+      "preparation_ms": 0.5185,
+      "first_reasoning_ms": 257.720458,
+      "first_answer_ms": 882.524375,
+      "reasoning_bytes": 125,
+      "answer_bytes": 138
+    }
+  },
+  {
+    "case": "success-80x24-256",
+    "status": "passed",
+    "metrics": {
+      "level": "info",
+      "ts": "2026-10-08T14:02:37.720+0800",
+      "msg": "run_ended",
+      "run_id": "run-000001",
+      "status": "ok",
+      "error_code": "",
+      "duration_ms": 1427.390042,
+      "preparation_ms": 0.476167,
+      "first_reasoning_ms": 262.729417,
+      "first_answer_ms": 895.224625,
+      "reasoning_bytes": 125,
+      "answer_bytes": 138
+    }
+  },
+  {
+    "case": "success-80x24-none",
+    "status": "passed",
+    "metrics": {
+      "level": "info",
+      "ts": "2026-10-08T14:02:42.459+0800",
+      "msg": "run_ended",
+      "run_id": "run-000001",
+      "status": "ok",
+      "error_code": "",
+      "duration_ms": 1422.271959,
+      "preparation_ms": 0.577459,
+      "first_reasoning_ms": 262.895333,
+      "first_answer_ms": 883.017708,
+      "reasoning_bytes": 125,
+      "answer_bytes": 138
+    }
+  },
+  {
+    "case": "success-40x24-truecolor",
+    "status": "passed",
+    "metrics": {
+      "level": "info",
+      "ts": "2026-10-08T14:02:47.198+0800",
+      "msg": "run_ended",
+      "run_id": "run-000001",
+      "status": "ok",
+      "error_code": "",
+      "duration_ms": 1407.500958,
+      "preparation_ms": 0.490875,
+      "first_reasoning_ms": 261.479083,
+      "first_answer_ms": 879.083833,
+      "reasoning_bytes": 125,
+      "answer_bytes": 138
+    }
+  },
+  {
+    "case": "success-40x24-256",
+    "status": "passed",
+    "metrics": {
+      "level": "info",
+      "ts": "2026-10-08T14:02:51.969+0800",
+      "msg": "run_ended",
+      "run_id": "run-000001",
+      "status": "ok",
+      "error_code": "",
+      "duration_ms": 1436.087375,
+      "preparation_ms": 0.57575,
+      "first_reasoning_ms": 261.531041,
+      "first_answer_ms": 895.355666,
+      "reasoning_bytes": 125,
+      "answer_bytes": 138
+    }
+  },
+  {
+    "case": "success-40x24-none",
+    "status": "passed",
+    "metrics": {
+      "level": "info",
+      "ts": "2026-10-08T14:02:56.704+0800",
+      "msg": "run_ended",
+      "run_id": "run-000001",
+      "status": "ok",
+      "error_code": "",
+      "duration_ms": 1428.767333,
+      "preparation_ms": 0.817542,
+      "first_reasoning_ms": 262.793208,
+      "first_answer_ms": 887.795791,
+      "reasoning_bytes": 125,
+      "answer_bytes": 138
+    }
+  },
+  {
+    "case": "answer-only-80x24-none",
+    "status": "passed",
+    "metrics": {
+      "level": "info",
+      "ts": "2026-10-08T14:03:00.820+0800",
+      "msg": "run_ended",
+      "run_id": "run-000001",
+      "status": "ok",
+      "error_code": "",
+      "duration_ms": 794.465875,
+      "preparation_ms": 0.851125,
+      "first_reasoning_ms": null,
+      "first_answer_ms": 263.199792,
+      "reasoning_bytes": 0,
+      "answer_bytes": 138
+    }
+  },
+  {
+    "case": "reasoning-only-80x24-none",
+    "status": "passed",
+    "metrics": {
+      "level": "info",
+      "ts": "2026-10-08T14:03:05.680+0800",
+      "msg": "run_ended",
+      "run_id": "run-000001",
+      "status": "error",
+      "error_code": "invalid_response",
+      "duration_ms": 900.052625,
+      "preparation_ms": 0.404916,
+      "first_reasoning_ms": 262.353542,
+      "first_answer_ms": null,
+      "reasoning_bytes": 125,
+      "answer_bytes": 0
+    }
+  },
+  {
+    "case": "disconnect-80x24-none",
+    "status": "passed",
+    "metrics": {
+      "level": "info",
+      "ts": "2026-10-08T14:03:10.488+0800",
+      "msg": "run_ended",
+      "run_id": "run-000001",
+      "status": "error",
+      "error_code": "stream_interrupted",
+      "duration_ms": 960.046625,
+      "preparation_ms": 0.617666,
+      "first_reasoning_ms": 258.609709,
+      "first_answer_ms": 883.407459,
+      "reasoning_bytes": 125,
+      "answer_bytes": 17
+    }
+  },
+  {
+    "case": "cancel-80x24-none",
+    "status": "passed",
+    "metrics": {
+      "level": "info",
+      "ts": "2026-10-08T14:03:14.984+0800",
+      "msg": "run_ended",
+      "run_id": "run-000001",
+      "status": "error",
+      "error_code": "cancelled",
+      "duration_ms": 702.427,
+      "preparation_ms": 0.627125,
+      "first_reasoning_ms": 255.020416,
+      "first_answer_ms": null,
+      "reasoning_bytes": 84,
+      "answer_bytes": 0
+    },
+    "cancel_latency_ms": 52.3720703125
+  }
+]

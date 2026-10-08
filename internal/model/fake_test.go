@@ -37,16 +37,61 @@ func TestFakePlaysScriptsInOrder(t *testing.T) {
 	}
 }
 
-func TestFakeStreamUnsupported(t *testing.T) {
-	fake := NewFake()
-	_, err := fake.Stream(context.Background(), ChatRequest{})
-	var mErr *Error
-	if !errors.As(err, &mErr) {
-		t.Fatalf("Stream error = %v, want *model.Error", err)
+func TestFakeStreamPlaysDeltasAndFailure(t *testing.T) {
+	fake := NewFake(FakeScript{Response: &ChatResponse{Message: Message{Content: "答案", Reasoning: "思考"}, FinishReason: FinishStop, Usage: Usage{OK: true, TotalTokens: 2}}})
+	stream, err := fake.Stream(context.Background(), ChatRequest{})
+	if err != nil {
+		t.Fatal(err)
 	}
-	if mErr.Code != ErrUnsupported {
-		t.Errorf("Stream error code = %q, want unsupported", mErr.Code)
+	defer stream.Close()
+	var answer, reasoning string
+	ended := 0
+	for stream.Next(context.Background()) {
+		e := stream.Event()
+		answer += e.TextDelta
+		reasoning += e.ReasoningDelta
+		if e.Kind == EventStreamEnded {
+			ended++
+		}
 	}
+	if stream.Err() != nil || answer != "答案" || reasoning != "思考" || ended != 1 {
+		t.Fatalf("answer=%q reasoning=%q ended=%d err=%v", answer, reasoning, ended, stream.Err())
+	}
+}
+
+func TestFakeStreamCancellationAndPartialFailure(t *testing.T) {
+	gate := make(chan struct{})
+	fake := NewFake(FakeScript{Stream: []FakeStep{{Event: Event{Kind: EventTextDelta, TextDelta: "partial"}}, {Wait: gate, Event: Event{Kind: EventTextDelta, TextDelta: "late"}}}})
+	stream, err := fake.Stream(context.Background(), ChatRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stream.Close()
+	if !stream.Next(context.Background()) {
+		t.Fatal("missing partial")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if stream.Next(ctx) {
+		t.Fatal("cancel delivered event")
+	}
+	var e *Error
+	if !errors.As(stream.Err(), &e) || e.Code != ErrCancelled {
+		t.Fatalf("err=%v", stream.Err())
+	}
+	fake = NewFake(FakeScript{Stream: []FakeStep{{Event: Event{Kind: EventTextDelta, TextDelta: "partial"}}}, StreamErr: NewError(ErrStreamInterrupt)})
+	stream, err = fake.Stream(context.Background(), ChatRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !stream.Next(context.Background()) || stream.Next(context.Background()) {
+		t.Fatal("wrong scripted events")
+	}
+	if !errors.As(stream.Err(), &e) || e.Code != ErrStreamInterrupt {
+		t.Fatalf("err=%v", stream.Err())
+	}
+	_ = stream.Close()
+	_ = stream.Close()
 }
 
 func TestFakeConcurrentGenerate(t *testing.T) {
@@ -59,4 +104,20 @@ func TestFakeConcurrentGenerate(t *testing.T) {
 	}()
 	_ = fake.Calls()
 	<-done
+}
+
+func TestLoopFakeEmptyResponseUsesOfflineAnswer(t *testing.T) {
+	f := NewLoopFake(FakeScript{Response: &ChatResponse{}})
+	s, err := f.Stream(context.Background(), ChatRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	var answer string
+	for s.Next(context.Background()) {
+		answer += s.Event().TextDelta
+	}
+	if s.Err() != nil || answer != OfflineReply {
+		t.Fatalf("answer=%q err=%v", answer, s.Err())
+	}
 }

@@ -22,6 +22,7 @@ type Config struct {
 	DefaultModel  string          `json:"default_model,omitempty"`
 	Models        []ModelConfig   `json:"models,omitempty"`
 	Channels      []ChannelConfig `json:"channels,omitempty"`
+	TUI           *TUIConfig      `json:"tui,omitempty"`
 }
 
 // ModelConfig 描述一个模型端点。Provider 与 Protocol 分开存：Provider 是预设品牌，
@@ -29,12 +30,13 @@ type Config struct {
 // 原样保留），G1b.1 的注册工厂把它映射到自研适配器及内部 openai-chat-completions
 // 协议族，见 docs/decisions/0003-model-runtime.md。
 type ModelConfig struct {
-	ID        string `json:"id"`
-	Provider  string `json:"provider"`
-	Protocol  string `json:"protocol"`
-	BaseURL   string `json:"base_url,omitempty"`
-	Model     string `json:"model"`
-	APIKeyRef string `json:"api_key_ref,omitempty"`
+	ID              string  `json:"id"`
+	Provider        string  `json:"provider"`
+	Protocol        string  `json:"protocol"`
+	BaseURL         string  `json:"base_url,omitempty"`
+	Model           string  `json:"model"`
+	APIKeyRef       string  `json:"api_key_ref,omitempty"`
+	ReasoningEffort *string `json:"reasoning_effort,omitempty"`
 }
 
 // ChannelConfig 描述一个消息渠道实例。渠道专有设置放在 Settings 里，通用配置层
@@ -97,6 +99,9 @@ func (c *Config) Validate(providers ProviderCatalog, channels ChannelCatalog) er
 
 	modelIDs := make(map[string]bool, len(c.Models))
 	for i, m := range c.Models {
+		if m.ReasoningEffort != nil && !validReasoningEffort(*m.ReasoningEffort) {
+			errs = append(errs, fmt.Errorf("models[%d].reasoning_effort: expected none, low, medium, high, or max", i))
+		}
 		where := fmt.Sprintf("models[%d]", i)
 		if m.ID != "" {
 			where = fmt.Sprintf("model %q", m.ID)
@@ -190,6 +195,9 @@ func (c *Config) Validate(providers ProviderCatalog, channels ChannelCatalog) er
 		errs = append(errs, fmt.Errorf("at most one channel may be enabled, found %d", enabled))
 	}
 
+	if c.TUI != nil {
+		errs = append(errs, c.TUI.Validate())
+	}
 	return errors.Join(errs...)
 }
 

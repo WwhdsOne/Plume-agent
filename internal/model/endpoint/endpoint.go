@@ -5,6 +5,7 @@
 package endpoint
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -20,6 +21,9 @@ import (
 
 // MaxResponseBytes 是非流式响应体声明的上限（0003 §4：8 MiB）。
 const MaxResponseBytes = 8 << 20
+
+// MaxStreamBytes 是一次 SSE 读取总上限，包含思考、答案及协议开销。
+const MaxStreamBytes = 16 << 20
 
 // Validate 校验 Base URL 并返回清理后的字符串。规则：必须 https
 // （仅回环主机允许 http）、拒绝 userinfo 与 fragment、必须包含主机。
@@ -102,13 +106,27 @@ func limitResponseSize(req *http.Request, next option.MiddlewareNext) (*http.Res
 	if err != nil {
 		return nil, err
 	}
-	if resp.ContentLength > MaxResponseBytes {
+	limit := int64(MaxResponseBytes)
+	if req.Body != nil && req.GetBody != nil {
+		body, bodyErr := req.GetBody()
+		if bodyErr == nil {
+			var flags struct {
+				Stream bool `json:"stream"`
+			}
+			_ = json.NewDecoder(body).Decode(&flags)
+			_ = body.Close()
+			if flags.Stream {
+				limit = MaxStreamBytes
+			}
+		}
+	}
+	if resp.ContentLength > limit {
 		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
 		_ = resp.Body.Close()
 		return nil, &model.Error{
 			Code:       model.ErrResponseTooLarge,
 			StatusCode: resp.StatusCode,
-			Summary:    fmt.Sprintf("declared response size %d exceeds limit %d", resp.ContentLength, MaxResponseBytes),
+			Summary:    fmt.Sprintf("declared response size %d exceeds limit %d", resp.ContentLength, limit),
 		}
 	}
 	return resp, nil

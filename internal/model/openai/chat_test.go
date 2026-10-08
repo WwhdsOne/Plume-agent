@@ -405,12 +405,14 @@ func TestInvalidRequestsRejectedWithoutHTTP(t *testing.T) {
 	}
 }
 
-func TestStreamUnsupported(t *testing.T) {
+func TestStreamRejectsNonSSE(t *testing.T) {
 	srv, _ := captureServer(t, http.StatusOK, completionBody)
 	adapter := newTestAdapter(t, srv.URL)
 
 	_, err := adapter.Stream(context.Background(), simpleRequest("m"))
-	assertCode(t, err, model.ErrUnsupported)
+	if err == nil {
+		t.Fatal("non-SSE response should fail")
+	}
 }
 
 func assertCode(t *testing.T, err error, want model.ErrCode) {

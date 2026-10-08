@@ -123,7 +123,7 @@ func buildBoxedSplash(width int, s Splash) []chatLine {
 		style lipgloss.Style
 	}
 	var right [featherHeight]rightCell
-	right[1] = rightCell{strings.TrimSpace("plume-agent " + splashText(s.Version)), styleSplashLabel}
+	right[1] = rightCell{strings.TrimSpace("Plume-agent " + splashText(s.Version)), styleSplashLabel}
 	right[3] = rightCell{"Tips for getting started", styleSplashHead}
 	tip := func(row int, shortcut, action string) {
 		right[row] = rightCell{

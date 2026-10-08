@@ -65,12 +65,72 @@ func Load() (*Config, error) {
 	if err := json.Unmarshal(raw, &cfg); err != nil {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
+	if cfg.SchemaVersion == SchemaVersion && cfg.fillDefaults() {
+		updated, err := mergeDefaultsIntoRaw(raw, &cfg)
+		if err != nil {
+			return nil, fmt.Errorf("encode config defaults: %w", err)
+		}
+		if err := writeFileAtomic(path, updated, 0o600); err != nil {
+			return nil, fmt.Errorf("write %s: %w", path, err)
+		}
+	}
 	return &cfg, nil
+}
+
+// 合并已有 JSON 而非重建整个结构，避免读取旧配置时丢弃未知扩展字段。
+func mergeDefaultsIntoRaw(raw []byte, cfg *Config) ([]byte, error) {
+	var root map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &root); err != nil {
+		return nil, err
+	}
+	var tui map[string]json.RawMessage
+	if len(root["tui"]) > 0 && string(root["tui"]) != "null" {
+		if err := json.Unmarshal(root["tui"], &tui); err != nil {
+			return nil, err
+		}
+	}
+	if tui == nil {
+		tui = make(map[string]json.RawMessage)
+	}
+	status, err := json.Marshal(cfg.TUI.StatusMessages)
+	if err != nil {
+		return nil, err
+	}
+	tui["status_messages"] = status
+	root["tui"], err = json.Marshal(tui)
+	if err != nil {
+		return nil, err
+	}
+	var models []map[string]json.RawMessage
+	if len(root["models"]) > 0 {
+		if err := json.Unmarshal(root["models"], &models); err != nil {
+			return nil, err
+		}
+	}
+	for i := range models {
+		if cfg.Models[i].ReasoningEffort != nil {
+			models[i]["reasoning_effort"], err = json.Marshal(cfg.Models[i].ReasoningEffort)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	if len(models) > 0 {
+		root["models"], err = json.Marshal(models)
+		if err != nil {
+			return nil, err
+		}
+	}
+	updated, err := json.MarshalIndent(root, "", "  ")
+	return append(updated, '\n'), err
 }
 
 // Save 原子写入 config.json：先在同目录写临时文件，fsync 后 rename 覆盖目标。
 // 因此崩溃或写入失败时，原有的配置会原封不动保留。
 func Save(cfg *Config) error {
+	if cfg.SchemaVersion == SchemaVersion {
+		cfg.fillDefaults()
+	}
 	path, err := Path()
 	if err != nil {
 		return err

@@ -20,6 +20,7 @@ type KeyMap struct {
 	ScrollUp         key.Binding // PgUp 滚动聊天记录
 	ScrollDown       key.Binding // PgDn 滚动聊天记录
 	NewSession       key.Binding // Ctrl+N 新会话
+	ToggleReasoning  key.Binding // Ctrl+O 切换最近一条思考
 }
 
 // newKeyMap 按 GOOS 构造键位表。darwin/linux 同表，差异仅是帮助文本里
@@ -42,6 +43,7 @@ func newKeyMap(goos string) KeyMap {
 		ScrollUp:         key.NewBinding(key.WithKeys("pgup"), key.WithHelp("pgup", "scroll log")),
 		ScrollDown:       key.NewBinding(key.WithKeys("pgdown"), key.WithHelp("pgdown", "scroll log")),
 		NewSession:       key.NewBinding(key.WithKeys("ctrl+n"), key.WithHelp("ctrl+n", "new session")),
+		ToggleReasoning:  key.NewBinding(key.WithKeys("ctrl+o"), key.WithHelp("ctrl+o", "toggle thought")),
 	}
 	if goos == "windows" {
 		// TODO(G-win): Windows Console API 的按键行为待实测（Terminal.app/

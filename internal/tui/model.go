@@ -37,9 +37,16 @@ const (
 )
 
 type chatLine struct {
-	kind lineKind
-	text string
-	role splashRole // 仅 kind==lineSplash 时使用
+	kind       lineKind
+	text       string
+	role       splashRole // 仅 kind==lineSplash 时使用
+	reasoning  string     // 原始累积思考，显示时净化
+	expanded   bool
+	manualFold bool   // 手动选择优先于首答案自动折叠
+	terminal   string // cancelled/incomplete
+	cache      string
+	cacheRaw   string
+	cacheWidth int
 }
 
 // busyState 是状态栏的运行状态。
@@ -59,14 +66,17 @@ type Hooks struct {
 	Cancel func()
 	// ResetSession 清空会话上下文（app.Session.Reset）。
 	ResetSession func()
+	// FirstAnswer 在 TeaModel.View 首次包含可见答案时记录帧耗时。
+	FirstAnswer func(runID string, latency time.Duration)
 }
 
 // Model 是聊天界面的全部状态（经 TeaModel 适配 tea.Model）。
 type Model struct {
 	width, height int
 
-	lines    []chatLine
-	viewport viewport.Model
+	lines         []chatLine
+	viewport      viewport.Model
+	readingFrozen bool
 
 	input textarea.Model
 
@@ -92,7 +102,22 @@ type Model struct {
 
 	// splash 是开屏数据（cmd 注入）。首次 resize 按当前宽度渲染进 lines
 	// 头部后置空——开屏只出现一次，窗口变化不重排，新会话不复活。
-	splash *Splash
+	splash                   *Splash
+	options                  Options
+	phase                    app.Phase
+	phaseLabels              map[app.Phase]string
+	activeLine               int
+	lastFlush                time.Time
+	dirty                    bool
+	spinnerFrame             int
+	lastSpinner              time.Time
+	markdownRenders          int
+	markdownEngine           *markdownEngine
+	thoughtStart, thoughtEnd int
+	answerStart, answerEnd   int
+	firstAnswerRun           string
+	firstAnswerAt            time.Time
+	firstAnswerReported      bool
 }
 
 // AppEvent 包装一条 app.Service 事件供 Update 消费。cmd 层的桥接
@@ -104,6 +129,12 @@ type AppEvent struct {
 // New 构造聊天界面。modelLabel 展示在状态栏（如 deepseek/deepseek-flash
 // 或 fake/offline）。
 func New(modelLabel string, hooks Hooks) Model {
+	return NewWithOptions(modelLabel, hooks, Options{})
+}
+
+// NewWithOptions 注入阶段文案、时钟和抽选器；旧 New 的调用保持兼容。
+func NewWithOptions(modelLabel string, hooks Hooks, options Options) Model {
+	options = normalizeOptions(options)
 	input := textarea.New()
 	input.Placeholder = "Say something… (Enter to send, Shift+Enter or \\ for newline)"
 	input.CharLimit = 4096
@@ -113,6 +144,10 @@ func New(modelLabel string, hooks Hooks) Model {
 	input.MaxHeight = maxInputLines
 	input.SetWidth(60)
 	input.SetHeight(minInputLines)
+	// 用真实终端光标而非字符反色模拟的虚拟光标：输入法候选窗跟随终端
+	// 光标位置（TeaModel.View 会把它定位到插入点），否则候选窗会出现在
+	// 帧渲染结束的位置（输入框右侧）。
+	input.SetVirtualCursor(false)
 	input.Focus()
 
 	return Model{
@@ -123,6 +158,10 @@ func New(modelLabel string, hooks Hooks) Model {
 		keys:            newKeyMap(runtime.GOOS),
 		historyIdx:      -1,
 		lastInputHeight: minInputLines,
+		options:         options,
+		activeLine:      -1,
+		thoughtStart:    -1,
+		answerStart:     -1,
 	}
 }
 
@@ -154,9 +193,28 @@ func (t *TeaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // 鼠标若与终端文本选择冲突，可在终端按住 Shift 选择（契约 §3.2）。
 func (t *TeaModel) View() tea.View {
 	v := tea.NewView(t.M.View())
+	t.M.reportFirstAnswer()
 	v.AltScreen = true
 	v.MouseMode = tea.MouseModeCellMotion
+	// 声明终端光标位置：渲染器会把硬件光标移到插入点，输入法候选窗
+	// （跟随终端光标）由此出现在正在输入的文字旁，而不是帧的右下角。
+	v.Cursor = t.M.inputCursor()
 	return v
+}
+
+// inputCursor 返回输入框插入点在整帧中的终端光标位置；未聚焦时为 nil。
+// textarea.Cursor 给出的是相对输入框自身的坐标，这里平移到输入区在帧内
+// 的实际行（记录区高度 + 上分隔线一行），并把 X 从字符数修正为显示列宽
+// （中文等双宽字符下两者不同）。
+func (m *Model) inputCursor() *tea.Cursor {
+	c := m.input.Cursor()
+	if c == nil {
+		return nil
+	}
+	info := m.input.LineInfo()
+	c.Position.X += max(info.ColumnOffset-info.CharOffset, 0)
+	c.Position.Y += m.viewport.Height() + 1
+	return c
 }
 
 // appendLine 追加一行聊天记录并滚动到底部。
@@ -167,8 +225,17 @@ func (m *Model) appendLine(kind lineKind, text string) {
 
 // syncViewport 用当前行内容刷新滚动区。
 func (m *Model) syncViewport() {
-	m.viewport.SetContent(renderLines(m.lines, m.width))
-	m.viewport.GotoBottom()
+	if !m.viewport.AtBottom() {
+		m.readingFrozen = true
+	}
+	follow := !m.readingFrozen
+	offset := m.viewport.YOffset()
+	m.viewport.SetContent(m.renderHistory())
+	if follow {
+		m.viewport.GotoBottom()
+	} else {
+		m.viewport.SetYOffset(offset)
+	}
 }
 
 // syncLayout 在输入区高度变化（换行/折行/重置）时重排 viewport。
@@ -181,10 +248,22 @@ func (m *Model) syncLayout() {
 
 // startRun 更新状态栏并记录起点。
 func (m *Model) startRun(runID string) {
+	if m.state == stateRunning && m.runID == runID {
+		return
+	}
 	m.state = stateRunning
 	m.runID = runID
-	m.startedAt = time.Now()
+	m.startedAt = m.options.Clock()
 	m.notice = ""
+	m.phaseLabels = make(map[app.Phase]string)
+	m.phase = app.PhasePreparing
+	m.selectPhase(m.phase)
+	m.activeLine = -1
+	m.spinnerFrame = 0
+	m.lastSpinner = m.startedAt
+	m.lastFlush = time.Time{}
+	m.firstAnswerRun = ""
+	m.firstAnswerReported = false
 }
 
 // endRun 回到空闲态。

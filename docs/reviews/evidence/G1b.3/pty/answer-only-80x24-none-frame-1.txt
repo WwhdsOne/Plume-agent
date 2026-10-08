@@ -1,0 +1,24 @@
+│       ⢀⣾⣿⣿⣿⣿⣿⣿⠟⣉⣴⣾⣿⣿⣿⣿⣿⠟⠁          │ PgUp / PgDn     Scroll chat           │  
+│      ⢀⣾⣿⣿⣿⣿⡿⢋⣤⣾⣿⣿⣿⠿⠛⢋⠁             │ Ctrl+L / Ctrl+N Clear / new session   │  
+│      ⣼⣿⣿⣿⠟⢋⣴⣿⣿⣿⣿⣷⣾⣿⡿⠋              │ Ctrl+C twice    Quit on empty input   │  
+│      ⣿⣿⡿⢃⣴⣿⣿⣿⣿⣿⣿⣿⠟⠉                │ Ctrl+D          Quit on empty input   │  
+│     ⢸⣿⠋⣴⣿⣿⣿⣿⠿⠟⠛⠉                   │                                       │  
+│     ⠈⣡⣾⣿⠿⠛⠉                        │ ────────────────────────              │  
+│     ⣴⣿⠟⠁                           │                                       │  
+│   ⢀⣾⡟⠁                             │ deepseek/deepseek-flash               │  
+│  ⢠⣿⡟                               │ /Users/wwhds/.codex/worktrees/g1b3-s… │  
+│  ⠛⠉                                │                                       │  
+╰────────────────────────────────────────────────────────────────────────────╯  
+  > 展示羽毛的流式回答                                                          
+  ● 流式回答                                                                    
+    羽毛与中文 🪶。                                                             
+                                                                                
+    • 第一项                                                                    
+    • 第二项                                                                    
+                                                                                
+    go                                                                          
+                                                                                
+    fmt.Println("Plume")                                                        
+                                                                                
+┃  1 Say something… (Enter to send, Shift+Enter or \ for newline)               
+deepseek/deepseek-flash run-000001 │ ⠚ responding 630ms                         

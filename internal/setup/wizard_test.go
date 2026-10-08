@@ -270,12 +270,15 @@ func TestWizardPrefillsFromExistingConfig(t *testing.T) {
 	existing := &config.Config{
 		SchemaVersion: config.SchemaVersion,
 		DefaultModel:  "deepseek-default",
+		TUI:           &config.TUIConfig{StatusMessages: map[string][]string{"waiting": {"brewing"}}},
 		Models: []config.ModelConfig{{
 			ID: "deepseek-default", Provider: "deepseek", Protocol: "deepseek",
-			BaseURL: "https://proxy.internal/v1", Model: "deepseek-v4-pro",
+			BaseURL: "https://api.deepseek.com", Model: "deepseek-v4-pro",
 			APIKeyRef: "deepseek-default",
 		}},
 	}
+	effort := "none"
+	existing.Models[0].ReasoningEffort = &effort
 	// 先放一份已有凭据，模拟"重进向导不该要求重新输入 Key"。
 	if err := config.SetCredential("deepseek-default", []byte("sk-existing")); err != nil {
 		t.Fatal(err)
@@ -284,6 +287,9 @@ func TestWizardPrefillsFromExistingConfig(t *testing.T) {
 	fake.baseURL, fake.model = "", ""
 
 	res, err := h.wiz.Run(existing)
+	if err == nil && (res.Config.TUI == nil || res.Config.Models[0].ReasoningEffort == nil || *res.Config.Models[0].ReasoningEffort != "none") {
+		t.Fatal("setup discarded display or reasoning settings")
+	}
 	if err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}

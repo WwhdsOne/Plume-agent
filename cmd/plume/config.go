@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 
 	"github.com/spf13/cobra"
 
 	"plume-agent/internal/channel"
 	"plume-agent/internal/config"
+	"plume-agent/internal/provider"
+	"plume-agent/internal/tui"
 )
 
 func newConfigCmd() *cobra.Command {
@@ -91,6 +94,26 @@ func printConfig(w io.Writer, cfg *config.Config, channels *channel.Registry) {
 		fmt.Fprintf(w, "      base_url: %s\n", orDash(m.BaseURL))
 		fmt.Fprintf(w, "      model:    %s\n", orDash(m.Model))
 		fmt.Fprintf(w, "      api_key:  %s\n", credentialStatus(m.APIKeyRef))
+		p, err := provider.ResolveReasoning(provider.ModelSpec{Provider: m.Provider, Protocol: m.Protocol, BaseURL: m.BaseURL, Model: m.Model, ReasoningEffort: m.ReasoningEffort})
+		effective := string(p.Effective)
+		if effective == "" {
+			effective = "unknown"
+		}
+		fmt.Fprintf(w, "      reasoning_effort: %s (%s; effective: %s; capability: %s)\n", p.Requested, p.Source, effective, p.Capability)
+		if err != nil {
+			fmt.Fprintf(w, "      reasoning_error: %v\n", err)
+		}
+	}
+	fmt.Fprintln(w, "\ntui.status_messages:")
+	overrides := cfg.TUI.MessageOverrides()
+	resolved := tui.ResolvedStatusMessages(overrides)
+	defaults := tui.DefaultStatusMessages()
+	for _, phase := range []string{"preparing", "waiting", "thinking", "responding"} {
+		source := "default"
+		if !slices.Equal(resolved[phase], defaults[phase]) {
+			source = "custom"
+		}
+		fmt.Fprintf(w, "  %s: %q (%s)\n", phase, resolved[phase], source)
 	}
 
 	fmt.Fprintln(w, "\nchannels:")

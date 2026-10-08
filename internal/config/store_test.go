@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -9,6 +10,81 @@ import (
 	"strings"
 	"testing"
 )
+
+func TestLoadPersistsMissingDefaultsWithoutLosingCustomFields(t *testing.T) {
+	dir := withTempDir(t)
+	path := filepath.Join(dir, "config.json")
+	initial := `{"schema_version":1,"custom_root":{"keep":true},"models":[{"id":"main","provider":"deepseek","protocol":"deepseek","base_url":"https://api.deepseek.com","model":"deepseek-flash","custom_model":42}],"tui":{"custom_tui":"keep","status_messages":{"waiting":["自定义等待"]}}}`
+	if err := os.WriteFile(path, []byte(initial), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Models[0].ReasoningEffort == nil || *cfg.Models[0].ReasoningEffort != "high" || cfg.TUI.StatusMessages["waiting"][0] != "自定义等待" || len(cfg.TUI.StatusMessages["thinking"]) == 0 {
+		t.Fatalf("defaults not merged: %+v", cfg)
+	}
+	first, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, preserved := range []string{`"custom_root"`, `"custom_model"`, `"custom_tui"`, `"自定义等待"`} {
+		if !strings.Contains(string(first), preserved) {
+			t.Errorf("lost %s", preserved)
+		}
+	}
+	if _, err := Load(); err != nil {
+		t.Fatal(err)
+	}
+	second, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(first) != string(second) {
+		t.Fatal("second load rewrote complete config")
+	}
+	if runtime.GOOS != "windows" {
+		if fi, err := os.Stat(path); err != nil || fi.Mode().Perm() != 0o600 {
+			t.Fatalf("permission = %v, err = %v", fi, err)
+		}
+	}
+}
+
+func TestDefaultHighDoesNotBreakUnverifiedModel(t *testing.T) {
+	withTempDir(t)
+	cfg := &Config{SchemaVersion: SchemaVersion, Models: []ModelConfig{{ID: "proxy", Provider: "custom-openai", Protocol: "openai-compatible", BaseURL: "https://example.com/v1", Model: "unknown"}}}
+	if err := Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(os.Getenv("PLUME_HOME"), "config.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var saved Config
+	if err := json.Unmarshal(raw, &saved); err != nil {
+		t.Fatal(err)
+	}
+	if saved.Models[0].ReasoningEffort != nil || len(saved.TUI.StatusMessages) != 4 {
+		t.Fatalf("unexpected defaults: %+v", saved)
+	}
+}
+
+func TestLoadKeepsExplicitNone(t *testing.T) {
+	dir := withTempDir(t)
+	path := filepath.Join(dir, "config.json")
+	initial := `{"schema_version":1,"models":[{"id":"main","provider":"deepseek","protocol":"deepseek","base_url":"https://api.deepseek.com","model":"deepseek-flash","reasoning_effort":"none"}]}`
+	if err := os.WriteFile(path, []byte(initial), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Models[0].ReasoningEffort == nil || *cfg.Models[0].ReasoningEffort != "none" {
+		t.Fatalf("reasoning effort was overwritten: %+v", cfg.Models[0])
+	}
+}
 
 // withTempDir 把 PLUME_HOME 指向一个全新目录，确保没有测试会碰到开发者真实的 ~/.plume。
 func withTempDir(t *testing.T) string {

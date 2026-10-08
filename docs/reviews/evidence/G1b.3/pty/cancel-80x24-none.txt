@@ -1,0 +1,70 @@
+│⣠⡞ ⠁⡀  ││
+│⣾⡿⠃⣠⡞   │ Tips for getting started │
+│⢀⣠⣴⠂⢸⠟⠁ ⠁    ││
+│⣀⣤⣴⣾⣿⣿⡟ ⢀⣠⣴⡟     │ Enter / Esc     Send / cancel         │
+│⢀⣤⣶⣿⣿⣿⣿⣿⣿⡿⠁⢠⡿⠟⠉      │ Shift+Enter     Newline│
+│            ⢀⡀⣰⣿⣿⣿⣿⣿⣿⣿⣿⠟⠁ ⢁⣠        │ Option+Enter    Newline│
+│          ⢀⣴⣿⢠⣿⣿⣿⣿⣿⣿⣿⠟⢁⣠⣴⣾⣿⠃        │ \+Enter         Newline fallback      │
+│         ⣴⣿⣿⣧⣿⣿⣿⣿⡿⠟⣉⣤⣾⣿⣿⣿⡿⠃         │ Up / Down       Input history         │
+│       ⢀⣾⣿⣿⣿⣿⣿⣿⠟⣉⣴⣾⣿⣿⣿⣿⣿⠟⠁          │ PgUp / PgDn     Scroll chat           │
+│      ⢀⣾⣿⣿⣿⣿⡿⢋⣤⣾⣿⣿⣿⠿⠛⢋⠁│ Ctrl+L / Ctrl+N Clear / new session   │
+│      ⣼⣿⣿⣿⠟⢋⣴⣿⣿⣿⣿⣷⣾⣿⡿⠋│ Ctrl+C twice    Quit on empty input   │
+│      ⣿⣿⡿⢃⣴⣿⣿⣿⣿⣿⣿⣿⠟⠉│ Ctrl+D          Quit on empty input   │
+│     ⢸⣿⠋⣴⣿⣿⣿⣿⠿⠟⠛⠉││
+│     ⠈⣡⣾⣿⠿⠛⠉│ ────────────────────────              │
+│     ⣴⣿⠟⠁││
+│   ⢀⣾⡟⠁│ deepseek/deepseek-flash │
+│  ⢠⣿⡟│ /Users/Learning/AI/AGENT/Plume-agent  │
+│  ⠛⠉││
+╰────────────────────────────────────────────────────────────────────────────╯
+
+────────────────────────────────────────────────────────────────────────────────
+┃  1 Say something… (Enter to send, Shift+Enter or \ for newline)
+────────────────────────────────────────────────────────────────────────────────
+deepseek/deepseek-flash │ idle
+  > 展示羽毛的流式回答	run-000001 │ ⠋ getting ready 1ms  > 展示羽毛的流式回答waiting 3ms  > 展示羽毛的流式回答54ms  > 展示羽毛的流式回答⠙ waiting 105ms  > 展示羽毛的流式回答56m  > 展示羽毛的流式回答⠚ waiting 207  > 展示羽毛的流式回答
+⠚ Thought… 257ms
+  │ 第一行：检查输入。
+  │257ms  > 展示羽毛的流式回答
+⠓ Thought… 306
+  │ 第一行：检查输入。307  > 展示羽毛的流式回答57m
+  │ 第一行：检查输入。58m
+  > 展示羽毛的流式回答
+⠋ Thought… 414
+  │ 第一行：检查输入。
+  │ 第二行：保留事实。
+  │415m  > 展示羽毛的流式回答59m
+  │ 第一行：检查输入。
+  │ 第二行：保留事实。60m  > 展示羽毛的流式回答
+⠙ Thought… 510
+  │ 第一行：检查输入。
+  │ 第二行：保留事实。511m  > 展示羽毛的流式回答61m
+  │ 第一行：检查输入。
+  │ 第二行：保留事实。62m
+  > 展示羽毛的流式回答71
+  │ 第二行：保留事实。
+  │ 第三行：组织答案。
+  │72  > 展示羽毛的流式回答
+⠚ Thought… 613
+  │ 第二行：保留事实。
+  │ 第三行：组织答案。614m
+  > 展示羽毛的流式回答50m
+  │ 第一行：检查输入。
+  │ 第二行：保留事实。
+  │ 第三行：组织答案。50m  > 展示羽毛的流式回答64m
+  │ 第一行：检查输入。
+  │ 第二行：保留事实。
+  │ 第三行：组织答案。65m  > 展示羽毛的流式回答
+▾
+  │ 第一行：检查输入。
+  │ 第二行：保留事实。
+  │ 第三行：组织答案。
+
+    [cancelled]
+  ! run failed: model error: cancelled provider=deepseek protocol=openai-chat-co
+mpletions summary="request interrupted: context canceled"│ idle│⢀⡀⣰⣿⣿⣿⣿⣿⣿⣿⣿⠟⠁ ⢁⣠        │ Option+Enter    Newline│
+│          ⢀⣴⣿⢠⣿⣿⣿⣿⣿⣿⣿⠟⢁⣠⣴⣾⣿⠃        │ \+Enter         Newline fallback      │
+│         ⣴⣿⣿⣧⣿⣿⣿⣿⡿⠟⣉⣤⣾⣿⣿⣿⡿⠃         │ Up / Down       Input history         │
+│       ⢀⣾⣿⣿⣿⣿⣿⣿⠟⣉⣴⣾⣿⣿⣿⣿⣿⠟⠁          │ PgUp / PgDn     Scroll chat           │  > 展示羽毛的流式回答
+▸ Thought · Ctrl+O to expand  > 展示羽毛的流式回答
+

@@ -79,7 +79,7 @@ func TestSplashRendersBoxedSplash(t *testing.T) {
 		}
 	}
 	for _, want := range []string{
-		"plume-agent v0.1.0 (abc1234)",
+		"Plume-agent v0.1.0 (abc1234)",
 		"Tips for getting started",
 		"Shift+Enter",
 		"\\+Enter",
@@ -204,7 +204,7 @@ func TestSplashLinesAreNotWrapped(t *testing.T) {
 	if strings.Count(out, long) != 1 {
 		t.Error("splash line must appear verbatim exactly once")
 	}
-	if !strings.Contains(out, "You > ") {
+	if !strings.Contains(stripANSI(out), "  > ") {
 		t.Error("user line must keep its prefix")
 	}
 	if strings.Count(out, "\n") < 3 {

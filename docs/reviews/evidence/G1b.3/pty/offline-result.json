@@ -1,0 +1,18 @@
+{
+  "case": "offline-80x24-none",
+  "status": "passed",
+  "metrics": {
+    "level": "info",
+    "ts": "2026-10-08T11:38:41.206+0800",
+    "msg": "run_ended",
+    "run_id": "run-000001",
+    "status": "ok",
+    "error_code": "",
+    "duration_ms": 5.693416,
+    "preparation_ms": 0.218458,
+    "first_reasoning_ms": null,
+    "first_answer_ms": 0.027667,
+    "reasoning_bytes": 0,
+    "answer_bytes": 131
+  }
+}

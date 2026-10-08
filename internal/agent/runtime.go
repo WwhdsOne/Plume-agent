@@ -9,13 +9,17 @@ import (
 	"time"
 
 	"plume-agent/internal/model"
+	"plume-agent/internal/telemetry"
 )
 
 // Runtime 是最小模型轮次执行器。一个 Runtime 绑定一个模型配置
 // （切换模型 = 重新构造，首版不做运行中热切换，0003 §4）。
 type Runtime struct {
-	client  model.Client
-	modelID string
+	client    model.Client
+	modelID   string
+	recorder  *telemetry.ModelRecorder
+	provider  string
+	reasoning telemetry.ReasoningInfo
 }
 
 // New 构造 Runtime。client 可以是真实适配器（工厂 Build 的产物）
@@ -26,6 +30,11 @@ func New(client model.Client, modelID string) *Runtime {
 
 // ModelID 返回绑定的模型配置 ID。
 func (r *Runtime) ModelID() string { return r.modelID }
+
+// SetRecorder 在启动装配时注入脱敏记录器；运行期间不替换。
+func (r *Runtime) SetRecorder(rec *telemetry.ModelRecorder, provider string, info telemetry.ReasoningInfo) {
+	r.recorder, r.provider, r.reasoning = rec, provider, info
+}
 
 // RunResult 是一次成功模型轮次的结果。
 type RunResult struct {

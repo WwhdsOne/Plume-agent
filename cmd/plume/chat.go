@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/mattn/go-isatty"
@@ -16,6 +18,7 @@ import (
 	"plume-agent/internal/config"
 	"plume-agent/internal/model"
 	"plume-agent/internal/provider"
+	"plume-agent/internal/telemetry"
 	"plume-agent/internal/tui"
 )
 
@@ -33,18 +36,7 @@ func newChatCmd() *cobra.Command {
 			if offline {
 				return startChat(out, "", true)
 			}
-			modelID := modelFlag
-			if modelID == "" {
-				cfg, err := config.Load()
-				if err != nil {
-					return fmt.Errorf("load config: %w (run `plume setup` first)", err)
-				}
-				if cfg.DefaultModel == "" {
-					return errors.New("no default_model in config (run `plume setup`)")
-				}
-				modelID = cfg.DefaultModel
-			}
-			return startChat(out, modelID, false)
+			return startChat(out, modelFlag, false)
 		},
 	}
 	chat.Flags().Bool("offline", false, "run against the scripted fake model (no config, key, or network)")
@@ -73,6 +65,9 @@ func startChat(out io.Writer, modelFlag string, offline bool) error {
 	}
 
 	var runtime *agent.Runtime
+	var options tui.Options
+	info := telemetry.ReasoningInfo{Source: "offline", Effective: "unknown", Capability: "scripted"}
+	providerID := "fake"
 	label := "fake/offline"
 	if offline {
 		runtime = agent.New(model.NewLoopFake(model.FakeScript{Response: &model.ChatResponse{}}), "offline")
@@ -85,17 +80,31 @@ func startChat(out io.Writer, modelFlag string, offline bool) error {
 		if err != nil {
 			return err
 		}
+		options.StatusMessages = cfg.TUI.MessageOverrides()
+		selected, _ := selectModelConfig(cfg, modelFlag)
+		policy, _ := provider.ResolveReasoning(provider.ModelSpec{Provider: selected.Provider, Protocol: selected.Protocol, BaseURL: selected.BaseURL, Model: selected.Model, ReasoningEffort: selected.ReasoningEffort})
+		providerID = selected.Provider
+		info = telemetry.ReasoningInfo{Requested: string(policy.Requested), Source: policy.Source, Effective: string(policy.Effective), Capability: policy.Capability}
 	}
 
-	service := app.NewService(runtime)
+	trace, err := openChatTrace()
+	if err != nil {
+		return fmt.Errorf("open chat trace: %w", err)
+	}
+	recorder := telemetry.NewModelRecorder(trace)
+	recorder.SetCloser(trace)
+	defer recorder.Close()
+	runtime.SetRecorder(recorder, providerID, info)
+	service := app.NewService(runtime, recorder)
 	defer service.Close()
 	ctx := context.Background()
 
-	chatModel := tui.New(label, tui.Hooks{
+	chatModel := tui.NewWithOptions(label, tui.Hooks{
 		Submit:       func(input string) (string, error) { return service.Submit(ctx, input) },
 		Cancel:       service.Cancel,
 		ResetSession: func() { service.Session().Reset() },
-	})
+		FirstAnswer:  recorder.UIAnswer,
+	}, options)
 
 	// 开屏（docs/tui-splash.md）：方框 + 羽毛 LOGO + 键位提示 + 真实信息，
 	// 首次 resize 按真实窗口宽度渲染进记录区头部；必须包装 TeaModel 之前
@@ -109,13 +118,19 @@ func startChat(out io.Writer, modelFlag string, offline bool) error {
 	program := tea.NewProgram(&tui.TeaModel{M: chatModel})
 	// 事件桥：app 事件投递进 Bubble Tea 主循环。channel 无关闭约定，
 	// 桥随进程退出回收（有界缓冲 + UI 持续消费）。
+	bridgeDone := make(chan struct{})
+	defer close(bridgeDone)
 	go func() {
 		for {
-			event, ok := <-service.Events()
-			if !ok {
+			select {
+			case event, ok := <-service.Events():
+				if !ok {
+					return
+				}
+				program.Send(tui.AppEvent{Event: event})
+			case <-bridgeDone:
 				return
 			}
-			program.Send(tui.AppEvent{Event: event})
 		}
 	}()
 
@@ -123,6 +138,19 @@ func startChat(out io.Writer, modelFlag string, offline bool) error {
 		return fmt.Errorf("chat ui: %w", err)
 	}
 	return nil
+}
+
+func openChatTrace() (*os.File, error) {
+	dir, err := config.Dir()
+	if err != nil {
+		return nil, err
+	}
+	logDir := filepath.Join(dir, "logs")
+	if err = os.MkdirAll(logDir, 0o700); err != nil {
+		return nil, err
+	}
+	name := fmt.Sprintf("chat-%s-%d.jsonl", time.Now().UTC().Format("20060102T150405.000000000"), os.Getpid())
+	return os.OpenFile(filepath.Join(logDir, name), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 }
 
 // buildRuntime 从已加载配置装配 agent 与状态栏标签。
@@ -136,11 +164,12 @@ func buildRuntime(cfg *config.Config, modelFlag string) (*agent.Runtime, string,
 	}
 	factory := provider.NewModelFactory(provider.NewRegistry(), credentialSource{})
 	client, err := factory.Build(provider.ModelSpec{
-		Provider:  selected.Provider,
-		Protocol:  selected.Protocol,
-		BaseURL:   selected.BaseURL,
-		Model:     selected.Model,
-		APIKeyRef: selected.APIKeyRef,
+		Provider:        selected.Provider,
+		Protocol:        selected.Protocol,
+		BaseURL:         selected.BaseURL,
+		Model:           selected.Model,
+		APIKeyRef:       selected.APIKeyRef,
+		ReasoningEffort: selected.ReasoningEffort,
 	})
 	if err != nil {
 		return nil, "", fmt.Errorf("build model client: %w", err)

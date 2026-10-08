@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -39,11 +41,37 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		case tea.MouseWheelDown:
 			m.viewport.ScrollDown(3)
 		}
+		m.readingFrozen = !m.viewport.AtBottom()
 		return *m, nil
 
 	case AppEvent:
+		wasIdle := m.state == stateIdle
 		m.applyEvent(msg.Event)
+		if wasIdle && m.state == stateRunning {
+			return *m, nextStreamTick(m.runID)
+		}
 		return *m, nil
+
+	case runStreamTick:
+		if msg.runID != m.runID || m.state != stateRunning {
+			return *m, nil
+		}
+		return m.Update(msg.tick)
+
+	case streamTick:
+		if m.state != stateRunning {
+			return *m, nil
+		}
+		if m.options.Clock().Sub(m.lastSpinner) >= 100*time.Millisecond {
+			m.spinnerFrame = (m.spinnerFrame + 1) % len(thoughtSpinner)
+			m.lastSpinner = m.options.Clock()
+		}
+		if m.dirty && m.options.Clock().Sub(m.lastFlush) >= 50*time.Millisecond {
+			m.flushStream()
+		} else if m.phase == app.PhaseThinking {
+			m.syncViewport()
+		}
+		return *m, nextStreamTick(m.runID)
 
 	default:
 		var cmd tea.Cmd
@@ -71,10 +99,12 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 	case key.Matches(msg, km.ScrollUp):
 		m.viewport.HalfPageUp()
+		m.readingFrozen = !m.viewport.AtBottom()
 		return *m, nil
 
 	case key.Matches(msg, km.ScrollDown):
 		m.viewport.HalfPageDown()
+		m.readingFrozen = !m.viewport.AtBottom()
 		return *m, nil
 
 	case key.Matches(msg, km.Cancel):
@@ -92,6 +122,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 	case key.Matches(msg, km.ClearScreen):
 		m.viewport.GotoBottom()
+		m.readingFrozen = false
 		return *m, tea.ClearScreen
 
 	case key.Matches(msg, km.HistoryUp):
@@ -118,6 +149,20 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			return *m, nil
 		}
 		m.sessionReset()
+		return *m, nil
+
+	case key.Matches(msg, km.ToggleReasoning):
+		for i := len(m.lines) - 1; i >= 0; i-- {
+			if m.state == stateRunning && i != m.activeLine {
+				continue
+			}
+			if sanitize(m.lines[i].reasoning) != "" {
+				m.lines[i].expanded = !m.lines[i].expanded
+				m.lines[i].manualFold = true
+				m.syncViewport()
+				break
+			}
+		}
 		return *m, nil
 
 	default:
@@ -189,7 +234,7 @@ func (m *Model) submitInput() (Model, tea.Cmd) {
 	m.pushHistory(text)
 	m.input.Reset()
 	m.startRun(runID)
-	return *m, nil
+	return *m, nextStreamTick(m.runID)
 }
 
 // historyPrev 实现 Up：从编辑中草稿进入历史最末一条，再往旧翻。
@@ -247,6 +292,9 @@ func (m *Model) sessionReset() {
 		m.hooks.ResetSession()
 	}
 	m.lines = nil
+	m.readingFrozen = false
+	m.activeLine = -1
+	m.firstAnswerRun = ""
 	m.lastUsage = ""
 	m.history = nil
 	m.historyIdx = -1
@@ -259,18 +307,96 @@ func (m *Model) sessionReset() {
 // applyEvent 把 app 事件落到界面状态。终态事件让 run 收尾；
 // 失败不污染聊天历史，只追加错误行。
 func (m *Model) applyEvent(event app.Event) {
+	if event.Kind == app.EventRunStarted {
+		if m.state == stateIdle {
+			return
+		} // 旧 run 的迟到 started 不复活会话
+		if event.RunID == m.runID {
+			m.startRun(event.RunID)
+			if !event.AcceptedAt.IsZero() {
+				m.startedAt = event.AcceptedAt
+				if m.firstAnswerRun == event.RunID {
+					m.firstAnswerAt = event.AcceptedAt
+				}
+			}
+		}
+		return
+	}
+	if m.state != stateRunning || event.RunID != m.runID {
+		return
+	}
 	switch event.Kind {
-	case app.EventRunStarted:
-		m.startRun(event.RunID)
+	case app.EventRunPhase:
+		// 首答案之后即使供应商继续发思考，也不退回 thinking。
+		if m.phase == app.PhaseResponding && event.Phase == app.PhaseThinking {
+			return
+		}
+		m.selectPhase(event.Phase)
+		m.syncViewport()
+	case app.EventReasoningDelta:
+		if event.ReasoningDelta == "" {
+			return
+		}
+		line := m.ensureAssistant()
+		line.reasoning += event.ReasoningDelta
+		if m.phase != app.PhaseResponding {
+			m.selectPhase(app.PhaseThinking)
+		}
+		m.dirty = true
+		// 思考预览也合并刷新，首片段立即显示。
+		if m.lastFlush.IsZero() || m.options.Clock().Sub(m.lastFlush) >= 50*time.Millisecond {
+			m.flushStream()
+		}
+	case app.EventTextDelta:
+		if event.TextDelta == "" {
+			return
+		}
+		line := m.ensureAssistant()
+		first := line.text == ""
+		line.text += event.TextDelta
+		m.selectPhase(app.PhaseResponding)
+		if !line.manualFold {
+			line.expanded = false
+		}
+		m.dirty = true
+		if first || m.options.Clock().Sub(m.lastFlush) >= 50*time.Millisecond {
+			m.flushStream()
+		}
 	case app.EventRunCompleted:
-		m.appendLine(lineAssistant, sanitize(event.Reply))
+		line := m.ensureAssistant()
+		line.text = event.Reply
+		if event.Reasoning != "" {
+			line.reasoning = event.Reasoning
+		}
+		if !line.manualFold {
+			line.expanded = false
+		}
 		m.lastUsage = usageLabel(event.Usage)
 		m.notice = ""
+		m.selectPhase(app.PhaseResponding)
+		m.flushStream()
 		m.endRun()
+		m.syncViewport()
 	case app.EventRunFailed:
+		if event.Reply != "" || event.Reasoning != "" || m.activeLine >= 0 {
+			line := m.ensureAssistant()
+			if event.Reply != "" {
+				line.text = event.Reply
+			}
+			if event.Reasoning != "" {
+				line.reasoning = event.Reasoning
+			}
+			line.terminal = "incomplete"
+			var modelErr *model.Error
+			if errors.Is(event.Err, context.Canceled) || (errors.As(event.Err, &modelErr) && modelErr.Code == model.ErrCancelled) {
+				line.terminal = "cancelled"
+			}
+		}
 		m.appendLine(lineError, classifyFailure(event.Err))
 		m.notice = ""
+		m.flushStream()
 		m.endRun()
+		m.syncViewport()
 	}
 }
 
@@ -299,11 +425,20 @@ func (m *Model) resize() {
 	}
 	m.input.SetWidth(m.width)
 	logHeight := max(
-		// 状态栏一行
-		m.height-m.input.Height()-1, 1)
+		// 状态栏一行 + 输入区上下两条分隔线
+		m.height-m.input.Height()-3, 1)
+	if !m.viewport.AtBottom() {
+		m.readingFrozen = true
+	}
+	follow := !m.readingFrozen
+	offset := m.viewport.YOffset()
 	m.viewport = viewport.New(viewport.WithWidth(m.width), viewport.WithHeight(logHeight))
-	m.viewport.SetContent(renderLines(m.lines, m.width))
-	m.viewport.GotoBottom()
+	m.viewport.SetContent(m.renderHistory())
+	if follow {
+		m.viewport.GotoBottom()
+	} else {
+		m.viewport.SetYOffset(offset)
+	}
 	m.lastInputHeight = m.input.Height()
 }
 
@@ -312,5 +447,5 @@ func (m *Model) elapsed() time.Duration {
 	if m.state != stateRunning {
 		return 0
 	}
-	return time.Since(m.startedAt).Round(time.Millisecond)
+	return m.options.Clock().Sub(m.startedAt).Round(time.Millisecond)
 }

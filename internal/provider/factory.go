@@ -18,11 +18,12 @@ const (
 // 本包保持零依赖（config 的测试以本包做校验替身），由调用方从
 // config.ModelConfig 拆字段传入。
 type ModelSpec struct {
-	Provider  string
-	Protocol  string
-	BaseURL   string
-	Model     string
-	APIKeyRef string
+	Provider        string
+	Protocol        string
+	BaseURL         string
+	Model           string
+	APIKeyRef       string
+	ReasoningEffort *string
 }
 
 // Credentials 是工厂获取密钥的最小接口。真实实现读 credentials 目录；
@@ -71,6 +72,10 @@ func (f *ModelFactory) Build(spec ModelSpec) (model.Client, error) {
 	if spec.BaseURL == "" {
 		return nil, invalidConfig("base_url is required")
 	}
+	policy, err := ResolveReasoning(spec)
+	if err != nil {
+		return nil, err
+	}
 
 	apiKey := ""
 	if spec.APIKeyRef != "" {
@@ -85,14 +90,19 @@ func (f *ModelFactory) Build(spec ModelSpec) (model.Client, error) {
 	}
 
 	// 切换供应商天然不复用 Key：每个配置独立构造客户端，Key 在构造时绑定。
+	var client model.Client
 	switch spec.Protocol {
 	case ProtocolDeepSeek:
-		return deepseek.NewAdapter(spec.BaseURL, apiKey)
+		client, err = deepseek.NewAdapter(spec.BaseURL, apiKey)
 	case ProtocolOpenAICompatible:
-		return openai.NewAdapter(spec.Provider, spec.BaseURL, apiKey)
+		client, err = openai.NewAdapter(spec.Provider, spec.BaseURL, apiKey)
 	default:
 		return nil, invalidConfig(fmt.Sprintf("unknown protocol %q", spec.Protocol))
 	}
+	if err != nil {
+		return nil, err
+	}
+	return reasoningClient{Client: client, effort: policy.Effective}, nil
 }
 
 func invalidConfig(summary string) error {

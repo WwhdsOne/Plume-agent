@@ -1,0 +1,30 @@
+package agent
+
+import (
+	"context"
+	"testing"
+
+	"plume-agent/internal/model"
+)
+
+func TestRunStreamSeparatesReasoningAndRequiresAnswer(t *testing.T) {
+	for _, answer := range []string{"answer", ""} {
+		fake := model.NewFake(model.FakeScript{Response: &model.ChatResponse{Message: model.Message{Reasoning: "private thought", Content: answer}, FinishReason: model.FinishStop}})
+		r := New(fake, "m")
+		var reasoning, text string
+		result, err := r.RunStream(context.Background(), []model.Message{{Role: model.RoleAssistant, Content: "old", Reasoning: "old thought"}}, "hello", func() {}, func(e model.Event) error {
+			reasoning += e.ReasoningDelta
+			text += e.TextDelta
+			return nil
+		})
+		if (err != nil) != (answer == "") {
+			t.Fatalf("answer=%q result=%+v err=%v", answer, result, err)
+		}
+		if answer != "" && (text != answer || reasoning != "private thought" || result.Message.Content != answer) {
+			t.Fatalf("text=%q reasoning=%q result=%+v", text, reasoning, result)
+		}
+		if fake.Calls()[0].Messages[0].Reasoning != "" {
+			t.Fatal("reasoning leaked into next request")
+		}
+	}
+}

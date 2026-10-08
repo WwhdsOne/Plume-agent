@@ -4,12 +4,15 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"time"
 )
 
 // FakeScript 是 Fake 的一次脚本化响应：弹出时返回 Response 或 Err。
 type FakeScript struct {
-	Response *ChatResponse
-	Err      error
+	Response  *ChatResponse
+	Err       error
+	Stream    []FakeStep
+	StreamErr error
 }
 
 // Fake 是脚本化模型实现，与真实适配器实现同一 Client 接口，
@@ -46,10 +49,20 @@ func (f *Fake) Generate(_ context.Context, req ChatRequest) (*ChatResponse, erro
 	return resp, nil
 }
 
-// Stream 在 G1b.1 明确返回 unsupported；流式能力由 G1b.3 的实现开启。
-func (f *Fake) Stream(_ context.Context, _ ChatRequest) (EventStream, error) {
-	return nil, NewError(ErrUnsupported).WithProvider("fake", ProtocolOpenAIChatCompletions).
-		WithSummary("streaming is not enabled until G1b.3")
+// Stream 弹出一个可取消的拉取式脚本；未提供事件时从完整响应生成增量。
+func (f *Fake) Stream(ctx context.Context, req ChatRequest) (EventStream, error) {
+	if ctx.Err() != nil {
+		return nil, NewError(ClassifyContext(ctx.Err()))
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls = append(f.calls, req)
+	if len(f.scripts) == 0 {
+		return nil, ErrFakeExhausted
+	}
+	script := f.scripts[0]
+	f.scripts = f.scripts[1:]
+	return newFakeStream(ctx, script)
 }
 
 // Calls 返回已收到的请求副本，供测试断言。
@@ -102,10 +115,19 @@ func (f *LoopFake) Generate(_ context.Context, req ChatRequest) (*ChatResponse, 
 	return &out, nil
 }
 
-// Stream 在 G1b.1 阶段明确返回 unsupported。
-func (f *LoopFake) Stream(_ context.Context, _ ChatRequest) (EventStream, error) {
-	return nil, NewError(ErrUnsupported).WithProvider("fake", ProtocolOpenAIChatCompletions).
-		WithSummary("streaming is not enabled until G1b.3")
+// Stream 无限重复脚本；无完整响应时使用离线固定回复。
+func (f *LoopFake) Stream(ctx context.Context, req ChatRequest) (EventStream, error) {
+	if ctx.Err() != nil {
+		return nil, NewError(ClassifyContext(ctx.Err()))
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls = append(f.calls, req)
+	script := f.script
+	if script.Stream == nil && (script.Response == nil || (script.Response.Message.Content == "" && script.Response.Message.Reasoning == "")) {
+		script.Response = &ChatResponse{Message: Message{Role: RoleAssistant, Content: OfflineReply}, FinishReason: FinishStop}
+	}
+	return newFakeStream(ctx, script)
 }
 
 // Calls 返回已收到的请求副本。
@@ -116,3 +138,115 @@ func (f *LoopFake) Calls() []ChatRequest {
 	copy(out, f.calls)
 	return out
 }
+
+// FakeStep 是独立事件及可选等待；Wait 供测试用通道准确控制时序。
+type FakeStep struct {
+	Event Event
+	Wait  <-chan struct{}
+	Delay time.Duration
+}
+
+type fakeStream struct {
+	ctx      context.Context
+	cancel   context.CancelFunc
+	steps    []FakeStep
+	index    int
+	current  Event
+	finalErr error
+	mu       sync.Mutex
+	err      error
+	ended    bool
+}
+
+func newFakeStream(ctx context.Context, script FakeScript) (EventStream, error) {
+	if script.Err != nil {
+		return nil, script.Err
+	}
+	steps := append([]FakeStep(nil), script.Stream...)
+	if script.Stream == nil && script.Response != nil {
+		r := script.Response
+		appendText := func(kind EventKind, text string) {
+			runes := []rune(text)
+			for len(runes) > 0 {
+				n := 8
+				if len(runes) < n {
+					n = len(runes)
+				}
+				e := Event{Kind: kind}
+				if kind == EventReasoningDelta {
+					e.ReasoningDelta = string(runes[:n])
+				} else {
+					e.TextDelta = string(runes[:n])
+				}
+				steps = append(steps, FakeStep{Event: e})
+				runes = runes[n:]
+			}
+		}
+		appendText(EventReasoningDelta, r.Message.Reasoning)
+		appendText(EventTextDelta, r.Message.Content)
+		if r.Usage.OK {
+			steps = append(steps, FakeStep{Event: Event{Kind: EventUsageUpdate, Usage: r.Usage}})
+		}
+		finish := r.FinishReason
+		if finish == "" {
+			finish = FinishStop
+		}
+		steps = append(steps, FakeStep{Event: Event{Kind: EventModelDone, FinishReason: finish}}, FakeStep{Event: Event{Kind: EventStreamEnded}})
+	}
+	streamCtx, cancel := context.WithCancel(ctx)
+	return &fakeStream{ctx: streamCtx, cancel: cancel, steps: steps, finalErr: script.StreamErr}, nil
+}
+func (s *fakeStream) Next(ctx context.Context) bool {
+	if s.ended {
+		return false
+	}
+	setError := func(err error) bool {
+		s.mu.Lock()
+		s.err = err
+		s.mu.Unlock()
+		s.ended = true
+		s.cancel()
+		return false
+	}
+	if ctx.Err() != nil {
+		return setError(NewError(ClassifyContext(ctx.Err())))
+	}
+	if s.ctx.Err() != nil {
+		return setError(NewError(ClassifyContext(s.ctx.Err())))
+	}
+	if s.index >= len(s.steps) {
+		s.ended = true
+		s.mu.Lock()
+		s.err = s.finalErr
+		s.mu.Unlock()
+		s.cancel()
+		return false
+	}
+	step := s.steps[s.index]
+	if step.Wait != nil {
+		select {
+		case <-step.Wait:
+		case <-ctx.Done():
+			return setError(NewError(ClassifyContext(ctx.Err())))
+		case <-s.ctx.Done():
+			return setError(NewError(ClassifyContext(s.ctx.Err())))
+		}
+	}
+	if step.Delay > 0 {
+		timer := time.NewTimer(step.Delay)
+		defer timer.Stop()
+		select {
+		case <-timer.C:
+		case <-ctx.Done():
+			return setError(NewError(ClassifyContext(ctx.Err())))
+		case <-s.ctx.Done():
+			return setError(NewError(ClassifyContext(s.ctx.Err())))
+		}
+	}
+	s.current = step.Event
+	s.index++
+	return true
+}
+func (s *fakeStream) Event() Event { return s.current }
+func (s *fakeStream) Err() error   { s.mu.Lock(); defer s.mu.Unlock(); return s.err }
+func (s *fakeStream) Close() error { s.cancel(); return nil }

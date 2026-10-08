@@ -1,0 +1,28 @@
+[?2026$p[?2027$p[>4m[?1049h[?25l[?5W[?2004h[?1002h[?1006h[>4;2m[>1u[?u[H[2J│[33X[1;35H⣠  │[39X[78G│
+│[32X[2;34H⣾⠏  │ Plume-agent v0.1.0 (c351746-dirty)    │
+│[29X[3;31H⣠⡞ ⠁⡀  │[39X[78G│
+│[28X[4;30H⣾⡿⠃⣠⡞   │ Tips for getting started[13X[77G │
+│[23X[5;25H⢀⣠⣴⠂⢸⠟⠁ ⠁    │[39X[78G│
+│[19X[6;21H⣀⣤⣴⣾⣿⣿⡟ ⢀⣠⣴⡟     │ Enter / Esc     Send / cancel         │
+│[15X[7;17H⢀⣤⣶⣿⣿⣿⣿⣿⣿⡿⠁⢠⡿⠟⠉      │ Shift+Enter     Newline[15X[78G│
+│            ⢀⡀⣰⣿⣿⣿⣿⣿⣿⣿⣿⠟⠁ ⢁⣠        │ Option+Enter    Newline[15X[78G│
+│          ⢀⣴⣿⢠⣿⣿⣿⣿⣿⣿⣿⠟⢁⣠⣴⣾⣿⠃        │ \+Enter         Newline fallback      │
+│         ⣴⣿⣿⣧⣿⣿⣿⣿⡿⠟⣉⣤⣾⣿⣿⣿⡿⠃         │ Up / Down       Input history         │
+│       ⢀⣾⣿⣿⣿⣿⣿⣿⠟⣉⣴⣾⣿⣿⣿⣿⣿⠟⠁          │ PgUp / PgDn     Scroll chat           │
+│      ⢀⣾⣿⣿⣿⣿⡿⢋⣤⣾⣿⣿⣿⠿⠛⢋⠁             │ Ctrl+L / Ctrl+N Clear / new session   │
+│      ⣼⣿⣿⣿⠟⢋⣴⣿⣿⣿⣿⣷⣾⣿⡿⠋[14X[13;38H│ Ctrl+C twice    Quit on empty input   │
+│      ⣿⣿⡿⢃⣴⣿⣿⣿⣿⣿⣿⣿⠟⠉[16X[14;38H│ Ctrl+D          Quit on empty input   │
+│     ⢸⣿⠋⣴⣿⣿⣿⣿⠿⠟⠛⠉[19X[15;38H│[39X[78G│
+│     ⠈⣡⣾⣿⠿⠛⠉[24X[16;38H│ ────────────────────────              │
+│     ⣴⣿⠟⠁[27X[17;38H│[39X[78G│
+│   ⢀⣾⡟⠁[29X[18;38H│ fake/offline[25X[77G │
+│  ⢠⣿⡟[31X[19;38H│ /Users/wwhds/.codex/worktrees/g1b3-s… │
+│  ⠛⠉[32X[20;38H│[39X[78G│
+╰────────────────────────────────────────────────────────────────────────────╯
+
+┃  1 [7mS[may something… (Enter to send, Shift+Enter or \ for newline)[K
+fake/offline │ idle[?7lM[K┃  1 展示羽毛的流式回答[7m [m                                                        [?7h[23;80H[1;21r[21;1H[3S[1;24r[?7l[19;1H[K  > 展示羽毛的流式回答                                                          [?7h[19;80H
+  ● [offline] This is a scripted reply from the fake model. No network, no key,[K
+    no cost. Press Esc to cancel, Ctrl+N for a new session.[K[?7l
+
+[K┃  1 [7mS[may something… (Enter to send, Shift+Enter or \ for newline)[?7h[23;66H[24;14H│ usage unknown │ idle[?7l[5A[K  > 展示羽毛的流式回答                                                          [?7h[19;80H[23;6HSa[?7l[4A[K  > 展示羽毛的流式回答                                                          [?7h[19;80H[23;6H[7mS[ma[?7l[4A[K  > 展示羽毛的流式回答                                                          [?7h[19;80H[23;6HSa[?7l[4A[K  > 展示羽毛的流式回答                                                          [?7h[19;80H[23;6H[7mS[ma[?7l[4A[K  > 展示羽毛的流式回答                                                          [?7h[19;80H[>4m[<1u[5B[?1049l[?25h[?2004l[?1002l[?1003l[?1006l

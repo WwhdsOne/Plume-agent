@@ -37,8 +37,13 @@ func (f *blockingFake) Generate(ctx context.Context, req model.ChatRequest) (*mo
 	return &model.ChatResponse{Message: model.Message{Role: model.RoleAssistant, Content: "late"}}, nil
 }
 
-func (f *blockingFake) Stream(_ context.Context, _ model.ChatRequest) (model.EventStream, error) {
-	return nil, model.NewError(model.ErrUnsupported)
+func (f *blockingFake) Stream(ctx context.Context, req model.ChatRequest) (model.EventStream, error) {
+	resp, err := f.Generate(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	resp.FinishReason = model.FinishStop
+	return model.NewFake(model.FakeScript{Response: resp}).Stream(ctx, req)
 }
 
 func (f *blockingFake) releaseNow() {

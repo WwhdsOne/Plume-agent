@@ -5,10 +5,13 @@ package model
 type Capability string
 
 const (
-	CapText   Capability = "text"
-	CapStream Capability = "stream"
-	CapTools  Capability = "tools"
-	CapUsage  Capability = "usage"
+	CapText             Capability = "text"
+	CapStream           Capability = "stream"
+	CapTools            Capability = "tools"
+	CapUsage            Capability = "usage"
+	CapReasoningOutput  Capability = "reasoning_output"
+	CapReasoningEffort  Capability = "reasoning_effort"
+	CapReasoningDisable Capability = "reasoning_disable"
 )
 
 // CapabilityState 把能力分为支持、不支持与未验证，三者不混用。
@@ -29,10 +32,13 @@ type CapabilitySet struct {
 // NewCapabilitySet 返回全部能力均为 unverified 的快照。
 func NewCapabilitySet() CapabilitySet {
 	return CapabilitySet{states: map[Capability]CapabilityState{
-		CapText:   CapUnverified,
-		CapStream: CapUnverified,
-		CapTools:  CapUnverified,
-		CapUsage:  CapUnverified,
+		CapText:             CapUnverified,
+		CapStream:           CapUnverified,
+		CapTools:            CapUnverified,
+		CapUsage:            CapUnverified,
+		CapReasoningOutput:  CapUnverified,
+		CapReasoningEffort:  CapUnverified,
+		CapReasoningDisable: CapUnverified,
 	}}
 }
 

@@ -1,29 +1,29 @@
 ---
 title: 第一阶段：TUI Agent 开发计划
 status: active
-updated: 2026-10-07
-summary: 第一阶段审核计划：G1b.1→G1b.3→G3 单元拆分、TUI 生命周期、trace 与指标协议
+updated: 2026-10-08
+summary: 第一阶段审核计划：G1b.3 流式与思考展示已通过；G3 仍待授权
 ---
 
 # 第一阶段：TUI Agent 开发计划
 
 > 日期：2026-10-06。范围：终端聊天、OpenAI SDK 模型适配、自研 Agent 循环、trace 和基线评测；微信登录不属于本阶段。
-> 状态：G0、G1a 已通过；以下新增功能均未实现。原微信优先/Eino 方案由 [决策 0003](decisions/0003-model-runtime.md) 替代；同日模型传输层由 Resty 修订为 OpenAI 官方 SDK，见 0003 修订记录。
+> 状态（2026-10-08）：G0、G1a、G1b.1、G1b.2、G1b.2.1、G1b.2.2、G1b.3 已通过。G3 与后续阶段仍待单独授权。原微信优先/Eino 方案由 [决策 0003](decisions/0003-model-runtime.md) 替代；模型传输采用 OpenAI 官方 SDK。
 > 执行约定：使用 executing-plans 按审核单元推进；每个单元完成即停，用户明确通过后才进入下一单元，不使用默认批量执行。本文是阶段计划，各单元开工前再细化测试与实现步骤。
 
 **Goal：** 用 Go 构建可在 TUI 中多轮聊天、执行受控工具、解释每一步执行过程的个人 Agent，并用固定任务集衡量后续改造的收益与退步。
 
 **Architecture：** TUI 通过应用层调用自研 Agent；Agent 只依赖自有模型接口和工具接口。模型层用 OpenAI 官方 Go SDK（openai-go）完成 HTTP 发送与协议/SSE 解析，经端点安全校验与事件归一化，通过协议适配器和注册工厂扩展模型 API。trace 与评测从第一条调用链开始建设。
 
-**Tech Stack：** Go、`github.com/openai/openai-go` v1.12.0（G1b.1 引入）、cobra、huh、Bubble Tea（计划将已有传递依赖用于聊天界面）、zap/JSONL；OpenTelemetry、SQLite 按后续单元引入。不使用 Eino；本轮不更改 `go.mod`。
+**Tech Stack：** Go、`github.com/openai/openai-go` v1.12.0、cobra、charm.land v2 终端栈（Bubble Tea / Bubbles / Lip Gloss / huh）、Glamour v2.0.1、zap/JSONL。OpenTelemetry、SQLite 留后续单元，不使用 Eino。
 
 ## 1. 项目定位、现状与范围
 
 `plume-agent` 是以可解释执行过程和量化实验为重点的简历项目。借鉴 [Hermes](https://github.com/NousResearch/hermes-agent) 的个人 Agent 与多入口思路，不复刻全部功能。
 
-已完成并审核通过：G0 的范围与接入调研，G1a 的模型/渠道预设、配置与凭据原子保存、huh 设置向导、cobra 命令、setup trace 和构建脚本。证据保留在 [G0](reviews/G0.md)、[G1a](reviews/G1a.md)，不因改路线而改写历史测量结果。
+已完成并审核通过：G0/G1a 的配置基础；G1b.1 的非流式模型接口、模型 trace 与离线评测 runner；G1b.2 的最小单轮 Agent、多轮会话及聊天 TUI；G1b.2.1 的 v2 终端栈和键位；G1b.2.2 的点阵羽毛开屏与雾青主题。证据保留在 [审核目录](reviews/)，不改写历史测量结果。
 
-当前还没有模型 HTTP 调用、聊天 TUI、Agent 循环、模型/工具 trace、评测 runner 或微信登录。现有 ↑/↓ 设置菜单是配置表单，**不是聊天 TUI**；现有 zap setup trace 也不代表 Agent trace 已完成。
+G1b.3 已实现流式模型调用、Markdown 答案、思考分区与强度配置、阶段文案、脱敏 run/模型/UI 首答案 trace；证据和局限见 [G1b.3](reviews/G1b.3.md)。工具循环及微信登录仍未实现。
 
 首个演示：设置模型 → 打开 TUI → 多轮输入并看到流式回答 → 查询时间或计算 → 看到工具状态、结果与 run ID → 用 trace 定位一次失败 → 查看基线指标。
 
@@ -44,15 +44,15 @@ summary: 第一阶段审核计划：G1b.1→G1b.3→G3 单元拆分、TUI 生命
 ### 目标命令（尚未实现的部分见下）
 
 ```text
-plume setup                 # 已有向导；计划调整为模型设置完成即可使用 TUI
-plume                       # 计划：配置就绪且为 TTY 时打开聊天；无配置提示 setup
-plume chat                  # 计划：显式打开 TUI，使用 default_model
-plume chat --model <配置ID>  # 计划：只选择已保存配置，不通过参数传入 Key
-plume chat --offline        # 计划：scripted fake 演示，无配置/Key/联网要求
+plume setup                 # 已实现，模型配置完成即可使用 TUI，渠道可跳过
+plume                       # 已实现，配置就绪且为 TTY 时打开聊天；无配置提示 setup
+plume chat                  # 已实现，显式打开 TUI，使用 default_model
+plume chat --model <配置ID>  # 已实现，只选择已保存配置，不通过参数传入 Key
+plume chat --offline        # 已实现，scripted fake 演示，无配置/Key/联网要求
 plume config show           # 已实现，脱敏查看配置
 ```
 
-当前裸 `plume` 仍显示帮助；`chat` 命令不存在。以后非 TTY 调用聊天入口明确报错并退出，不进入交互等待；CI 通过应用接口或评测入口运行，不伪装 TTY。`--offline` 与 `--model` 互斥，离线模式不会保存虚假模型配置或覆盖用户配置。
+非 TTY 调用聊天入口明确报错并退出，不进入交互等待；CI 通过应用接口或评测入口运行，终端交互证据另用真实 pty。`--offline` 与 `--model` 互斥，离线模式不读配置，不保存虚假模型配置或覆盖用户配置。
 
 ### 设置向导的目标行为
 
@@ -70,8 +70,10 @@ TUI 启动检查 schema、所选模型及凭据；不探测网关、不检查微
 
 首版采用单屏：可滚动的聊天记录、输入区、状态栏；状态栏展示模型、运行状态、run ID、耗时和已知 usage。工具执行显示名称、校验/执行/完成/失败状态与脱敏结果摘要，不显示模型未公开的内部思维链。
 
+G1b.3 已实现基础 Markdown、接口实际返回的思考预览与请求前准备状态。详细行为、`tui.status_messages` 及模型级 `reasoning_effort` 见 [技术契约](tui-streaming.md)。默认偏好 high、none 关闭，setup 不询问；参数经能力验证，未验证端点不盲发默认参数。已随 G1b.3 审核通过。
+
 - 键位以 [TUI 键位契约](tui-keys.md)（G1b.2.1，含终端栈升级 charm.land v2）为准，对齐 Codex CLI / Claude Code 惯例：Enter 发送；换行三层渐进（Shift+Enter（kitty 终端）→ Alt/Option+Enter → `\`+Enter 兜底）；Esc 中断 run；Ctrl+C 一次中断/清空且两次退出；Ctrl+D 空输入退出；Ctrl+L 重绘；Up/Down 输入草稿历史；PgUp/PgDn 滚动；Ctrl+N 新会话；键位经 `internal/tui/keys.go` 的 KeyMap 平台抽象，mac/linux 优先，v2 原生 ConPTY 增强为 Windows 预留。空输入不产生请求。
-- Esc 取消当前 run；Ctrl+C 在执行中取消、空闲时退出。退出时取消请求、关闭流、刷出 trace 并恢复终端。
+- Esc 取消当前 run；Ctrl+C 按键位契约执行取消/清空/双击退出。退出时取消请求、关闭流、刷出 trace 并恢复终端。
 - Ctrl+N 在空闲时创建新会话并清空当前上下文；运行中提示先取消，不暗中丢弃任务。
 - 首版同会话串行。运行中可编辑下一条草稿，但再次发送会被明确拒绝，不创建并发模型请求或隐式队列。
 - 模型失败/断流/取消保留已显示的部分内容并标记“不完整”，不当作成功回答写入下一轮模型上下文。只把完整提交的轮次加入历史；再次发送是新的 run，不自动重放工具。
@@ -79,7 +81,7 @@ TUI 启动检查 schema、所选模型及凭据；不探测网关、不检查微
 - 网络调用不阻塞 UI 更新；终端缩放不丢失输入。模型/工具输出先过滤终端控制序列，禁止其执行 OSC、修改剪贴板或控制光标。
 - 普通日志与 trace 写文件，不直接穿插到 TUI 屏幕；UI 状态消费结构化事件，不能靠解析日志驱动。
 
-TUI 拟使用与当前 huh 依赖兼容的 Bubble Tea 版本，G1b.2 编译验证后显式锁定；不顺带升级整套终端依赖。这里只约定行为，不冻结配色和精细布局，实际界面单独交付审核。
+TUI 已在 G1b.2.1 统一采用 charm.land v2 栈；主题以 G1b.2.2 契约为准。新增 Markdown 依赖须验证兼容与体积增量，不能重新引入 v1 栈。
 
 ## 3. 开发与审核制度
 
@@ -107,18 +109,20 @@ TUI → app（会话/run）→ agent（循环/预算）→ 模型接口 / 受控
 | --- | --- |
 | setup/config | 向导、schema、校验、凭据引用与原子保存；不依赖模型 SDK/TUI 类型 |
 | provider | 保留供应商预设；通过注册工厂解析凭据、装配适配器；不向 Agent 暴露密钥 |
-| model（拟新增） | 自有消息/请求/响应/能力/错误契约；端点安全、协议适配与 SDK 装配；不依赖 TUI 或微信 |
-| tui（拟新增） | 输入、状态更新、渲染、取消意图；不拼 HTTP、prompt 或执行工具 |
-| app（拟新增） | 会话历史、run 生命周期、串行限制；后续扩展持久化与渠道调度 |
-| agent（拟新增） | 自研模型—工具循环、prompt 版本、最大轮数与执行预算 |
+| model（已建） | 自有消息/请求/响应/能力/错误契约；端点安全、协议适配与 SDK 装配；G1b.3 扩展流式 |
+| tui（已建） | 输入、状态更新、渲染、取消意图；不拼 HTTP、prompt 或执行工具 |
+| app（已建） | 会话历史、run 生命周期、串行限制；后续扩展持久化与渠道调度 |
+| agent（已建最小单轮） | G1b.3 流消费；G3 才扩展工具循环、prompt 版本、轮数与执行预算 |
 | tools（拟新增） | 参数校验与确定性计算，遵守 context 取消；不直接控制 UI/渠道 |
-| telemetry | 现有 setup trace；计划增加模型/工具/应用事件、脱敏与指标 |
-| eval（拟新增） | 固定样例、评分、可比性检查与统计；不承载线上业务 |
+| telemetry | 已有 setup/模型 trace；计划扩展流式计量、应用与工具事件 |
+| eval（已建） | 已有离线种子与 runner；后续评分、可比性检查与统计；不承载线上业务 |
 | channel | 现有预设保留；实际消息适配器在第二阶段实现 |
 
 模型层采用 Adapter + Registry/Factory + 组合。一个线协议可以服务多个供应商品牌；供应商差异在专用适配逻辑/能力中表达，不按模型名复制客户端，也不以换 URL 冒充全协议支持。详细契约与兼容方案见 [0003](decisions/0003-model-runtime.md)。
 
 ## 5. 第一阶段审核单元
+
+G1b.1/G1b.2 的清单保留原规划口径，实际通过状态及限制以对应 `docs/reviews/` 为准；当前下一单元是 G1b.3，不能把未回填的历史清单当作重新实施授权。
 
 ### G0 / G1a：已完成，保留证据
 
@@ -151,18 +155,24 @@ TUI → app（会话/run）→ agent（循环/预算）→ 模型接口 / 受控
 
 **目标演示命令：** `rtk go run ./cmd/plume chat --offline`；真实模型由用户手动运行 `rtk go run ./cmd/plume chat --model <配置ID>`。测试命令：`rtk go test ./internal/tui/... ./internal/app/... ./internal/agent/... ./cmd/plume/...`。
 
-### G1b.3：SDK 流式消费、TUI 增量输出与取消
+### G1b.3：SDK 流式消费、思考展示与 Markdown
 
-**拟改文件：** `internal/model/openai/stream.go`、`internal/model/deepseek/stream.go`、`internal/model/stream.go`、`internal/tui/update.go`、`internal/agent/runtime.go`、`internal/telemetry/model.go`、对应 `_test.go`、`eval/datasets/stream.v1.jsonl`。
+**状态：已通过（2026-10-08）。** 用户于 2026-10-08 授权执行 [技术契约](tui-streaming.md)，实现与证据见 [G1b.3 审核记录](reviews/G1b.3.md)，同日审核通过（含审核期反馈修复）。
 
-- [ ] 先用可控字节流的 `httptest.Server` 驱动 SDK 流式解析：跨网络 chunk、UTF-8 拆分、多行 data、CRLF、空 delta、终止标记、usage-only 尾帧、畸形 JSON、超大帧与中途 EOF；断言归一化事件与终态判定（EOF 不等于成功）。
-- [ ] 适配器把 SDK 迭代器包装为拉取式项目流（Next/Err/Close），维护非流式/流式规范化结果一致性；流式字节上限与关闭语义按 0003 §5。
-- [ ] TUI 显示文本增量与终态，记录模型首个有效文本事件和 UI 首次绘制耗时；网络 chunk 不等于一个 token。
-- [ ] 覆盖取消、超时、断流后的资源关闭、goroutine 退出、有界队列背压；不得把断流当成功，也不自动重连拼接两次生成。
-- [ ] 渲染可以合并文本增量，但不丢失工具/错误/终态事件；trace 的摘要与计量不随 UI 刷新次数变化。
-- [ ] 记录归一化基准、首文本延迟、取消耗时、错误率与 trace 完整率；交付 `docs/reviews/G1b.3.md` 后停止。
+**实际改动范围：** model 协议流与 fake、provider 能力映射、agent/app 生命周期、config/setup/CLI、TUI 状态与 Markdown、telemetry；新增流式 fixture 与 pty 脚本，Glamour 锁定 v2.0.1。实际路径与证据见审核记录。
 
-**验收：** `rtk go test -race ./...`；`rtk go test ./internal/model/... -bench . -benchmem`；同一 fake 数据分别经非流式/流式路径得出一致最终文本、工具字段和 usage。基准不代表外部 API 性能。
+- [x] 本地 HTTP fixture 覆盖分帧、UTF-8、多行 data、CRLF、空 delta、finish/DONE、usage、畸形数据、超大流与 EOF；拒绝伪 DONE、重复键和 SDK 类型强制转换。
+- [x] Next/Event/Err/Close 拉取式流，16 MiB 实际读取上限、取消和幂等关闭；Generate/Stream 结果一致性测试。
+- [x] 思考和答案独立增量，同分片不丢失、不猜测正文；实际四阶段不会从 responding 回退到 thinking。
+- [x] `>`、`●`、`Thought` 同列，三点动画左槽与正文左对齐；三行预览、自动折叠、Ctrl+O 手动优先。
+- [x] schema v1 可选文案与默认 high/none 控制；setup 不询问且保留配置，能力验证先于 HTTP，offline 不读取配置。
+- [x] Markdown、50ms 合并刷新、已完成回复缓存、上滚冻结、Unicode 列宽与纯文本降级；窄表与代码源文保护。
+- [x] 准备/模型首思考/模型首答案/UI 首答案分别计量，trace 脱敏、usage unknown、不重复计量。
+- [x] 取消/超时/断流、背压、唯一终态与历史原子提交；取消部分内容保留显示但不写历史，不自动重连。
+- [x] 测试、竞态检测、静态/格式检查、基准、版本构建与 13 个 pty 场景；真实供应商性能记 N/A。
+- [ ] 用户审核实现和真实终端手感。交付后停止，不自动进入 G3。
+
+**验收：** 按技术契约 §9 执行协议/状态/配置/渲染/取消测试、`rtk go test -race ./...`、静态与格式检查、`rtk go test ./internal/model/... ./internal/tui/... -bench . -benchmem`、版本构建和隔离 pty 演示；同一 fixture 的非流式/流式最终答案、思考、finish reason 和 usage 一致。基准不代表外部 API 性能。交付实际证据后再次等待用户审核，不将本次文档审核等同实现验收。
 
 ### G3：自研 Agent 循环与受控工具（前移至微信之前）
 
@@ -190,7 +200,7 @@ Trace 记录可观测输入输出、状态转移和实际工具执行，不承�
 | 配置与可选 probe | setup ID、供应商/模型、校验/保存/联网检查及耗时，不记录 Key |
 | TUI 输入 | 会话/run/message ID、输入校验、提交/拒绝/取消、首文本绘制与完成状态 |
 | 上下文准备 | 完整历史轮数、截断策略、prompt 版本/哈希；失败部分不混入历史 |
-| 每次模型调用 | provider、内部协议、模型配置摘要、attempt、起止/首文本耗时、usage、finish reason、错误分类 |
+| 每次模型调用 | provider、内部协议、模型配置摘要、attempt、起止/首思考/首答案耗时、usage、finish reason、错误分类 |
 | 流式处理 | 帧数/字节数、解析失败位置摘要、正常结束/断流/取消、是否输出了部分内容 |
 | 每次工具调用 | call ID、工具名、校验、脱敏参数、结果摘要、耗时和终态 |
 | run 结束 | 唯一 completed/failed/cancelled 终态及 reason，历史提交状态，UI 消费结果 |
@@ -203,6 +213,8 @@ Trace 记录可观测输入输出、状态转移和实际工具执行，不承�
 
 默认不存真实原文，正文调试需显式启用、访问限制与到期清理。Key、Authorization、凭据文件内容、二维码/登录 URL 永不记录；错误正文与 URL 同样经过脱敏和长度限制。第三方 HTTP debug/curl dump 默认关闭。
 
+G1b.3 拟新增的思考全文与自定义状态文案同样不默认写 trace；记录真实阶段 ID 和时间，不记录动画帧或用文案推导性能指标。
+
 后续网关单独增加 connection/setup trace、去重/排队/发送 span；不把整个长轮询生命周期当成无限长 span。TUI 与网关可复用 run 事件，但不能混用端到端延迟定义。
 
 ## 7. 指标与比较规则
@@ -213,8 +225,10 @@ Trace 记录可观测输入输出、状态转移和实际工具执行，不承�
 | --- | --- | --- |
 | 任务成功率 | 满足全部检查点的 run / 所有计划执行的 run；错误/超时计失败 | 高 |
 | 工具选择/参数正确率 | 符合允许工具与参数的任务 / 适用任务；正确不调用也计入 | 高 |
-| TUI 首文本延迟 | 提交输入至首个非空回答文本写入渲染帧；不把状态提示算回答 | 低 |
-| 模型首文本延迟 | 模型请求开始至首个有效文本增量；单列，不等于 token 级真值 | 低 |
+| TUI 首文本延迟（首答案） | 提交输入至首个可见答案写入渲染帧；状态提示和思考预览均不算回答 | 低 |
+| 模型首文本延迟（首答案） | 模型调用开始至首个有效答案增量；不包含请求前准备、思考和 usage，不等于 token 级真值 | 低 |
+| 模型首思考延迟（G1b.3 拟新增） | 模型调用开始至首个有效思考增量；无思考为 N/A，不能替代首答案指标 | 单列 |
+| 准备耗时（G1b.3 拟新增） | 接受输入至第一次模型调用开始；前置失败另报实际终止耗时 | 单列 |
 | TUI 完成延迟 p50/p95 | 提交至最后内容和终态完成渲染；不等同于用户阅读完成 | 低 |
 | Agent 延迟 p50/p95 | run 开始至最终答案完成，不含 UI 绘制或未来渠道发送 | 低 |
 | 取消响应耗时 | 接受取消至请求/工具退出、body 关闭且产生终态 | 低 |
@@ -270,18 +284,18 @@ Trace 记录可观测输入输出、状态转移和实际工具执行，不承�
 
 ## 9. 目录与展示材料
 
-当前入口已经是 `cmd/plume/`，不是根目录 Hello World。`internal/config`、`setup`、`provider`、`channel`、`telemetry` 已存在，其余目录在对应单元逐步创建；不预建空实现。
+当前入口是 `cmd/plume/`。`internal/config`、`setup`、`provider`、`channel`、`telemetry`、`model`、`tui`、`app`、`agent`、`eval` 均已建立；G1b.3 在现有边界上扩展，不预建空实现。
 
-新增设计集中于 `internal/model/`（协议与传输）、`internal/tui/`（界面）、`internal/app/`（会话/run）、`internal/agent/`（循环）、`internal/tools/`、`internal/eval/`。应用接口不返回 openai-go、Bubble Tea 等第三方类型。后续 `internal/store`、`memory`、`skills` 各自另行审核。
+`internal/tools/` 留 G3；后续 `internal/store`、`memory`、`skills` 各自另行审核。应用接口不返回 openai-go、Bubble Tea 等第三方类型。
 
 首版演示：TUI 多轮/流式回答、一次工具调用、一次取消/失败定位、一份可复现基线。简历只使用真实实现与测量数据；微信效果不能在渠道尚未实现时写为成果。
 
-## 10. 本次文档交付与下一步
+## 10. 本次交付与下一步（2026-10-08）
 
-- [x] 路线改为 OpenAI SDK + 协议适配器/自研运行时，TUI 优先（同日由 Resty 方案修订而来）；保留 G0/G1a 审核事实。
-- [x] 将微信路线独立后移，保留协议调研与审核编号。
-- [x] 补充配置兼容、TUI 生命周期、请求/解析职责、trace 与指标。
-- [ ] 用户审核本次文档的细节与阶段拆分。
-- [ ] 用户授权后，仅启动 G1b.1；完成后停下等待审核。
+- [x] 保留 SDK + 协议适配器/自研运行时、TUI 优先及微信后移路线，同步已经通过的单元现状。
+- [x] 交付 G1b.3 技术契约：流式事件、基础 Markdown、thinking 预览、请求前准备状态、可选文案与默认 high/可关闭的思考强度配置。
+- [x] 定义首思考/首答案指标、兼容边界、拟改文件与离线验收矩阵。
+- [x] 用户审核并授权执行 [技术契约](tui-streaming.md)。
+- [x] 实现 G1b.3 并交付实际证据；等待实现审核，不自动进入 G3。
 
-本次没有新增依赖、改动 Go 代码、发起模型请求或执行真实扫码，也不把方案写入视为功能完成。
+本次新增 Glamour v2.0.1，完成 G1b.3 代码、回归测试、本地 HTTP fixture 与 pty 验收；未调用真实模型或执行扫码。指标、局限及待用户检查项见 [审核记录](reviews/G1b.3.md)。

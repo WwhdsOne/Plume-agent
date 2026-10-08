@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
+	"plume-agent/internal/app"
 )
 
 // 渲染样式。主题三色 token 见 theme.go（雾青，G1b.2.2）；错误红/提示黄/
@@ -17,14 +19,27 @@ var (
 	styleStatus    = lipgloss.NewStyle().Foreground(colorMuted)
 	styleNotice    = lipgloss.NewStyle().Foreground(colorNotice)
 	styleRunning   = lipgloss.NewStyle().Foreground(themeDark) // running 强调
+	// styleSeparator 渲染输入区上下分隔线（用户要求醒目标出输入框，
+	// 用主题主色；语义色不占用主题色，横线属于装饰性主题元素）。
+	styleSeparator = lipgloss.NewStyle().Foreground(themePrimary)
 )
 
-// View 渲染单屏三段：聊天记录（可滚动）、输入区、状态栏。
+// inputSeparator 渲染一行与终端同宽的主题色横线，醒目框出输入区。
+func inputSeparator(width int) string {
+	return styleSeparator.Render(strings.Repeat("─", max(width, 1)))
+}
+
+// View 渲染单屏三段：聊天记录（可滚动）、输入区（上下各一条主题色横线）、
+// 状态栏。
 func (m *Model) View() string {
 	var b strings.Builder
 	b.WriteString(m.viewport.View())
 	b.WriteString("\n")
+	b.WriteString(inputSeparator(m.width))
+	b.WriteString("\n")
 	b.WriteString(m.input.View())
+	b.WriteString("\n")
+	b.WriteString(inputSeparator(m.width))
 	b.WriteString("\n")
 	b.WriteString(m.statusBar())
 	return b.String()
@@ -46,27 +61,40 @@ func renderLines(lines []chatLine, width int) string {
 			continue
 		}
 		prefix, style := lineStyle(line.kind)
-		for i, chunk := range wrapText(line.text, width) {
+		text := sanitize(line.text)
+		if line.kind == lineAssistant {
+			text = renderMarkdown(line.text, max(width-bodyOffset(), 1))
+		}
+		for i, chunk := range wrapText(text, max(width-bodyOffset(), 1)) {
 			if i == 0 {
-				fmt.Fprintf(&b, "%s %s\n", style.Render(prefix), chunk)
+				fmt.Fprintf(&b, "%s%s\n", rolePrefix(prefix, style), chunk)
 				continue
 			}
-			fmt.Fprintf(&b, "%s %s\n", strings.Repeat(" ", len(prefix)+1), chunk)
+			fmt.Fprintf(&b, "%s%s\n", strings.Repeat(" ", bodyOffset()), chunk)
 		}
 	}
 	return b.String()
 }
 
+// roleMarkerWidth 共用显示槽宽，不能按 UTF-8 字节或某个角色单独计算。
+func roleMarkerWidth() int {
+	return max(ansi.StringWidth(">"), ansi.StringWidth("●"), ansi.StringWidth("│"))
+}
+func bodyOffset() int { return 2 + roleMarkerWidth() + 1 }
+func rolePrefix(marker string, style lipgloss.Style) string {
+	return "  " + style.Render(marker) + strings.Repeat(" ", max(roleMarkerWidth()-ansi.StringWidth(marker), 0)+1)
+}
+
 func lineStyle(kind lineKind) (prefix string, style lipgloss.Style) {
 	switch kind {
 	case lineUser:
-		return "You > ", styleUser
+		return ">", styleUser
 	case lineAssistant:
-		return "Plume > ", styleAssistant
+		return "●", styleAssistant
 	case lineError:
-		return "Error > ", styleError
+		return "!", styleError
 	default:
-		return "· ", styleSystem
+		return "·", styleSystem
 	}
 }
 
@@ -75,41 +103,53 @@ func wrapText(text string, width int) []string {
 	if width <= 0 {
 		return strings.Split(text, "\n")
 	}
-	var out []string
-	for paragraph := range strings.SplitSeq(text, "\n") {
-		if paragraph == "" {
-			out = append(out, "")
-			continue
-		}
-		for len(paragraph) > width {
-			out = append(out, paragraph[:width])
-			paragraph = paragraph[width:]
-		}
-		out = append(out, paragraph)
-	}
-	return out
+	return strings.Split(ansi.Hardwrap(text, width, true), "\n")
 }
 
 // statusBar 渲染模型、运行状态、run ID、耗时与已知 usage。
 func (m *Model) statusBar() string {
-	var b strings.Builder
-	b.WriteString(styleStatus.Render(m.modelLabel))
-	b.WriteString(styleStatus.Render(" │ "))
+	var stage string
 	if m.state == stateRunning {
-		b.WriteString(styleRunning.Render("running"))
-		if m.runID != "" {
-			b.WriteString(styleStatus.Render(" " + m.runID))
+		label := m.phaseLabels[m.phase]
+		if m.phase == app.PhaseThinking && m.thoughtVisible() {
+			label = ""
 		}
-		b.WriteString(styleStatus.Render(fmt.Sprintf(" %s", m.elapsed())))
+		icon := ""
+		if label != "" {
+			icon = thoughtSpinner[m.spinnerFrame%len(thoughtSpinner)] + " "
+		}
+		stage = strings.TrimSpace(fmt.Sprintf("%s%s %s", icon, label, m.elapsed()))
 	} else {
-		b.WriteString(styleStatus.Render("idle"))
+		stage = "idle"
+	}
+	width := max(m.width, 1)
+	// 阶段+耗时优先于模型标签，窄屏仍能判断当前阶段与总耗时。
+	if ansi.StringWidth(stage) > width {
+		if m.state == stateRunning {
+			timeLabel := m.elapsed().String()
+			room := width - ansi.StringWidth(timeLabel) - 1
+			if room > 0 {
+				stage = ansi.Truncate(m.phaseLabels[m.phase], room, "") + " " + timeLabel
+			} else {
+				stage = ansi.Truncate(timeLabel, width, "")
+			}
+		} else {
+			stage = ansi.Truncate(stage, width, "")
+		}
+	}
+	left := m.modelLabel
+	if m.state == stateRunning && m.runID != "" {
+		left += " " + m.runID
 	}
 	if m.lastUsage != "" {
-		b.WriteString(styleStatus.Render(" │ " + m.lastUsage))
+		left += " │ " + m.lastUsage
 	}
 	if m.notice != "" {
-		b.WriteString("  ")
-		b.WriteString(styleNotice.Render(m.notice))
+		left += "  " + sanitize(m.notice)
 	}
-	return b.String()
+	room := width - ansi.StringWidth(stage) - 3
+	if room <= 0 {
+		return styleStatus.Render(stage)
+	}
+	return styleStatus.Render(ansi.Truncate(left, room, "…") + " │ " + stage)
 }

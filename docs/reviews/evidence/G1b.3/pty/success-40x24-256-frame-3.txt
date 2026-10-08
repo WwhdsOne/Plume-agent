@@ -1,0 +1,24 @@
+ ⢀⣾⡟⠁                                   
+⢠⣿⡟                                     
+⠛⠉                                      
+plume-agent v0.1.0 (c351746-dirty) ·    
+deepseek/deepseek-flash                 
+Enter send · Shift+Enter or \+Enter     
+newline · Esc cancel · double Ctrl+C    
+quit · Ctrl+N new session               
+  > 展示羽毛的流式回答                  
+▸ Thought · Ctrl+O to expand            
+  ● 流式回答                            
+    羽毛与中文 🪶。                     
+                                        
+    • 第一项                            
+    • 第二项                            
+                                        
+    go                                  
+                                        
+    fmt.Println("Plume")                
+                                        
+    文档 https://example.com/docs       
+                                        
+┃  1 Say something… (Enter to send,     
+deepseek/deepseek-flash │ tokens… │ idle

@@ -1,0 +1,24 @@
+│   ⢀⣾⡟⠁                             │ deepseek/deepseek-flash               │  
+│  ⢠⣿⡟                               │ /Users/wwhds/.codex/worktrees/g1b3-s… │  
+│  ⠛⠉                                │                                       │  
+╰────────────────────────────────────────────────────────────────────────────╯  
+  > 展示羽毛的流式回答                                                          
+▾ Thought                                                                       
+  │ 第一行：检查输入。                                                          
+  │ 第二行：保留事实。                                                          
+  │ 第三行：组织答案。                                                          
+  │ 第四行：输出中文与 emoji 🪶。                                               
+  ● 流式回答                                                                    
+    羽毛与中文 🪶。                                                             
+                                                                                
+    • 第一项                                                                    
+    • 第二项                                                                    
+                                                                                
+    go                                                                          
+                                                                                
+    fmt.Println("Plume")                                                        
+                                                                                
+    文档 https://example.com/docs                                               
+                                                                                
+┃  1 Say something… (Enter to send, Shift+Enter or \ for newline)               
+deepseek/deepseek-flash │ tokens 12/34/46 │ idle                                
