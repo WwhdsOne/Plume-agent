@@ -4,7 +4,7 @@ import (
 	"charm.land/bubbles/v2/key"
 )
 
-// KeyMap 是全部按键的集中绑定表（G1b.2.1 键位契约 docs/tui-keys.md §4）。
+// KeyMap 是全部按键的集中绑定表（G1b.2.1 键位契约 docs/specs/tui/keys.md §4）。
 // Update/View 只引用这里的语义字段，键名硬编码不得散落在其他文件；
 // 平台差异只允许出现在 newKeyMap 的帮助文本里。
 type KeyMap struct {

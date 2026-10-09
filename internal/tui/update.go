@@ -96,7 +96,7 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	}
 }
 
-// handleKey 按 KeyMap（docs/tui-keys.md §3/§4）分发按键。Ctrl+C 的三段
+// handleKey 按 KeyMap（docs/specs/tui/keys.md §3/§4）分发按键。Ctrl+C 的三段
 // 语义不走 Binding（契约的 KeyMap 字段表不含它），在此用键名判定。
 func (m *Model) handleKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	km := m.keys

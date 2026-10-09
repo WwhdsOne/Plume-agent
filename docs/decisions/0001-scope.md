@@ -10,7 +10,7 @@ summary: G0 范围决策：两家预设、配置边界、评测预算、运行�
 - 状态：G0 历史决策（2026-10-06 通过）；模型实现路线已由 [0003](0003-model-runtime.md) 部分替代
 - 用户已确认：目录用 `~/.plume/`；首批只启用 2 个预设（DeepSeek + 自定义兼容服务，百炼/Qwen 延后）；单次联网评测无费用上限；本机（含 TUN 代理）可用于评测
 - 日期：2026-10-06
-- 关联：`docs/phase-01-tui-agent.md`（当前首阶段）、`docs/phase-02-channel-gateway.md`（后续渠道）、`docs/decisions/0002-wechat.md`（微信调研）
+- 关联：`docs/plans/phase-01-tui.md`（当前首阶段）、`docs/plans/phase-02-channel.md`（后续渠道）、`docs/decisions/0002-wechat.md`（微信调研）
 - 复核口径：所有 Base URL 于 2026-10-06 现场复核，来源见下表；Eino 适配路径以 `cloudwego/eino-ext` 仓库 `main` 的目录清单为准，具体版本在 G1b 编译验证后锁定。
 
 > 2026-10-06 路线更新：用户改选自研请求/解析/Agent 循环路线（当日传输层先定 Resty、后修订为 OpenAI 官方 SDK，见 0003 修订记录），首版 TUI，微信后移。**下文“绑定 Eino 组件/未来引入 Eino”的约定不再执行**，组件说明仅保留为 G0 历史调研；包括“后续 Qwen 使用 Eino 组件”的设想也已失效。现行模型契约以 0003 为准。

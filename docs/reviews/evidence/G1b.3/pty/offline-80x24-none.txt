@@ -1,28 +1,0 @@
-│⣠  ││
-│⣾⠏  │ Plume-agent v0.1.0 (c351746-dirty)    │
-│⣠⡞ ⠁⡀  ││
-│⣾⡿⠃⣠⡞   │ Tips for getting started │
-│⢀⣠⣴⠂⢸⠟⠁ ⠁    ││
-│⣀⣤⣴⣾⣿⣿⡟ ⢀⣠⣴⡟     │ Enter / Esc     Send / cancel         │
-│⢀⣤⣶⣿⣿⣿⣿⣿⣿⡿⠁⢠⡿⠟⠉      │ Shift+Enter     Newline│
-│            ⢀⡀⣰⣿⣿⣿⣿⣿⣿⣿⣿⠟⠁ ⢁⣠        │ Option+Enter    Newline│
-│          ⢀⣴⣿⢠⣿⣿⣿⣿⣿⣿⣿⠟⢁⣠⣴⣾⣿⠃        │ \+Enter         Newline fallback      │
-│         ⣴⣿⣿⣧⣿⣿⣿⣿⡿⠟⣉⣤⣾⣿⣿⣿⡿⠃         │ Up / Down       Input history         │
-│       ⢀⣾⣿⣿⣿⣿⣿⣿⠟⣉⣴⣾⣿⣿⣿⣿⣿⠟⠁          │ PgUp / PgDn     Scroll chat           │
-│      ⢀⣾⣿⣿⣿⣿⡿⢋⣤⣾⣿⣿⣿⠿⠛⢋⠁             │ Ctrl+L / Ctrl+N Clear / new session   │
-│      ⣼⣿⣿⣿⠟⢋⣴⣿⣿⣿⣿⣷⣾⣿⡿⠋│ Ctrl+C twice    Quit on empty input   │
-│      ⣿⣿⡿⢃⣴⣿⣿⣿⣿⣿⣿⣿⠟⠉│ Ctrl+D          Quit on empty input   │
-│     ⢸⣿⠋⣴⣿⣿⣿⣿⠿⠟⠛⠉││
-│     ⠈⣡⣾⣿⠿⠛⠉│ ────────────────────────              │
-│     ⣴⣿⠟⠁││
-│   ⢀⣾⡟⠁│ fake/offline │
-│  ⢠⣿⡟│ /Users/wwhds/.codex/worktrees/g1b3-s… │
-│  ⠛⠉││
-╰────────────────────────────────────────────────────────────────────────────╯
-
-┃  1 Say something… (Enter to send, Shift+Enter or \ for newline)
-fake/offline │ idleM┃  1 展示羽毛的流式回答                                                           > 展示羽毛的流式回答                                                          
-  ● [offline] This is a scripted reply from the fake model. No network, no key,
-    no cost. Press Esc to cancel, Ctrl+N for a new session.
-
-┃  1 Say something… (Enter to send, Shift+Enter or \ for newline)│ usage unknown │ idle  > 展示羽毛的流式回答                                                          Sa  > 展示羽毛的流式回答                                                          Sa  > 展示羽毛的流式回答                                                          Sa  > 展示羽毛的流式回答                                                          Sa  > 展示羽毛的流式回答                                                          

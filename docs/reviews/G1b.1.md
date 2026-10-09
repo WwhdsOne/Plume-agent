@@ -8,7 +8,7 @@ summary: G1b.1 交付：模型契约与 openai-chat-completions 适配器、端�
 # G1b.1 审核记录：OpenAI SDK 请求、非流式解析与可测量模型接口
 
 - 日期：2026-10-06。
-- 依据：[决策 0003](../decisions/0003-model-runtime.md)（2026-10-06 修订为 OpenAI 官方 SDK）与[第一阶段计划](../phase-01-tui-agent.md) §5 G1b.1。
+- 依据：[决策 0003](../decisions/0003-model-runtime.md)（2026-10-06 修订为 OpenAI 官方 SDK）与[第一阶段计划](../plans/phase-01-tui.md) §5 G1b.1。
 - 状态：**已通过审核**（2026-10-06 用户确认"通过"，随后启动 G1b.2）。
 
 ## 1. 本单元做了什么

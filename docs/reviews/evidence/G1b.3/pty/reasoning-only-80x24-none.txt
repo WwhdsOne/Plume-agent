@@ -1,95 +1,0 @@
-│⣠⡞ ⠁⡀  ││
-│⣾⡿⠃⣠⡞   │ Tips for getting started │
-│⢀⣠⣴⠂⢸⠟⠁ ⠁    ││
-│⣀⣤⣴⣾⣿⣿⡟ ⢀⣠⣴⡟     │ Enter / Esc     Send / cancel         │
-│⢀⣤⣶⣿⣿⣿⣿⣿⣿⡿⠁⢠⡿⠟⠉      │ Shift+Enter     Newline│
-│            ⢀⡀⣰⣿⣿⣿⣿⣿⣿⣿⣿⠟⠁ ⢁⣠        │ Option+Enter    Newline│
-│          ⢀⣴⣿⢠⣿⣿⣿⣿⣿⣿⣿⠟⢁⣠⣴⣾⣿⠃        │ \+Enter         Newline fallback      │
-│         ⣴⣿⣿⣧⣿⣿⣿⣿⡿⠟⣉⣤⣾⣿⣿⣿⡿⠃         │ Up / Down       Input history         │
-│       ⢀⣾⣿⣿⣿⣿⣿⣿⠟⣉⣴⣾⣿⣿⣿⣿⣿⠟⠁          │ PgUp / PgDn     Scroll chat           │
-│      ⢀⣾⣿⣿⣿⣿⡿⢋⣤⣾⣿⣿⣿⠿⠛⢋⠁│ Ctrl+L / Ctrl+N Clear / new session   │
-│      ⣼⣿⣿⣿⠟⢋⣴⣿⣿⣿⣿⣷⣾⣿⡿⠋│ Ctrl+C twice    Quit on empty input   │
-│      ⣿⣿⡿⢃⣴⣿⣿⣿⣿⣿⣿⣿⠟⠉│ Ctrl+D          Quit on empty input   │
-│     ⢸⣿⠋⣴⣿⣿⣿⣿⠿⠟⠛⠉││
-│     ⠈⣡⣾⣿⠿⠛⠉│ ────────────────────────              │
-│     ⣴⣿⠟⠁││
-│   ⢀⣾⡟⠁│ deepseek/deepseek-flash │
-│  ⢠⣿⡟│ /Users/Learning/AI/AGENT/Plume-agent  │
-│  ⠛⠉││
-╰────────────────────────────────────────────────────────────────────────────╯
-
-────────────────────────────────────────────────────────────────────────────────
-┃  1 Say something… (Enter to send, Shift+Enter or \ for newline)
-────────────────────────────────────────────────────────────────────────────────
-deepseek/deepseek-flash │ idle┃  1 展示羽毛的流式回                                                           
-  > 展示羽毛的流式回答
-
-
-┃  1 Say something… (Enter to send, Shift+Enter or \ for newline)               run-000001 │ ⠋ waiting 3ms  > 展示羽毛的流式回答52ms  > 展示羽毛的流式回答⠙ waiting 102ms  > 展示羽毛的流式回答52  > 展示羽毛的流式回答⠚ waiting 20  > 展示羽毛的流式回答
-⠚ Thought… 263ms
-  │ 第一行：检查输入。
-  │264ms  > 展示羽毛的流式回答
-⠓ Thought… 302
-  │ 第一行：检查输入。303m  > 展示羽毛的流式回答52
-  │ 第一行：检查输入。53  > 展示羽毛的流式回答
-⠋ Thought… 403
-  │ 第一行：检查输入。404m
-  > 展示羽毛的流式回答23
-  │ 第一行：检查输入。
-  │ 第二行：保留事实。
-  │24  > 展示羽毛的流式回答53
-  │ 第一行：检查输入。
-  │ 第二行：保留事实。54  > 展示羽毛的流式回答
-⠙ Thought… 505
-  │ 第一行：检查输入。
-  │ 第二行：保留事实。506m  > 展示羽毛的流式回答56m
-  │ 第一行：检查输入。
-  │ 第二行：保留事实。57m
-  > 展示羽毛的流式回答82m
-  │ 第二行：保留事实。
-  │ 第三行：组织答案。
-  │83m  > 展示羽毛的流式回答
-⠚ Thought… 608
-  │ 第二行：保留事实。
-  │ 第三行：组织答案。609m
-  > 展示羽毛的流式回答47m
-  │ 第一行：检查输入。
-  │ 第二行：保留事实。
-  │ 第三行：组织答案。49  > 展示羽毛的流式回答59m
-  │ 第一行：检查输入。
-  │ 第二行：保留事实。
-  │ 第三行：组织答案。59  > 展示羽毛的流式回答
-⠓ Thought… 70
-  │ 第一行：检查输入。
-  │ 第二行：保留事实。
-  │ 第三行：组织答案。710m  > 展示羽毛的流式回答42m
-  │ 第一行：检查输入。
-  │ 第二行：保留事实。
-  │ 第三行：组织答案。
-  │ 第四行：输出中文与 emoji 🪶。43m  > 展示羽毛的流式回答61m
-  │ 第一行：检查输入。
-  │ 第二行：保留事实。
-  │ 第三行：组织答案。
-  │ 第四行：输出中文与 emoji 🪶。62m  > 展示羽毛的流式回答
-⠋ Thought… 813
-  │ 第一行：检查输入。
-  │ 第二行：保留事实。
-  │ 第三行：组织答案。
-  │ 第四行：输出中文与 emoji 🪶。814m  > 展示羽毛的流式回答64m
-  │ 第一行：检查输入。
-  │ 第二行：保留事实。
-  │ 第三行：组织答案。
-  │ 第四行：输出中文与 emoji 🪶。65m  > 展示羽毛的流式回答
-▾
-  │ 第一行：检查输入。
-  │ 第二行：保留事实。
-  │ 第三行：组织答案。
-  │ 第四行：输出中文与 emoji 🪶。
-    [incomplete]
-  ! run failed: model error: invalid_response provider=deepseek protocol=openai-
-chat-completions status=200 summary="no answer text"│ idle│⢀⡀⣰⣿⣿⣿⣿⣿⣿⣿⣿⠟⠁ ⢁⣠        │ Option+Enter    Newline│
-│          ⢀⣴⣿⢠⣿⣿⣿⣿⣿⣿⣿⠟⢁⣠⣴⣾⣿⠃        │ \+Enter         Newline fallback      │
-│         ⣴⣿⣿⣧⣿⣿⣿⣿⡿⠟⣉⣤⣾⣿⣿⣿⡿⠃         │ Up / Down       Input history         │
-│       ⢀⣾⣿⣿⣿⣿⣿⣿⠟⣉⣴⣾⣿⣿⣿⣿⣿⠟⠁          │ PgUp / PgDn     Scroll chat           │  > 展示羽毛的流式回答
-▸ Thought · Ctrl+O to expand  > 展示羽毛的流式回答
-

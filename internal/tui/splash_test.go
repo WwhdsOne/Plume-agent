@@ -10,7 +10,7 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// TestThemeColorsMatchContract 锁定雾青三色的精确值（docs/tui-splash.md §1，
+// TestThemeColorsMatchContract 锁定雾青三色的精确值（docs/specs/tui/splash.md §1，
 // 用户拍板），防止实现时顺手改色。
 func TestThemeColorsMatchContract(t *testing.T) {
 	type colorAssert struct {

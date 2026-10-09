@@ -1,13 +1,15 @@
 ---
 title: G1b.4 审核记录：可配置底部状态栏
-status: pending-review
+status: passed
 updated: 2026-10-09
-summary: G1b.4 生成期间保留 ctx/cache 快照，716 项竞态测试与 12 个 PTY 场景通过，待审核
+summary: G1b.4 已通过：默认配置落盘、上下文/缓存统计、Git/uv 与会话计时，716 项竞态与 12 个 PTY 场景通过
 ---
 
 # G1b.4 审核记录：可配置底部状态栏
 
-用户审核 [技术契约](../tui-statusline.md) 后授权实现；本单元在原目录完成，已安装到 `/Users/go/bin/plume`，等待用户审核。用户于 2026-10-09 明确授权补日志、提交并推送当前改动；实现审核状态仍为 pending-review，G3 工具循环未开始。
+用户审核 [技术契约](../specs/tui/statusline.md) 后授权实现；本单元在原目录完成，已安装到 `/Users/go/bin/plume`。2026-10-09 用户确认**通过**（此前已授权补日志、提交并推送）。G3 工具循环未开始。
+
+> **证据说明（2026-10-09）**：按「通过即删」治理（见 [TUI runbook](../runbooks/tui.md)），审核期证据已随文档重组移除。正文出现的 `evidence/G1b.4/...` 路径指向提交 `9860902`，用 `git show 9860902:<路径>` 可取回原始字节，或运行 `PLUME_HOME=$(mktemp -d) python3 scripts/pty_demo_g1b4.py` 重新生成。
 
 ## 交付行为
 
@@ -61,7 +63,7 @@ PTY 依赖仅为临时验收用 pyte 0.8.2 / wcwidth 0.9.2，不属于 plume 运
 
 证据入口：
 
-- [验证摘要](evidence/G1b.4/verification.md)。
+- 验证摘要（历史证据，已按「通过即删」移除）：`evidence/G1b.4/verification.md`。
 - [9 场景结果及终态 trace 摘要](evidence/G1b.4/pty/results.json)。
 - [默认完成帧](evidence/G1b.4/pty/default-120x24-pre-exit.txt)：实际 `ctx(last):[██░░░░░░░░] 20%`、`cache(last):8`、Git dirty、活动 uv 环境。
 - [定制一行帧](evidence/G1b.4/pty/custom-80x24-pre-exit.txt)、[20×8 窄屏帧](evidence/G1b.4/pty/narrow-20x8-pre-exit.txt)、[未知用量帧](evidence/G1b.4/pty/unknown-40x16-pre-exit.txt)。
@@ -104,7 +106,7 @@ PTY 依赖仅为临时验收用 pyte 0.8.2 / wcwidth 0.9.2，不属于 plume 运
 
 配置定向回归先出现 8 failed，显示/口径回归先出现 5 failed；实现后全仓竞态 674 项、14 包通过，vet/gofmt/diff 检查通过。PTY 增补两次请求场景：首次 8/20=40%，第二次 48/60=80%，默认累计 56/80=70%，Pi 模式为 80%；原 9 场景及两模式共 11/11 通过。见 [完整结果](evidence/G1b.4/cache-ratio-2026-10-09/pty/results.json)、[累计帧](evidence/G1b.4/cache-ratio-2026-10-09/pty/cache-session-80x24-pre-exit.txt)、[最近调用帧](evidence/G1b.4/cache-ratio-2026-10-09/pty/cache-last-call-80x24-pre-exit.txt)。
 
-按用户授权更新真实配置的三项缓存显示设置，走项目 Load/Save 原子保存，确认其他设置相同、0600、重复读取字节相同；临时入口已删除。原目录安装版本 v0.1.0 / e118207-dirty / 2026-10-09T00:57:34Z，24,756,658 bytes。只有缓存显示设置变更，没有供应商调用、新 Go 依赖或新用户命令。外部口径依据与切换方法见 [技术契约 §4](../tui-statusline.md#4-缓存与累计用量)。此前构建/验收数字保留为历史。
+按用户授权更新真实配置的三项缓存显示设置，走项目 Load/Save 原子保存，确认其他设置相同、0600、重复读取字节相同；临时入口已删除。原目录安装版本 v0.1.0 / e118207-dirty / 2026-10-09T00:57:34Z，24,756,658 bytes。只有缓存显示设置变更，没有供应商调用、新 Go 依赖或新用户命令。外部口径依据与切换方法见 [技术契约 §4](../specs/tui/statusline.md#4-缓存与累计用量)。此前构建/验收数字保留为历史。
 
 安装后两种口径及真彩色宽屏三场景各 1/1 通过：见 [累计模式](evidence/G1b.4/cache-ratio-2026-10-09/installed/cc/results.json)、[最近模式](evidence/G1b.4/cache-ratio-2026-10-09/installed/pi/results.json)、[真彩色](evidence/G1b.4/cache-ratio-2026-10-09/installed/truecolor/results.json)。
 

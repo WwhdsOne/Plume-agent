@@ -5,7 +5,7 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// 主题色 token（G1b.2.2 契约 docs/tui-splash.md §1，雾青三色，用户拍板）。
+// 主题色 token（G1b.2.2 契约 docs/specs/tui/splash.md §1，雾青三色，用户拍板）。
 // 全部界面颜色只能引用这里的 token 与语义色，其他文件不得出现裸色值。
 const (
 	themePrimaryValue = "#5BC8C8"

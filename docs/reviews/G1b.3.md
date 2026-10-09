@@ -7,7 +7,9 @@ summary: G1b.3 审核通过：流式协议、Thought 与强度配置、trace、�
 
 # G1b.3 流式消费、Markdown 与思考展示审核记录
 
-用户于 2026-10-08 授权执行 [技术契约](../tui-streaming.md)，同日审核通过（含审核期反馈修复）。未推进 G3。
+用户于 2026-10-08 授权执行 [技术契约](../specs/tui/streaming.md)，同日审核通过（含审核期反馈修复）。未推进 G3。
+
+> **证据说明（2026-10-09）**：按「通过即删」治理（见 [TUI runbook](../runbooks/tui.md)），审核期证据已随文档重组移除。正文出现的 `evidence/G1b.3/...` 路径指向提交 `9860902`，用 `git show 9860902:<路径>` 可取回原始字节，或运行 `PLUME_HOME=$(mktemp -d) python3 scripts/pty_demo_g1b3.py` 重新生成。
 
 实现于 2026-10-08 按用户要求同步到原工作目录 `/Users/Learning/AI/AGENT/Plume-agent`，当前为 main 工作区中的未提交修改。此前在 `codex/g1b3-streaming` 工作树实施并验证，原目录已有文档、依赖和开屏改动已保留；不能把整个 diff 当作本单元新改动。
 

@@ -1,8 +1,0 @@
-Esc cancel · double 
-Ctrl+C quit · Ctrl+N
-new session         
-                    
-────────────────────
-┃  1 Say something… 
-────────────────────
-ctx: 0.0% 0/100     

@@ -8,7 +8,7 @@ summary: G1b.2 交付：Bubble Tea 聊天界面、plume/chat 入口、--offline�
 # G1b.2 审核记录：最小可交互 TUI 与多轮会话
 
 - 日期：2026-10-06。
-- 依据：[第一阶段计划](../phase-01-tui-agent.md) §2/§5 G1b.2、[决策 0003](../decisions/0003-model-runtime.md) §3/§8。
+- 依据：[第一阶段计划](../plans/phase-01-tui.md) §2/§5 G1b.2、[决策 0003](../decisions/0003-model-runtime.md) §3/§8。
 - 状态：**已通过审核**（2026-10-06 用户确认"通过"）。审核期间发现的模型名装配 bug 已随单元修复（见 §6 与 daily 记录），修复后经真实配置端到端验证。
 
 ## 1. 本单元做了什么
@@ -85,4 +85,4 @@ TUI_DEMO_OK
 
 ## 6. 审核结论
 
-**通过**（2026-10-06）。后续键位体验改造（对齐 Codex CLI / Claude Code 惯例、mac/linux 优先、Windows 预留）另立单元 [G1b.2.1](../tui-keys.md)，不回改本单元记录。
+**通过**（2026-10-06）。后续键位体验改造（对齐 Codex CLI / Claude Code 惯例、mac/linux 优先、Windows 预留）另立单元 [G1b.2.1](../specs/tui/keys.md)，不回改本单元记录。

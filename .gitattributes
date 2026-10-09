@@ -1,3 +1,5 @@
+# 审核期证据（docs/reviews/evidence/）只在单元待审期间存在，通过后按「通过即删」移除；
+# 下列规则用于审核窗口内的原始产物。复现方式见 docs/runbooks/tui.md「证据治理」。
 # 原始终端 trace 含控制字节与回车，保留捕获字节，不按普通文本合并或转换。
 docs/reviews/evidence/**/*.ansi binary
 # 终端文本帧按固定列宽保存，行尾空格属于画面，不作为代码空白错误。

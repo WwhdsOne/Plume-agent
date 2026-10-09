@@ -120,7 +120,7 @@ func startChat(out io.Writer, modelFlag string, offline bool) error {
 		FirstAnswer:  recorder.UIAnswer,
 	}, options)
 
-	// 开屏（docs/tui-splash.md）：方框 + 羽毛 LOGO + 键位提示 + 真实信息，
+	// 开屏（docs/specs/tui/splash.md）：方框 + 羽毛 LOGO + 键位提示 + 真实信息，
 	// 首次 resize 按真实窗口宽度渲染进记录区头部；必须包装 TeaModel 之前
 	// 注入（包装后再改不会反映进 program 持有的状态）。
 	chatModel.SetSplash(tui.Splash{

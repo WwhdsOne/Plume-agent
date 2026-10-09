@@ -136,5 +136,5 @@ plume setup    # 会打印一条 chmod 700 的建议，但不改
 
 - 决策：`docs/decisions/0001-scope.md`（预设、配置边界）
 - 审核：`docs/reviews/G1a.md`
-- 阶段计划：`docs/phase-01-tui-agent.md` §2（目标行为，与本 runbook 的当前版本区分）
+- 阶段计划：`docs/plans/phase-01-tui.md` §2（目标行为，与本 runbook 的当前版本区分）
 - 模型与入口决策：`docs/decisions/0003-model-runtime.md`

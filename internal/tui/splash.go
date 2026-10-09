@@ -7,7 +7,7 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// 开屏契约见 docs/tui-splash.md：方框上方 PLUME-AGENT 像素字标题，下方圆角
+// 开屏契约见 docs/specs/tui/splash.md：方框上方 PLUME-AGENT 像素字标题，下方圆角
 // 方框（完整边框，顶边不嵌字）：左栏羽毛盲文点阵（雾青三色），右栏版本、
 // 键位提示与真实信息；是聊天记录区的初始内容（随记录滚动），只渲染一次，
 // 不伪造信息。

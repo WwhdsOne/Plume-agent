@@ -2,8 +2,8 @@
 <!--
 title: plume-agent 路线图
 status: active
-updated: 2026-10-08
-summary: 数据驱动的树状路线图页面：全部审核单元的状态快照，含插入的 G1b.4 状态栏
+updated: 2026-10-09
+summary: 数据驱动的树状路线图页面：全部审核单元的状态快照；G0–G1b.4 已通过，G3 待授权
 -->
 
 <html lang="zh-CN">
@@ -193,7 +193,7 @@ summary: 数据驱动的树状路线图页面：全部审核单元的状态快�
 // status 取值：passed（已通过）| review（已交付待审核）| todo（未开始）| deferred（后移/储备）
 const ROADMAP = [
   {
-    stage: "第一阶段 · TUI Agent（docs/phase-01-tui-agent.md）",
+    stage: "第一阶段 · TUI Agent（docs/plans/phase-01-tui.md）",
     nodes: [
       { id: "G0", title: "范围与接入可行性", status: "passed",
         desc: "供应商预设、配置边界、评测预算、运行环境（0001）+ iLink 调研（0002）", updated: "2026-10-06" },
@@ -212,15 +212,15 @@ const ROADMAP = [
           desc: "雾青三色 token + PLUME-AGENT 居中块字 + 64×80 盲文羽毛点阵（32列×20行）+ 完整方框/分隔线 + 版本/9行对齐键位/模型/路径，窄端降级，用户确认提交推送", updated: "2026-10-07" },
         { id: "G1b.3", title: "SDK 流式消费与增量输出", status: "passed",
           desc: "流式协议、Markdown、Thought 三点动画与左对齐、默认 high/none 配置、阶段文案、取消/断流和脱敏 trace；审核期修复 Markdown 围栏回退、IME 光标定位与输入区分隔线，13 个 pty 场景通过", updated: "2026-10-08" },
-        { id: "G1b.4", title: "可配置底部状态栏", status: "review",
-          desc: "已交付待审核：默认配置原子落盘、亮色单行优先、上下文进度条、DeepSeek 1M 容量、缓存与 Git/uv/会话计时；9 个 PTY 场景通过，不引入发送前估算器", updated: "2026-10-08" },
+        { id: "G1b.4", title: "可配置底部状态栏", status: "passed",
+          desc: "已通过：默认配置原子落盘、亮色单行优先、上下文用量与可配置缓存命中率条、DeepSeek 1M 容量、Git/uv 与会话计时；716 项竞态与 12 个 PTY 场景通过，不引入发送前估算器", updated: "2026-10-09" },
         { id: "G3", title: "自研 Agent 循环与受控工具", status: "todo",
           desc: "模型→工具→模型循环、计算器/时钟工具、预算与 trace（前移至微信之前）", updated: "2026-10-06" },
       ],
     ],
   },
   {
-    stage: "第二阶段 · 渠道网关（docs/phase-02-channel-gateway.md，第一阶段通过后另行授权）",
+    stage: "第二阶段 · 渠道网关（docs/plans/phase-02-channel.md，第一阶段通过后另行授权）",
     nodes: [],
     branches: [
       [

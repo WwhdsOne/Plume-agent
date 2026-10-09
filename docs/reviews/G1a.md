@@ -120,4 +120,4 @@ setup_start → select_provider → resolve_base_url(source=preset_default) → 
 
 ## 6. 下一步
 
-后续路线更新为 G1b.1：非流式模型请求（OpenAI 官方 SDK）、自有模型接口、trace 与 12 个离线种子；之后分别审核 G1b.2 TUI、G1b.3 流式、G3 工具循环。详见 `docs/phase-01-tui-agent.md`。这次变更不重新审核或重测已通过的 G1a。
+后续路线更新为 G1b.1：非流式模型请求（OpenAI 官方 SDK）、自有模型接口、trace 与 12 个离线种子；之后分别审核 G1b.2 TUI、G1b.3 流式、G3 工具循环。详见 `docs/plans/phase-01-tui.md`。这次变更不重新审核或重测已通过的 G1a。

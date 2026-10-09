@@ -34,7 +34,7 @@ const (
 	lineAssistant
 	lineSystem // 状态/提示（会话重置、取消确认等）
 	lineError  // 失败与被拒绝的提交
-	lineSplash // 开屏行（docs/tui-splash.md；不折行，role 决定配色）
+	lineSplash // 开屏行（docs/specs/tui/splash.md；不折行，role 决定配色）
 )
 
 type chatLine struct {

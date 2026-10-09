@@ -9,7 +9,7 @@ summary: 微信 iLink Bot 参考实现的接口快照与 fixture 设计；第二
 
 - 状态：G0 调研已通过；微信实施后移至第二阶段，首版 TUI 不依赖本接入
 - 日期：2026-10-06
-- 关联：`docs/decisions/0001-scope.md`、`docs/decisions/0003-model-runtime.md`、`docs/phase-02-channel-gateway.md`
+- 关联：`docs/decisions/0001-scope.md`、`docs/decisions/0003-model-runtime.md`、`docs/plans/phase-02-channel.md`
 - 免责：以下是对**参考实现**的核对，**尚未**用本项目与用户账号实测。真实扫码见 G2a.1，真实收发见 G2a.2。
 
 > 2026-10-06 更新：保留以下接口快照、G2 编号与 fixture 设计，不把它们当第一阶段前置。本文“首版”指未来微信适配器的首版，不是项目首版。开始渠道实现前须重新核对参考接口；模型核心已改为自研运行时，不使用 Eino。

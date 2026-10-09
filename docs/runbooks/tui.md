@@ -7,7 +7,7 @@ summary: plume chat 的启动、流式思考和状态栏配置、键位、隔离
 
 # TUI 聊天 runbook
 
-G1b.2.1 起使用 v2 终端栈；G1b.3 流式与思考展示已通过审核；G1b.4 可配置状态栏已交付待审核。
+G1b.2.1 起使用 v2 终端栈；G1b.3 流式与思考展示已通过审核；G1b.4 可配置状态栏已于 2026-10-09 通过。
 
 ## 启动方式
 
@@ -28,9 +28,9 @@ PLUME_HOME=$(mktemp -d) go run ./cmd/plume chat --offline
 
 ## 开屏（G1b.2.2）
 
-启动后聊天记录区顶部先渲染 `PLUME-AGENT` **立体像素字**（6 行实心笔画与双线阴影，主青主体、深青轮廓，左对齐；94 列以上显示完整字形，80–93 列显示同风格紧凑字形），下方是**四边完整**的圆角方框（雾青主色描边，宽上限 88 列）：左栏 **64×80 点位的盲文羽毛**（每字符 2×4 点位，显示为 32 列×20 行，右上深青→左下浅青三色渐变，保留羽轴留白与碎羽），与右栏之间主色分隔竖线，右栏版本行、9 行对齐的 `Tips for getting started` 键位提示、模型标签与工作目录。开屏总高 28 行，随记录滚动，只出现一次（Ctrl+N 后不复活）；终端 32–79 列降级为羽毛竖排（无大标题无方框），32 列以下显示小标题与折行文本。长版本、模型和中文路径按终端列宽裁剪。契约见 `docs/tui-splash.md`，色值集中在 `internal/tui/theme.go`。
+启动后聊天记录区顶部先渲染 `PLUME-AGENT` **立体像素字**（6 行实心笔画与双线阴影，主青主体、深青轮廓，左对齐；94 列以上显示完整字形，80–93 列显示同风格紧凑字形），下方是**四边完整**的圆角方框（雾青主色描边，宽上限 88 列）：左栏 **64×80 点位的盲文羽毛**（每字符 2×4 点位，显示为 32 列×20 行，右上深青→左下浅青三色渐变，保留羽轴留白与碎羽），与右栏之间主色分隔竖线，右栏版本行、9 行对齐的 `Tips for getting started` 键位提示、模型标签与工作目录。开屏总高 28 行，随记录滚动，只出现一次（Ctrl+N 后不复活）；终端 32–79 列降级为羽毛竖排（无大标题无方框），32 列以下显示小标题与折行文本。长版本、模型和中文路径按终端列宽裁剪。契约见 `docs/specs/tui/splash.md`，色值集中在 `internal/tui/theme.go`。
 
-## 键位（契约 docs/tui-keys.md §3）
+## 键位（契约 docs/specs/tui/keys.md §3）
 
 | 键 | 行为 |
 | --- | --- |
@@ -58,7 +58,7 @@ PLUME_HOME=$(mktemp -d) go run ./cmd/plume chat --offline
 
 模型配置可添加 `"reasoning_effort": "none"` 关闭思考，省略字段默认偏好 `high`；setup 不询问强度。仅已验证的官方 DeepSeek 端点和模型映射参数，未验证服务缺省时省略参数，显式设置则启动报错。`plume config show` 显示请求值、生效值、来源和能力状态；不把 unknown 显示成已生效的 high。
 
-可选 `tui.status_messages` 使用 preparing/waiting/thinking/responding 四个键，每个值为字符串数组。空值回退默认文案，thinking 默认显示 `Thought`。配置启动时读取一次，示例见 [流式契约](../tui-streaming.md)。
+可选 `tui.status_messages` 使用 preparing/waiting/thinking/responding 四个键，每个值为字符串数组。空值回退默认文案，thinking 默认显示 `Thought`。配置启动时读取一次，示例见 [流式契约](../specs/tui/streaming.md)。
 
 在线聊天事件写入 `$PLUME_HOME/logs/chat-UTC-pid.jsonl`（默认 `~/.plume/logs/`），关联 run/model ID，记录阶段、字节数、首思考、模型首答案和 UI 首答案；缺失值为 null，不记录正文或凭据。离线启动不读取配置。
 
@@ -72,7 +72,7 @@ python3 scripts/pty_demo_g1b3.py
 
 脚本仅使用临时 PLUME_HOME、临时凭据与本地服务器，覆盖三个尺寸、三种颜色模式及纯答案、仅思考、断流、取消。证据位于 `docs/reviews/evidence/G1b.3/pty/`，本地 fixture 不能代表真实模型延迟。
 
-## 底部状态栏与配置（G1b.4，待审核）
+## 底部状态栏与配置（G1b.4，已通过）
 
 默认优先一行，完整字段放不下才分两行；亮青标签与浅青数值显示模型/思考/上下文/缓存和 Git/uv/会话/run 计时；小于 60 列或 18 行合并为一行，按配置优先级隐藏字段。`plume config show` 可查看完整生效配置，`plume config path` 给出配置文件路径。首次读取旧文件会原子补齐默认值，保留现有自定义；setup 不新增问题。修改后重启聊天生效。
 
@@ -89,7 +89,7 @@ python3 scripts/pty_demo_g1b3.py
 }
 ```
 
-这是 `status_line` 内的片段，保留其余默认项；它不用于替换整个 config.json。`enabled:false` 或 `items:[]` 隐藏整栏并停止相应环境采集。字段顺序、行位置、标签、优先级、数字/时间格式、上下文条宽/ASCII 样式/阈值都可配置，完整字段见 [技术契约](../tui-statusline.md)。关闭状态栏时关键拒绝与错误会作为系统/错误记录滚动到可见位置。
+这是 `status_line` 内的片段，保留其余默认项；它不用于替换整个 config.json。`enabled:false` 或 `items:[]` 隐藏整栏并停止相应环境采集。字段顺序、行位置、标签、优先级、数字/时间格式、上下文条宽/ASCII 样式/阈值都可配置，完整字段见 [技术契约](../specs/tui/statusline.md)。关闭状态栏时关键拒绝与错误会作为系统/错误记录滚动到可见位置。
 
 官方 DeepSeek `deepseek-flash` / `deepseek-v4-pro` 自动落盘 `context_window_tokens:1000000`；手填容量保留，其他模型或自定义端点默认 null。上下文默认 context_format:usage，显示 `ctx: x.x% used/capacity`，固定一位小数、数量按 token_format；新会话为 `ctx: 0.0% 0/1M`，完成后使用最近实际输入，不显示 `(last)`。context_format:bar 可切回进度条。容量未知显示 capacity unknown；生成期间保留初始零或请求前统计，收到新输入 usage 才更新，新调用结束仍缺统计才显示 usage unknown。准备阶段取消且没有新调用时保留原值，不使用问号条或字符数猜 token。
 
@@ -120,6 +120,25 @@ PLUME_HOME=$(mktemp -d) python3 scripts/pty_demo_g1b221.py
 Shift+Enter（CSI u `\x1b[13;2u`）已在 G1b.2.1 证据中单独验证；真实终端里按
 iTerm2/WezTerm 手测（Terminal.app 不支持 kitty，走层级 2/3）。
 
+## 证据治理：通过即删
+
+pty 与终端验收的产物（`.ansi`/`.txt`/`-frame-N.txt`/`.jsonl`）**只在单元待审期间**放在 `docs/reviews/evidence/<单元>/`，供用户对照审核记录核查；**单元通过的提交里一并删除**。非 TUI 部分用普通 Go 测试覆盖，不产出这类证据。
+
+理由：这些文件是脚本在固定输入下的一次性录像，可随时重新生成；删掉不会丢失信息，而 912 个 / 5.4 MB 的累积会污染每次文档检索。审核记录正文已摘录关键数值，结论不依赖原始文件。
+
+复现任意一个已删场景：
+
+```bash
+# 1) 重跑脚本（推荐，会按当前代码重新生成到 docs/reviews/evidence/<单元>/）
+PLUME_HOME=$(mktemp -d) python3 scripts/pty_demo_g1b3.py     # 流式/思考/Markdown
+PLUME_HOME=$(mktemp -d) python3 scripts/pty_demo_g1b4.py     # 状态栏
+python3 scripts/preview_splash.py                            # 开屏帧
+# 2) 或从历史提交取回当时的原始字节
+git show 9860902:docs/reviews/evidence/G1b.4/pty/results.json
+```
+
+`.gitattributes` 对 `docs/reviews/evidence/**` 的规则只在审核窗口内生效。
+
 ## 常见问题复现
 
 - **`chat needs an interactive terminal`**：stdout 不是 TTY（管道/CI）。这是刻意行为；纯管道场景请看 `internal/tui` 的 Update 测试。
@@ -127,4 +146,4 @@ iTerm2/WezTerm 手测（Terminal.app 不支持 kitty，走层级 2/3）。
 - **`config has no default_model`**：配置存在但没选默认模型，重跑 `plume setup`。
 - **`model config "x" not found`**：`--model` 只接受 config.json 里已保存的配置 ID，不是 API 模型名。
 - **怀疑配置问题**：`plume config show`（脱敏），或用 `PLUME_HOME=$(mktemp -d)` 隔离复现。
-- **trace**：`~/.plume/logs/setup.jsonl`（setup 过程）。聊天 run 事件当前经内存事件驱动 UI，模型 trace 落盘扩展随后续单元交付。
+- **trace**：`~/.plume/logs/setup.jsonl`（setup 过程）与 `~/.plume/logs/chat-<UTC时间戳>-<PID>.jsonl`（每次聊天一个文件，含 run 阶段与准备/首思考/首答案/完成耗时；不写正文与凭据）。聊天 trace 不会打屏，排查时直接读文件。
