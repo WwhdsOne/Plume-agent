@@ -29,9 +29,9 @@ func markdownStyles() glamouransi.StyleConfig {
 	block := glamouransi.StyleBlock{Margin: &zero, Indent: &zero}
 	heading := block
 	heading.Bold = &bold
-	heading.Color = ptr(themePrimaryValue)
+	heading.Color = new(themePrimaryValue)
 	quote := block
-	quote.IndentToken = ptr("│ ")
+	quote.IndentToken = new("│ ")
 	indent := uint(2)
 	quote.Indent = &indent
 	return glamouransi.StyleConfig{
@@ -41,16 +41,17 @@ func markdownStyles() glamouransi.StyleConfig {
 		Item: glamouransi.StylePrimitive{BlockPrefix: "• "}, Enumeration: glamouransi.StylePrimitive{BlockPrefix: ". "},
 		Code: glamouransi.StyleBlock{StylePrimitive: glamouransi.StylePrimitive{Prefix: "`", Suffix: "`"}, Margin: &zero, Indent: &zero},
 		CodeBlock: glamouransi.StyleCodeBlock{StyleBlock: block, Chroma: &glamouransi.Chroma{
-			Keyword:       glamouransi.StylePrimitive{Color: ptr(themePrimaryValue)},
-			NameFunction:  glamouransi.StylePrimitive{Color: ptr(themePrimaryValue)},
-			LiteralString: glamouransi.StylePrimitive{Color: ptr(themeLightValue)},
-			Comment:       glamouransi.StylePrimitive{Color: ptr(themeDarkValue)},
+			Keyword:       glamouransi.StylePrimitive{Color: new(themePrimaryValue)},
+			NameFunction:  glamouransi.StylePrimitive{Color: new(themePrimaryValue)},
+			LiteralString: glamouransi.StylePrimitive{Color: new(themeLightValue)},
+			Comment:       glamouransi.StylePrimitive{Color: new(themeDarkValue)},
 		}},
 		Table: glamouransi.StyleTable{StyleBlock: block},
 	}
 }
 
-func ptr[T any](v T) *T { return &v }
+//go:fix inline
+func ptr[T any](v T) *T { return new(v) }
 
 // 语义色（不占用主题色）：错误红、提示黄、中性暗灰。
 var (

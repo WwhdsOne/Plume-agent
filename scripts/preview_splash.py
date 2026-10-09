@@ -76,7 +76,7 @@ def capture(cols, rows, color_term):
             os.close(master)
 
     checks = {
-        "version_visible": "plume-agent v" in display,
+        "version_visible": "plume-agent v" in display.lower(),
         "offline_visible": "fake/offline" in display,
         "clean_exit": proc.returncode == 0,
     }

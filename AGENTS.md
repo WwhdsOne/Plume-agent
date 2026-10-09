@@ -1,7 +1,7 @@
 ---
 title: AGENTS.md
 status: active
-updated: 2026-10-08
+updated: 2026-10-09
 summary: 仓库长期快照：语言约定、审核制度、架构边界、codegraph MCP、依赖与文档维护规则；动手前必读
 ---
 
@@ -106,7 +106,7 @@ codegraph uninit        # 删 .codegraph/
 5. **完成即停下**，等用户回"通过 Gx / 继续下一部分"才推进下一单元。
 6. 单元不可在未获同意时合并；若一个单元过大，拆成更小的可运行子单元逐个审核。
 
-实施顺序：已通过 `G0` / `G1a` / `G1b.1` / `G1b.2`（含 .1/.2.1/.2.2）/ `G1b.3`，下一单元 `G3`（自研工具循环，需另行授权）。每项独立审核，完成这些才是首版里程碑。
+实施顺序：已通过 `G0` / `G1a` / `G1b.1` / `G1b.2`（含 .1/.2.1/.2.2）/ `G1b.3`，用户插入并授权实施 `G1b.4`（可配置底部状态栏，已交付待审核）→ `G3`（自研工具循环，仍需另行授权）。每项独立审核，完成这些才是首版里程碑。
 
 之后另行授权第二阶段：`G2a.1`（扫码登录）→ `G2a.2`（真实收发）→ `G2b`（可靠性）。保留原编号含义，G3 前移，不按数字自动推进。`G4a/G4b/G5/G6` 作为后续记忆、压缩、技能与实验路线储备。没有微信配置不得阻塞未来 TUI 启动。
 
@@ -164,7 +164,7 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 
 ### 路线图（docs/roadmap.html）
 
-`docs/roadmap.html` 是**数据驱动的单文件树状路线图**（浏览器直接打开，无外部依赖）：G0→G1a→G1b.1/.2/.3→G3 主干、第二阶段 G2a/G2b、储备 G4a/G4b/G5/G6，每个单元标注状态与日期。
+`docs/roadmap.html` 是**数据驱动的单文件树状路线图**（浏览器直接打开，无外部依赖）：G0→G1a→G1b.1/.2/.3/.4→G3 主干、第二阶段 G2a/G2b、储备 G4a/G4b/G5/G6，每个单元标注状态与日期。
 
 **维护规则（2026-10-06 确立）：**
 
@@ -192,8 +192,8 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 | `internal/model/` | G1b.1 已建：自有契约（消息/请求/响应/流/错误/能力）、endpoint 安全装配、openai-chat-completions 适配器（openai-go SDK）、deepseek 组合适配器、脚本化 fake |
 | `internal/tui/` | G1b.2 已建、G1b.2.1 迁 v2：Bubble Tea v2 聊天界面（记录/输入/状态栏、控制序列净化、KeyMap 键位抽象、草稿历史）；不发送模型 HTTP、不执行工具，副作用经 Hooks 注入 |
 | `internal/channel/` | 现有渠道注册表；第二阶段才实现消息适配器，不拼装 prompt |
-| `internal/app/` | G1b.2 已建：会话历史、run 生命周期（串行、取消、有界事件流）；后续扩展持久化与渠道调度 |
-| `internal/agent/` | 最小单轮 Generate/RunStream：准备历史、消费流、分别汇总答案与思考；G3 扩展工具循环与预算 |
+| `internal/app/` | 会话历史、run 生命周期（串行、取消、有界事件流）；G1b.4 增加调用用量快照去重累计、会话起点与 Git/uv 异步只读采集；后续扩展持久化与渠道调度 |
+| `internal/agent/` | 最小单轮 Generate/RunStream：准备历史、消费流、分别汇总答案与思考；G3 扩展统一请求拼装、工具循环与预算 |
 | `internal/telemetry/` | setup、模型及 run 生命周期 trace，首思考/首答案/准备计量；不记录正文或展示文案 |
 | `internal/eval/` | G1b.1 已建：12 个离线种子数据集（`eval/datasets/smoke.v1.jsonl`）与运行器；后续评分、统计、比较报告 |
 
@@ -240,9 +240,11 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 
 - **设置表单**用 huh v2（`charm.land/huh/v2`，G1b.2.1 随终端栈整体迁 v2），只出现在 `cmd/plume/prompter.go`；不能把现有表单称为聊天 TUI。
 - **聊天 TUI（G1b.2.1 起）用 v2 栈**：`charm.land/bubbletea/v2` + `charm.land/bubbles/v2` + `charm.land/lipgloss/v2`，huh 同走 v2，不留 v1/v2 双栈。键位按契约 `docs/tui-keys.md`：Enter 发送；换行三层渐进（Shift+Enter（kitty 终端，v2 自动协商）→ Alt/Option+Enter → 行尾 `\`+Enter 兜底）；Esc 中断 run；Ctrl+C 三段语义（running 取消 / idle 有草稿清空 / 空草稿 1s 内两次退出）；Ctrl+D 空输入退出；Ctrl+L 清屏；Up/Down 草稿历史（边缘导航：光标在输入第一行/最后一行才翻历史，多行输入中间先移光标，对齐 Codex CLI）；PgUp/PgDn 滚动；Ctrl+N 新会话；鼠标滚轮滚动。键位经 `internal/tui/keys.go` 的 KeyMap 平台抽象（`newKeyMap(goos)`，darwin/linux 同表、帮助文本区分 Option/Alt，windows 预留 G-win 实测），**Update/View 不出现键名硬编码与平台分支**。输入区高度用 textarea 的 DynamicHeight 一次最多可见 4 行（超出输入框内滚动）。`internal/tui` 的 Model/Update 是纯状态转移，副作用只经 `Hooks` 注入；`TeaModel` 是到 tea.Model 的适配层（指针接收者，`tea.NewProgram(&tui.TeaModel{...})` 传指针；v2 的 alt screen 与鼠标模式在 `TeaModel.View` 的 `tea.View` 上声明，没有 `WithAltScreen` 选项）。普通日志/trace 写文件，不破坏屏幕；模型输出经 `sanitize` 过滤终端控制序列后才渲染。
-- **开屏与主题色（G1b.2.2）**：启动时记录区头部渲染**像素字标题** `PLUME-AGENT`（5 行块字，主色，字内空白不显示占位点，按可见列宽居中）+ **圆角方框**（主色描边、四边完整不嵌字）：左栏参考图等比例采样的 **64×80 三色羽毛点阵**，以每字符 **2×4 点位的 Unicode 盲文**显示为 **32 列×20 行**（右上深青→中段主青→左下浅青，保留羽轴斜缝/碎羽/细茎，两侧各留白 2 列；字符矩阵 `featherBraille`，运行时不加载图片，点间不填背景）与右栏之间主色分隔竖线，右栏版本 + 9 行对齐的 Tips 键位提示 + 模型标签 + 工作目录（契约 `docs/tui-splash.md`）；开屏总高 27 行（更矮终端靠滚动），随记录滚动、只出现一次（Ctrl+N 后不复活）、窄于 80 列降级为羽毛竖排，窄于 32 列降级为小标题与文本；原始 art 行不折行，窄端信息/提示按可见列宽折行。宽端版本/模型/路径按终端列宽裁剪，已染色整行以 `splashRawRole` 直出。主题雾青三色 token（主 `#5BC8C8` / 浅 `#7DD3D8` / 深 `#3A9EA3`）集中在 `internal/tui/theme.go`，**其他文件不得出现裸色值**；错误红/提示黄/中性灰是语义色不占用主题色。开屏内容只写真实存在的信息（无工具/技能系统前不伪造清单），版本取 build 注入值，未打戳如实显示 dev (none)。
+- **开屏与主题色（G1b.2.2）**：启动时记录区头部渲染**立体像素字标题** `PLUME-AGENT`（6 行，94 列完整/71 列紧凑字形，实心主青笔画配深青双线阴影，左对齐）+ **圆角方框**（主色描边、四边完整不嵌字）：左栏参考图等比例采样的 **64×80 三色羽毛点阵**，以每字符 **2×4 点位的 Unicode 盲文**显示为 **32 列×20 行**（右上深青→中段主青→左下浅青，保留羽轴斜缝/碎羽/细茎，两侧各留白 2 列；字符矩阵 `featherBraille`，运行时不加载图片，点间不填背景）与右栏之间主色分隔竖线，右栏版本 + 9 行对齐的 Tips 键位提示 + 模型标签 + 工作目录（契约 `docs/tui-splash.md`）；开屏总高 28 行（更矮终端靠滚动），随记录滚动、只出现一次（Ctrl+N 后不复活）、窄于 80 列降级为羽毛竖排，窄于 32 列降级为小标题与文本；原始 art 行不折行，窄端信息/提示按可见列宽折行。宽端版本/模型/路径按终端列宽裁剪，已染色整行以 `splashRawRole` 直出。主题雾青三色 token（主 `#5BC8C8` / 浅 `#7DD3D8` / 深 `#3A9EA3`）集中在 `internal/tui/theme.go`，**其他文件不得出现裸色值**；错误红/提示黄/中性灰是语义色不占用主题色。开屏内容只写真实存在的信息（无工具/技能系统前不伪造清单），版本取 build 注入值，未打戳如实显示 dev (none)。
 - **流式展示（G1b.3，已通过）**：用户 `>`、助手 `●`、`Thought` 的 T 从第 3 显示列开始，正文共用标记槽加空格；三点旋转动画占左侧两列，100ms 刷新。思考最近三可见行、首答案自动折叠、Ctrl+O 手动优先；阶段由实际 preparing/waiting/thinking/responding 事件驱动。答案保留原始 Markdown，Glamour v2 派生渲染，50ms 合并、首答案/终态优先、完成回复缓存、用户上滚后显式冻结跟随。累计文本净化覆盖跨片控制序列，链接只显示文字与地址。审核期修复：未闭合代码围栏不再整条回退纯文本；输入区改用**真实终端光标**（`SetVirtualCursor(false)`，`TeaModel.View` 声明 `View.Cursor` 定位到插入点，双宽字符按列宽修正），输入法候选窗跟随插入点而非停在输入框右侧；输入区上下各一条与终端同宽的主题色 `─` 分隔线（记录区高度相应减 2 行）。详见 `docs/tui-streaming.md` 与 `docs/reviews/G1b.3.md`。
 - **配置扩展（schema v1）**：`Save` 持久化四阶段 `tui.status_messages` 默认文案；`Load` 首次读取旧配置时原子补齐缺失值，保留自定义和未知 JSON 字段。已验证官方 DeepSeek 端点及两预设模型还补写 `reasoning_effort: high`；未验证端点保留缺省 high 偏好但不写显式强度，以免能力校验拒绝。none/low/medium/high/max 为可设置值；medium 映射 high；未知端点显式值 unsupported。none 请求关闭且异常思考失败。setup 不加问题并保留已有字段，离线不读配置。`config show` 显示文案来源及 requested/effective/capability，不联网探测。
+- **底部状态栏（G1b.4，已交付待审核）**：`tui.status_line` 的所有默认字段和 14 个可选 item 完整落盘，用户数组顺序、空数组、显隐、行位置、标签、优先级及格式保留；`models[].context_window_tokens` 在官方 HTTPS DeepSeek 两预设缺失/null 时默认补 1000000（1M），用户手填保留，自定义端点/未知模型保持 null；只用于显示容量。优先一行，完整字段放不下才两行，宽 <60 或高 <18 时最多一行，关闭占 0 行；布局和真实光标按实际行数计算。上下文默认落盘 `context_format:usage`，显示 `ctx: x.x% used/capacity`，固定一位小数，数量按 token_format 缩写，例如 `ctx: 12.3% 123.5k/1M`；界面不加 `(last)`，设置 `context_format:bar` 可保留原进度条。只使用最近实际输入 usage，已知 1M 容量的新会话显示 `ctx: 0.0% 0/1M`；生成期间保留初始零或请求前快照，收到新统计再更新，新调用终态仍缺统计才显示 usage unknown，缺少容量显示 capacity unknown，不以字符数猜 token。缓存两种 scope 同样保留请求前显示直到新缓存统计到达，终态按实际数据显示 unknown/partial；初始零不计为真实 usage，准备阶段取消且没有新调用时保留原值。标签亮青、数值浅青，未知提示黄，warning/critical 颜色在两种上下文格式中保留。缓存为可选输入子集（nil 与 0 区分），OpenAI/DeepSeek 适配器解析并记录数值/null；同次调用快照替换，失败/取消已知用量累计，未知调用标 partial。Git/uv 每 5 秒异步只读采集，Git 默认 500ms 超时，禁用停止对应采集，退出取消；不运行 uv/Python 或任意配置脚本。会话计时包含 idle，Ctrl+N 清零、Ctrl+L 保留；关闭栏时关键拒绝追加系统消息并滚动可见。契约见 `docs/tui-statusline.md`。
+- **Provider 与缓存占比配置（2026-10-09 用户追加）**：provider item 默认首项及 `label:Provider`，显示 `Provider: deepseek`。默认落盘 `cache_format:bar`、`cache_scope:session`、`cache_bar:{width:10,style:unicode}` 和 cache item 的 `label:cache`，显示 `cache [████░░░░░░]40.0% 8/20`；用户明确百分比与末尾分母沿用 CC/Pi 命中率的对应总输入，不使用 1M 模型容量。session 为 CC 会话累计，last_call 为 Pi 最近调用；tokens/ratio/both 仍可选。条宽 5–30、unicode/ascii 可配置，缓存与上下文条宽独立；窄屏先缩至三格再按 priority 隐藏，缓存高命中不使用容量告警色。新会话 Go 零值为 `cache [░░░░░░░░░░]0.0% 0/0`，不计入供应商 usage，Ctrl+N 恢复。app 配对累计已知命中与同组输入，不平均每次百分比；缺数据标 partial，全未知/无分母/溢出为 unknown，明确零命中且有输入为 0%。Ctrl+L 保留；旧配置仅补缺失键并保留显式自定义，setup 不增加问题。
 - 裸 `plume` 配置就绪+TTY 直接进入聊天，缺配置提示 setup；`plume chat --offline` 不需要配置/Key。setup 支持「暂不接入渠道」，不伪造账号或要求扫码。以上入口行为已随 G1b.2 通过。
 - **向导流程与终端库分离**：`internal/setup` 只依赖 `Prompter` 接口，新增一步交互时先加接口方法，再在 `prompter.go` 实现，不要把 huh 的类型渗进 `internal/setup`。
 - **Base URL 不再逐次询问**（2026-10-06）：有预填默认值的预设直接跳过；只有无默认值的预设才问。已有配置里的地址与默认值不同时**原样保留**，不要"顺手"重置——`TestWizardPreservesExistingNonDefaultBaseURL` 守住这条。
@@ -266,6 +268,8 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 | `docs/tui-keys.md` | TUI 键位契约与平台适配（G1b.2.1，已通过）：Codex/Claude Code 惯例对齐、KeyMap 抽象 |
 | `docs/tui-splash.md` | TUI 开屏与主题色契约（G1b.2.2）：内容清单、雾青三色 token、降级规则 |
 | `docs/tui-streaming.md` | G1b.3 契约（已通过）：流式、Markdown、角色对齐、Thought、默认 high/none 与文案配置 |
+| `docs/tui-statusline.md` | G1b.4 契约（实现待审核）：可配置底部状态栏、上下文/缓存统计、Git/uv 与会话计时 |
+| `docs/agent-context.md` | Agent 上下文规划：G3 基础 tools 拼装，后续 soul 人格、长期记忆、MCP 与 skill 的接入边界 |
 | `docs/runbooks/setup.md` | 首次设置向导的启动、验证与故障复现 |
 | `docs/roadmap.html` | 树状路线图：全部审核单元的状态快照（数据驱动，状态翻转时必须同步更新） |
 
@@ -273,11 +277,15 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 
 已完成：G0（计划与可行性，含 `docs/decisions/` 两份决策）、**G1a（首次设置向导与配置边界，已通过）**——含 `internal/config`、`internal/provider`、`internal/channel`、`internal/setup`、`internal/telemetry`、`cmd/plume` 的 cobra 命令树与 `plume setup`。**G1b.1（OpenAI SDK 非流式模型接口，已通过）**——含 `internal/model/`（契约、endpoint、openai/deepseek 适配器、fake）、`internal/provider` 工厂与 probe、`internal/telemetry` 模型 trace、`eval/datasets/smoke.v1.jsonl` 与 runner。**G1b.2（最小可交互 TUI 与多轮会话，已通过）**——含 `internal/tui`（Bubble Tea 聊天界面）、`internal/app`（会话与 run 生命周期）、`internal/agent`（最小单轮）、`internal/model` LoopFake、`plume chat`/裸 `plume` 入口、`--offline`、setup「暂不接入渠道」、README 与 TUI runbook。审核期间修复了模型名装配 bug（agent 绑定 API 模型名而非配置 ID，`buildRuntime` 测试守住）。**G1b.2.1（终端栈 v2 迁移与键位重设计，已通过）**——`charm.land/*` v2 全家桶（bubbletea v2.0.10 / bubbles v2.2.1 / lipgloss v2.0.6 / huh v2.0.3，v1 栈全部移除）、键位契约落地（三层渐进换行、Ctrl+C 三段、Ctrl+D/Ctrl+L、Up/Down 草稿历史边缘导航、KeyMap 抽象 `internal/tui/keys.go`）、输入区动态高度最多可见 4 行；用户在契约外追加输入区 4 行要求并已实现。**G1b.2.2（TUI 开屏与主题色，已通过）**——`internal/tui/theme.go` 雾青三色 token 全局应用、`internal/tui/splash.go` 开屏渲染（PLUME art + 版本/模型 + 键位提示，窄端降级，只出现一次），契约 `docs/tui-splash.md`；用户拍板插队 G1b.3 之前。
 
-**G1b.3（流式消费与增量展示，2026-10-08 已通过）**：SDK 拉取式流、finish/DONE 与实际 16 MiB 上限、取消/断流分类、独立思考及强度控制、增量 Markdown/Thought/统一左对齐、配置保留和脱敏 run/模型/UI 首帧 trace。终态使用第九个预留槽，非终态最多八个排队；取消时保留部分展示而不提交成功历史。审核期间按用户反馈修复：未闭合代码围栏整条回退纯文本、输入法候选窗停在输入框右侧（改用真实终端光标定位插入点）、输入区上下补主题色分隔线。离线/本地 fixture 验证不代表真实供应商性能；详见审核记录。下一单元 G3 需另行授权。
+**G1b.3（流式消费与增量展示，2026-10-08 已通过）**：SDK 拉取式流、finish/DONE 与实际 16 MiB 上限、取消/断流分类、独立思考及强度控制、增量 Markdown/Thought/统一左对齐、配置保留和脱敏 run/模型/UI 首帧 trace。终态使用第九个预留槽，非终态最多八个排队；取消时保留部分展示而不提交成功历史。审核期间按用户反馈修复：未闭合代码围栏整条回退纯文本、输入法候选窗停在输入框右侧（改用真实终端光标定位插入点）、输入区上下补主题色分隔线。离线/本地 fixture 验证不代表真实供应商性能；详见审核记录。
+
+**G1b.4（可配置底部状态栏，2026-10-08 已交付待审核）**：完整默认配置及旧文件原子补齐、上下文进度条、缓存归一化与去重累计、Git/uv 异步环境快照、会话/run 计时、两行及窄屏布局。未新增包目录或外部依赖；已验证官方 DeepSeek 两预设默认 1M，其余未知；不实现发送前 token 估算或工具拼装。交付与限制见 `docs/reviews/G1b.4.md`，本单元完成后停止，等待用户审核，不自动推进 G3。
 
 **尚未实现，不要假设存在**：
 
+- **发送前上下文 token 估算与自动压缩**：目前仅使用供应商实际 usage 与用户配置的展示容量；没有估算器时保留 last/unknown，不猜模型容量或输入 token。
 - **工具循环与工具声明**（请求携带 tools 返回 unsupported，G3）、cmd/eval 比较命令。
+- **上下文扩展仅规划**：按 `docs/agent-context.md` 预留 `soul.md` 人格、长期记忆、MCP tools 和 skill；G3 仅实现基础规则、会话与计算器/时间工具的统一请求拼装。不提前创建加载器、空包或配置字段，当前没有上述扩展能力。
 - Shift+Enter 在真实 kitty 终端（WezTerm/iTerm2）的**人工**验证与 Windows 实测（G-win 单元）——G1b.2.1 只在 pty 里用 CSI u 编码验证过解析路径。
 - 模型独立就绪探测（启动只校验配置与凭据，不发付费探测请求）。
 - `internal/tools/`、`internal/store/`。
@@ -291,7 +299,7 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 | 依赖 | 版本 | 用途 | 增量 |
 | --- | --- | --- | --- |
 | `go.uber.org/zap` | v1.28.0 | 结构化日志、setup trace | +3.48 MB |
-| `charm.land/bubbletea/v2` | v2.0.10 | 聊天 TUI 运行时（G1b.2.1 起，替代 v1 bubbletea） | 见下行合计 |
+| `charm.land/bubbletea/v2` | v2.1.0 | 聊天 TUI 运行时；沿用 2026-10-09 修复前已有升级，G1b.2.1 初始为 v2.0.10 | 见下行合计 |
 | `charm.land/bubbles/v2` | v2.2.1 | TUI 组件（textarea 动态高度/viewport/key；替代 v1 bubbles） | 合计 +0.92 MB（实测 10.70→11.62 MB） |
 | `charm.land/lipgloss/v2` | v2.0.6 | 样式渲染（替代 v1 lipgloss） | （随上行） |
 | `charm.land/huh/v2` | v2.0.3 | setup 表单（替代 v1 huh，随 G1b.2.1 同批迁移） | （随上行） |
@@ -299,7 +307,7 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 | `github.com/openai/openai-go` | v1.12.0 | 模型传输与协议（G1b.1，Chat Completions 适配器） | +1.70 MB（`-s -w` 实测 6.41→8.11 MB） |
 | `github.com/mattn/go-isatty` | v0.0.24 | 判断 stdin/stdout 是否为真正的终端；沿用本轮前已有升级 | 可忽略 |
 | `charm.land/glamour/v2` | v2.0.1 | G1b.3 Markdown，沿用 v2 终端栈；含 Goldmark/Chroma | 整个单元体积实测见 G1b.3 审核记录，不归因于单个依赖 |
-| `github.com/charmbracelet/x/ansi` | v0.11.8 | G1b.3 直接使用 Unicode/ANSI 可见宽度、裁剪与换行；原终端栈已有间接依赖 | 已包含在整单元体积中 |
+| `github.com/charmbracelet/x/ansi` | v0.11.9 | G1b.3 直接使用 Unicode/ANSI 可见宽度、裁剪与换行；沿用本次修复前已有升级 | 已包含在整单元体积中 |
 
 v1 栈（`github.com/charmbracelet/{bubbletea,bubbles,lipgloss,huh}`）已于 G1b.2.1 全部移除，`rg 'github.com/charmbracelet/(bubbletea|bubbles|lipgloss|huh)'` 应为空。
 

@@ -1,2 +1,4 @@
 # 原始终端 trace 含控制字节与回车，保留捕获字节，不按普通文本合并或转换。
 docs/reviews/evidence/**/*.ansi binary
+# 终端文本帧按固定列宽保存，行尾空格属于画面，不作为代码空白错误。
+docs/reviews/evidence/**/*.txt whitespace=-blank-at-eol

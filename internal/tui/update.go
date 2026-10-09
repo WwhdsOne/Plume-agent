@@ -19,6 +19,18 @@ import (
 // 不调用网络、不阻塞等待模型——模型 run 的结果以 AppEvent 到达。
 func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case statusClockTick:
+		if !msg.sessionStarted.Equal(m.status.sessionStarted) {
+			return *m, nil
+		}
+		m.syncLayout()
+		return *m, m.nextStatusTick()
+	case WorkspaceEvent:
+		if msg.Status.Dir == m.options.Dir {
+			m.status.workspace = msg.Status
+		}
+		m.syncLayout()
+		return *m, nil
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 		m.resize()
@@ -42,11 +54,13 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			m.viewport.ScrollDown(3)
 		}
 		m.readingFrozen = !m.viewport.AtBottom()
+		m.syncLayout()
 		return *m, nil
 
 	case AppEvent:
 		wasIdle := m.state == stateIdle
 		m.applyEvent(msg.Event)
+		m.syncLayout()
 		if wasIdle && m.state == stateRunning {
 			return *m, nextStreamTick(m.runID)
 		}
@@ -71,6 +85,7 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		} else if m.phase == app.PhaseThinking {
 			m.syncViewport()
 		}
+		m.syncLayout()
 		return *m, nextStreamTick(m.runID)
 
 	default:
@@ -145,11 +160,11 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 	case key.Matches(msg, km.NewSession):
 		if m.state == stateRunning {
-			m.notice = "A run is in progress; cancel it first (Esc), then press Ctrl+N."
+			m.setNotice("A run is in progress; cancel it first (Esc), then press Ctrl+N.")
 			return *m, nil
 		}
 		m.sessionReset()
-		return *m, nil
+		return *m, m.nextStatusTick()
 
 	case key.Matches(msg, km.ToggleReasoning):
 		for i := len(m.lines) - 1; i >= 0; i-- {
@@ -206,7 +221,7 @@ func cancelCmd(cancel func(), runID string) tea.Cmd {
 
 func (m *Model) submitInput() (Model, tea.Cmd) {
 	if m.state == stateRunning {
-		m.notice = "A run is in progress; wait for it to finish or press Esc to cancel."
+		m.setNotice("A run is in progress; wait for it to finish or press Esc to cancel.")
 		return *m, nil
 	}
 	raw := m.input.Value()
@@ -222,12 +237,12 @@ func (m *Model) submitInput() (Model, tea.Cmd) {
 		return *m, nil // 空输入不产生请求
 	}
 	if m.hooks.Submit == nil {
-		m.notice = "chat is not wired to a backend"
+		m.setNotice("chat is not wired to a backend")
 		return *m, nil
 	}
 	runID, err := m.hooks.Submit(text)
 	if err != nil {
-		m.appendLine(lineError, "submit rejected: "+err.Error())
+		m.appendCriticalLine(lineError, "submit rejected: "+err.Error())
 		return *m, nil
 	}
 	m.appendLine(lineUser, text)
@@ -296,6 +311,9 @@ func (m *Model) sessionReset() {
 	m.activeLine = -1
 	m.firstAnswerRun = ""
 	m.lastUsage = ""
+	m.status = statusState{sessionStarted: m.options.Clock(), workspace: m.status.workspace}
+	m.initializeEmptyContext()
+	m.notice = ""
 	m.history = nil
 	m.historyIdx = -1
 	m.draft = ""
@@ -325,6 +343,7 @@ func (m *Model) applyEvent(event app.Event) {
 	if m.state != stateRunning || event.RunID != m.runID {
 		return
 	}
+	m.updateStatus(event)
 	switch event.Kind {
 	case app.EventRunPhase:
 		// 首答案之后即使供应商继续发思考，也不退回 thinking。
@@ -376,6 +395,9 @@ func (m *Model) applyEvent(event app.Event) {
 		m.selectPhase(app.PhaseResponding)
 		m.flushStream()
 		m.endRun()
+		if event.Duration > 0 {
+			m.status.runDuration = event.Duration
+		}
 		m.syncViewport()
 	case app.EventRunFailed:
 		if event.Reply != "" || event.Reasoning != "" || m.activeLine >= 0 {
@@ -392,10 +414,13 @@ func (m *Model) applyEvent(event app.Event) {
 				line.terminal = "cancelled"
 			}
 		}
-		m.appendLine(lineError, classifyFailure(event.Err))
+		m.appendCriticalLine(lineError, classifyFailure(event.Err))
 		m.notice = ""
 		m.flushStream()
 		m.endRun()
+		if event.Duration > 0 {
+			m.status.runDuration = event.Duration
+		}
 		m.syncViewport()
 	}
 }
@@ -418,28 +443,52 @@ func classifyFailure(err error) string {
 
 // resize 依据窗口大小与输入区当前高度重排组件。
 func (m *Model) resize() {
+	// 颜色能力、环境快照等启动消息可能先到，拿到有效尺寸后再消耗开屏。
+	if m.width <= 0 || m.height <= 0 {
+		return
+	}
 	if m.splash != nil {
 		// 开屏按当前宽度一次性渲染（窄端降级为纯文本标题），之后不再重排。
 		m.lines = append(buildSplashLines(m.width, *m.splash), m.lines...)
 		m.splash = nil
 	}
-	m.input.SetWidth(m.width)
-	logHeight := max(
-		// 状态栏一行 + 输入区上下两条分隔线
-		m.height-m.input.Height()-3, 1)
 	if !m.viewport.AtBottom() {
 		m.readingFrozen = true
 	}
 	follow := !m.readingFrozen
 	offset := m.viewport.YOffset()
-	m.viewport = viewport.New(viewport.WithWidth(m.width), viewport.WithHeight(logHeight))
-	m.viewport.SetContent(m.renderHistory())
-	if follow {
-		m.viewport.GotoBottom()
-	} else {
-		m.viewport.SetYOffset(offset)
+	layout := func(rows int) {
+		m.input.MaxHeight = max(min(maxInputLines, m.height-3-rows), 1)
+		m.input.SetWidth(m.width)
+		logHeight := max(m.height-m.input.Height()-2-rows, 1)
+		m.viewport = viewport.New(viewport.WithWidth(m.width), viewport.WithHeight(logHeight))
+		m.viewport.SetContent(m.renderHistory())
+		if follow {
+			m.viewport.GotoBottom()
+		} else {
+			m.viewport.SetYOffset(offset)
+		}
+	}
+	// Thought 可见性会随 viewport 高度变化，先收敛布局再保存实际预留的行数。
+	rows := m.desiredStatusRows()
+	tried := [3]bool{}
+	for {
+		tried[rows] = true
+		layout(rows)
+		next := m.desiredStatusRows()
+		if next == rows {
+			break
+		}
+		if tried[next] {
+			rows = max(rows, next)
+			layout(rows)
+			break
+		}
+		rows = next
 	}
 	m.lastInputHeight = m.input.Height()
+	m.lastStatusRows = rows
+	m.layoutReady = true
 }
 
 // elapsed 是状态栏的运行耗时。

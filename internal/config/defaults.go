@@ -12,7 +12,7 @@ func DefaultStatusMessages() map[string][]string {
 	}
 }
 
-// fillDefaults 只补缺失项；用户已有候选和显式强度保持原样。
+// fillDefaults 只补缺失项；用户已有候选、显式强度与手填容量保持原样。
 func (c *Config) fillDefaults() bool {
 	changed := false
 	if c.TUI == nil {
@@ -22,6 +22,10 @@ func (c *Config) fillDefaults() bool {
 	if c.TUI.StatusMessages == nil {
 		c.TUI.StatusMessages = make(map[string][]string)
 	}
+	if c.TUI.StatusLine == nil {
+		c.TUI.StatusLine = DefaultStatusLine()
+		changed = true
+	}
 	for phase, candidates := range DefaultStatusMessages() {
 		if len(c.TUI.MessageOverrides()[phase]) == 0 {
 			c.TUI.StatusMessages[phase] = candidates
@@ -30,17 +34,26 @@ func (c *Config) fillDefaults() bool {
 	}
 	for i := range c.Models {
 		m := &c.Models[i]
-		if m.ReasoningEffort == nil && defaultHighSupported(*m) {
+		if !verifiedDeepSeekPreset(*m) {
+			continue
+		}
+		if m.ReasoningEffort == nil {
 			high := "high"
 			m.ReasoningEffort = &high
+			changed = true
+		}
+		if m.ContextWindowTokens == nil {
+			// 官方两预设的 1M 容量只用于显示，不参与请求或预算。
+			tokens := int64(1000000)
+			m.ContextWindowTokens = &tokens
 			changed = true
 		}
 	}
 	return changed
 }
 
-// 未验证的模型不能把默认 high 写成显式要求，否则启动能力校验会拒绝它。
-func defaultHighSupported(m ModelConfig) bool {
+// 只有已核实的官方端点与两预设才可补显式 high 和上下文容量。
+func verifiedDeepSeekPreset(m ModelConfig) bool {
 	if m.Provider != "deepseek" || m.Protocol != "deepseek" || (m.Model != "deepseek-flash" && m.Model != "deepseek-v4-pro") {
 		return false
 	}

@@ -1,0 +1,101 @@
+{
+  "source": "pyte visible footer cells",
+  "colors": [
+    "3a9ea3",
+    "5bc8c8",
+    "7dd3d8",
+    "brightbrown"
+  ],
+  "samples": [
+    {
+      "text": "Provider:",
+      "row": 23,
+      "column": 0,
+      "foregrounds": [
+        "5bc8c8",
+        "5bc8c8",
+        "5bc8c8",
+        "5bc8c8",
+        "5bc8c8",
+        "5bc8c8",
+        "5bc8c8",
+        "5bc8c8",
+        "5bc8c8"
+      ]
+    },
+    {
+      "text": "ctx:",
+      "row": 23,
+      "column": 57,
+      "foregrounds": [
+        "5bc8c8",
+        "5bc8c8",
+        "5bc8c8",
+        "5bc8c8"
+      ]
+    },
+    {
+      "text": "cache",
+      "row": 23,
+      "column": 77,
+      "foregrounds": [
+        "5bc8c8",
+        "5bc8c8",
+        "5bc8c8",
+        "5bc8c8",
+        "5bc8c8"
+      ]
+    },
+    {
+      "text": "20.0% 20/100",
+      "row": 23,
+      "column": 62,
+      "foregrounds": [
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8"
+      ]
+    },
+    {
+      "text": "[████░░░░░░]40.0% 8/20",
+      "row": 23,
+      "column": 83,
+      "foregrounds": [
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8"
+      ]
+    }
+  ],
+  "color_names": {
+    "brightbrown": "ANSI 93 bright yellow"
+  }
+}

@@ -10,9 +10,10 @@ import (
 	"unicode/utf8"
 )
 
-// TUIConfig 只描述显示文案，不包含终端库类型或模型控制参数。
+// TUIConfig 只描述文案与布局，不包含终端库类型或模型控制参数。
 type TUIConfig struct {
 	StatusMessages map[string][]string `json:"status_messages,omitempty"`
+	StatusLine     *StatusLineConfig   `json:"status_line"`
 }
 
 // UnmarshalJSON 保留缺省与显式配置的区别，拒绝把 null 当作关闭思考。
@@ -26,6 +27,12 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	for i, m := range raw.Models {
+		if v, ok := m["context_window_tokens"]; ok && !bytes.Equal(bytes.TrimSpace(v), []byte("null")) {
+			var tokens int64
+			if json.Unmarshal(v, &tokens) != nil || tokens < 1 || tokens > 2147483647 {
+				return fmt.Errorf("models[%d].context_window_tokens: expected null or integer in 1..2147483647", i)
+			}
+		}
 		if v, ok := m["reasoning_effort"]; ok {
 			var effort string
 			if bytes.Equal(bytes.TrimSpace(v), []byte("null")) || json.Unmarshal(v, &effort) != nil || !validReasoningEffort(effort) {
@@ -37,6 +44,7 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	*c = Config(parsed)
+	c.rawJSON = append([]byte(nil), bytes.TrimSpace(data)...)
 	return nil
 }
 
@@ -50,6 +58,13 @@ func (c *TUIConfig) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("tui.status_messages: expected object")
 	}
 	c.StatusMessages = make(map[string][]string)
+	c.StatusLine = nil
+	if value, ok := raw["status_line"]; ok {
+		c.StatusLine = &StatusLineConfig{}
+		if err := c.StatusLine.UnmarshalJSON(value); err != nil {
+			return err
+		}
+	}
 	for phase, v := range phases {
 		switch phase {
 		case "preparing", "waiting", "thinking", "responding":
@@ -90,6 +105,7 @@ func validReasoningEffort(value string) bool {
 // Validate 对展示参数进行本地校验，错误只包含字段路径，不回显文案。
 func (c *TUIConfig) Validate() error {
 	var errs []error
+	errs = append(errs, c.StatusLine.Validate())
 	for phase, messages := range c.StatusMessages {
 		path := "tui.status_messages." + phase
 		switch phase {

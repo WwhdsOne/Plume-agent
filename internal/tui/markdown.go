@@ -3,6 +3,7 @@ package tui
 import (
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 
 	"charm.land/glamour/v2"
@@ -30,7 +31,7 @@ func newMarkdownEngine(width int) *markdownEngine {
 }
 
 var (
-	htmlSource     = regexp.MustCompile(`(?s)<!--.*?(?:-->|$)|<!\[CDATA\[.*?(?:\]\]>|$)|<[/!?]?[A-Za-z][^>]*>`)
+	htmlSource     = regexp.MustCompile(`(?s)<!--.*?(?:-->|$)|<!\[CDATA\[.*?(?:]]>|$)|<[/!?]?[A-Za-z][^>]*>`)
 	tableSeparator = regexp.MustCompile(`^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$`)
 )
 
@@ -61,14 +62,8 @@ func renderMarkdownUsing(raw string, width int, engine *markdownEngine) string {
 	rendered = ansiOSC.ReplaceAllString(rendered, "")
 	rendered = strings.Trim(rendered, "\n")
 	var lines []string
-	hasTable := false
-	for _, line := range strings.Split(outsideFences(text), "\n") {
-		if tableSeparator.MatchString(line) {
-			hasTable = true
-			break
-		}
-	}
-	for _, line := range strings.Split(rendered, "\n") {
+	hasTable := slices.ContainsFunc(strings.Split(outsideFences(text), "\n"), tableSeparator.MatchString)
+	for line := range strings.SplitSeq(rendered, "\n") {
 		// Glamour 的 table cell 固定带一列外 margin，不能由 StyleConfig
 		// 关闭；去掉行首这列，让表格从统一正文起点开始。
 		if hasTable && strings.HasPrefix(line, " ") && strings.Contains(line, "│") {
@@ -169,7 +164,7 @@ func wideTable(text string, width int) bool {
 func outsideFences(text string) string {
 	var b strings.Builder
 	var fence codeFence
-	for _, line := range strings.Split(text, "\n") {
+	for line := range strings.SplitSeq(text, "\n") {
 		inCode, _ := fence.advance(line)
 		if !inCode {
 			b.WriteString(line)

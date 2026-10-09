@@ -78,8 +78,8 @@ type ChatResponse struct {
 	Message Message
 	// FinishReason 是规范化后的完成原因；协议未给出时为 FinishUnknown。
 	FinishReason FinishReason
-	// Usage 以可选值表达：供应商未提供时 Usage.OK 为 false（unknown），
-	// 绝不把缺失当 0。
+	// Usage 以可选值表达：三个主要计数未完整提供时 Usage.OK 为 false；
+	// 缓存命中有独立可选字段，绝不把缺失当 0。
 	Usage Usage
 	// Provider 是供应商品牌 ID，Protocol 是内部协议族。
 	Provider string
@@ -98,12 +98,16 @@ const (
 	FinishUnknown FinishReason = "unknown"
 )
 
-// Usage 是 token 用量。OK 为 false 表示供应商本次未提供（unknown）。
+// Usage 是一次模型调用的 token 快照，不是需要累加的流增量。
+// OK 表示 prompt/completion/total 三项均已知；缓存命中独立表达是否已知。
 type Usage struct {
 	OK               bool
 	PromptTokens     int64
 	CompletionTokens int64
 	TotalTokens      int64
+	// CachedPromptTokens 是输入 token 中的缓存命中量；nil 未知，指向 0 则已知零。
+	// 它是 PromptTokens 的子集，不能再次加入 prompt 或 total。
+	CachedPromptTokens *int64
 }
 
 // EventKind 是规范化流事件的类别（0003 §5）；思考与答案独立输出。

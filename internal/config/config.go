@@ -23,6 +23,7 @@ type Config struct {
 	Models        []ModelConfig   `json:"models,omitempty"`
 	Channels      []ChannelConfig `json:"channels,omitempty"`
 	TUI           *TUIConfig      `json:"tui,omitempty"`
+	rawJSON       []byte          // 保留解码来源的未知字段，跨目录 Save 时仍可合并。
 }
 
 // ModelConfig 描述一个模型端点。Provider 与 Protocol 分开存：Provider 是预设品牌，
@@ -30,13 +31,14 @@ type Config struct {
 // 原样保留），G1b.1 的注册工厂把它映射到自研适配器及内部 openai-chat-completions
 // 协议族，见 docs/decisions/0003-model-runtime.md。
 type ModelConfig struct {
-	ID              string  `json:"id"`
-	Provider        string  `json:"provider"`
-	Protocol        string  `json:"protocol"`
-	BaseURL         string  `json:"base_url,omitempty"`
-	Model           string  `json:"model"`
-	APIKeyRef       string  `json:"api_key_ref,omitempty"`
-	ReasoningEffort *string `json:"reasoning_effort,omitempty"`
+	ID                  string  `json:"id"`
+	Provider            string  `json:"provider"`
+	Protocol            string  `json:"protocol"`
+	BaseURL             string  `json:"base_url,omitempty"`
+	Model               string  `json:"model"`
+	APIKeyRef           string  `json:"api_key_ref,omitempty"`
+	ReasoningEffort     *string `json:"reasoning_effort,omitempty"`
+	ContextWindowTokens *int64  `json:"context_window_tokens"`
 }
 
 // ChannelConfig 描述一个消息渠道实例。渠道专有设置放在 Settings 里，通用配置层
@@ -92,6 +94,7 @@ func ValidCredentialRef(name string) bool {
 // 结构合法性的测试使用。
 func (c *Config) Validate(providers ProviderCatalog, channels ChannelCatalog) error {
 	var errs []error
+	errs = append(errs, c.validateDisplayOptions())
 
 	if c.SchemaVersion != SchemaVersion {
 		errs = append(errs, fmt.Errorf("schema_version is %d, want %d", c.SchemaVersion, SchemaVersion))
@@ -195,6 +198,17 @@ func (c *Config) Validate(providers ProviderCatalog, channels ChannelCatalog) er
 		errs = append(errs, fmt.Errorf("at most one channel may be enabled, found %d", enabled))
 	}
 
+	return errors.Join(errs...)
+}
+
+// validateDisplayOptions 也用于持久化边界，不依赖供应商和渠道注册表。
+func (c *Config) validateDisplayOptions() error {
+	var errs []error
+	for i, m := range c.Models {
+		if m.ContextWindowTokens != nil && (*m.ContextWindowTokens < 1 || *m.ContextWindowTokens > 2147483647) {
+			errs = append(errs, fmt.Errorf("models[%d].context_window_tokens: expected null or integer in 1..2147483647", i))
+		}
+	}
 	if c.TUI != nil {
 		errs = append(errs, c.TUI.Validate())
 	}

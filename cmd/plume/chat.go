@@ -81,10 +81,19 @@ func startChat(out io.Writer, modelFlag string, offline bool) error {
 			return err
 		}
 		options.StatusMessages = cfg.TUI.MessageOverrides()
+		options.StatusLine = cfg.TUI.StatusLine
 		selected, _ := selectModelConfig(cfg, modelFlag)
 		policy, _ := provider.ResolveReasoning(provider.ModelSpec{Provider: selected.Provider, Protocol: selected.Protocol, BaseURL: selected.BaseURL, Model: selected.Model, ReasoningEffort: selected.ReasoningEffort})
 		providerID = selected.Provider
 		info = telemetry.ReasoningInfo{Requested: string(policy.Requested), Source: policy.Source, Effective: string(policy.Effective), Capability: policy.Capability}
+		options.Provider, options.ModelID = selected.Provider, selected.Model
+		options.ContextWindowTokens = selected.ContextWindowTokens
+		if policy.Capability == "verified" {
+			options.Reasoning = string(policy.Effective)
+			if policy.Requested != policy.Effective {
+				options.Reasoning = string(policy.Requested) + "→" + string(policy.Effective)
+			}
+		}
 	}
 
 	trace, err := openChatTrace()
@@ -98,6 +107,11 @@ func startChat(out io.Writer, modelFlag string, offline bool) error {
 	service := app.NewService(runtime, recorder)
 	defer service.Close()
 	ctx := context.Background()
+	dir, _ := os.Getwd()
+	options.Dir = dir
+	options.HomeDir, _ = os.UserHomeDir()
+	stats := service.Session().Statistics()
+	options.InitialStats = &stats
 
 	chatModel := tui.NewWithOptions(label, tui.Hooks{
 		Submit:       func(input string) (string, error) { return service.Submit(ctx, input) },
@@ -109,7 +123,6 @@ func startChat(out io.Writer, modelFlag string, offline bool) error {
 	// 开屏（docs/tui-splash.md）：方框 + 羽毛 LOGO + 键位提示 + 真实信息，
 	// 首次 resize 按真实窗口宽度渲染进记录区头部；必须包装 TeaModel 之前
 	// 注入（包装后再改不会反映进 program 持有的状态）。
-	dir, _ := os.Getwd()
 	chatModel.SetSplash(tui.Splash{
 		Version: splashVersion(),
 		Label:   label,
@@ -120,6 +133,26 @@ func startChat(out io.Writer, modelFlag string, offline bool) error {
 	// 桥随进程退出回收（有界缓冲 + UI 持续消费）。
 	bridgeDone := make(chan struct{})
 	defer close(bridgeDone)
+	workspaceCtx, cancelWorkspace := context.WithCancel(ctx)
+	statusCfg := options.StatusLine
+	if statusCfg == nil {
+		statusCfg = config.DefaultStatusLine()
+	}
+	var workspaceEvents <-chan app.WorkspaceStatus
+	gitEnabled, envEnabled := statusItemEnabled(statusCfg, "git"), statusItemEnabled(statusCfg, "uv_env")
+	if gitEnabled || envEnabled {
+		workspaceEvents = app.WatchWorkspace(workspaceCtx, app.WorkspaceOptions{Dir: dir, GitEnabled: gitEnabled, EnvironmentEnabled: envEnabled,
+			RefreshInterval: time.Duration(statusCfg.EnvironmentRefreshMS) * time.Millisecond, GitTimeout: time.Duration(statusCfg.GitTimeoutMS) * time.Millisecond})
+	}
+	defer func() {
+		cancelWorkspace()
+		if workspaceEvents != nil {
+			for range workspaceEvents {
+			}
+		}
+	}()
+	// bridge 固定捕获通道，主退出路径可安全等待采集停止，不共享可变通道变量。
+	workspaceStream := workspaceEvents
 	go func() {
 		for {
 			select {
@@ -128,6 +161,12 @@ func startChat(out io.Writer, modelFlag string, offline bool) error {
 					return
 				}
 				program.Send(tui.AppEvent{Event: event})
+			case snapshot, ok := <-workspaceStream:
+				if !ok {
+					workspaceStream = nil
+					continue
+				}
+				program.Send(tui.WorkspaceEvent{Status: snapshot})
 			case <-bridgeDone:
 				return
 			}
@@ -138,6 +177,18 @@ func startChat(out io.Writer, modelFlag string, offline bool) error {
 		return fmt.Errorf("chat ui: %w", err)
 	}
 	return nil
+}
+
+func statusItemEnabled(cfg *config.StatusLineConfig, id string) bool {
+	if !cfg.Enabled {
+		return false
+	}
+	for _, item := range cfg.Items {
+		if item.ID == id && item.Enabled {
+			return true
+		}
+	}
+	return false
 }
 
 func openChatTrace() (*os.File, error) {

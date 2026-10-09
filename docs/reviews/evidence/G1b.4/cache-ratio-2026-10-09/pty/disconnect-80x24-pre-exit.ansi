@@ -1,0 +1,35 @@
+[?2026$p[?2027$p[>4m[?1049h[?5W[?2004h[?1002h[?1006h[>4;2m[>1u[?u]12;#c0c0c0[1 q[H[2J│[28X[1;30H⣾⡿⠃⣠⡞   │ Tips for getting started[13X[77G │
+│[23X[2;25H⢀⣠⣴⠂⢸⠟⠁ ⠁    │[39X[78G│
+│[19X[3;21H⣀⣤⣴⣾⣿⣿⡟ ⢀⣠⣴⡟     │ Enter / Esc     Send / cancel         │
+│[15X[4;17H⢀⣤⣶⣿⣿⣿⣿⣿⣿⡿⠁⢠⡿⠟⠉      │ Shift+Enter     Newline[15X[78G│
+│            ⢀⡀⣰⣿⣿⣿⣿⣿⣿⣿⣿⠟⠁ ⢁⣠        │ Option+Enter    Newline[15X[78G│
+│          ⢀⣴⣿⢠⣿⣿⣿⣿⣿⣿⣿⠟⢁⣠⣴⣾⣿⠃        │ \+Enter         Newline fallback      │
+│         ⣴⣿⣿⣧⣿⣿⣿⣿⡿⠟⣉⣤⣾⣿⣿⣿⡿⠃         │ Up / Down       Input history         │
+│       ⢀⣾⣿⣿⣿⣿⣿⣿⠟⣉⣴⣾⣿⣿⣿⣿⣿⠟⠁          │ PgUp / PgDn     Scroll chat           │
+│      ⢀⣾⣿⣿⣿⣿⡿⢋⣤⣾⣿⣿⣿⠿⠛⢋⠁[13X[9;38H│ Ctrl+L / Ctrl+N Clear / new session   │
+│      ⣼⣿⣿⣿⠟⢋⣴⣿⣿⣿⣿⣷⣾⣿⡿⠋[14X[10;38H│ Ctrl+C twice    Quit on empty input   │
+│      ⣿⣿⡿⢃⣴⣿⣿⣿⣿⣿⣿⣿⠟⠉[16X[11;38H│ Ctrl+D          Quit on empty input   │
+│     ⢸⣿⠋⣴⣿⣿⣿⣿⠿⠟⠛⠉[19X[12;38H│[39X[78G│
+│     ⠈⣡⣾⣿⠿⠛⠉[24X[13;38H│ ────────────────────────              │
+│     ⣴⣿⠟⠁[27X[14;38H│[39X[78G│
+│   ⢀⣾⡟⠁[29X[15;38H│ deepseek/deepseek-flash[14X[77G │
+│  ⢠⣿⡟[31X[16;38H│ /private/var/folders/zm/yjlbch017pb6… │
+│  ⠛⠉[32X[17;38H│[39X[78G│
+╰────────────────────────────────────────────────────────────────────────────╯
+
+────────────────────────────────────────────────────────────────────────────────
+┃  1 Say something… (Enter to send, Shift+Enter or \ for newline)[K
+────────────────────────────────────────────────────────────────────────────────
+deepseek │ [1mdeepseek-flash[m │ [1mthink:[munverified │ [1mctx:[m[░░░░░░░] 0% │ [1mcache:[m unknown
+[1mgit:[mfixture-branch* │ [1menv:[muv/.venv(active) │ [1msession:[m0s │ idle[21;6H[?25h[?25lG1B4_PTY_P[K[?25h[?25l[1;18r[18;1H[2S[1;24r[?7l[17;1H[K  > G1B4_PTY_PROMPT：展示状态栏                                                 [?7h[17;80H[?7l
+[K  ● 本地状态栏验收回答。                                                        [?7h[18;80H[21;6HSay something… (Enter to send, Shift+Enter or \ for newline)[23;52Husage unknown[K
+[6D⠋ responding │ 5ms[21;6H[?25h[?25l[?7l[4A[K  > G1B4_PTY_PROMPT：展示状态栏                                                 [?7h[17;80H[?7l
+[K  ● 本地状态栏验收回答。                                                        [?7h[18;80H[24;75H2ms[21;6H[?25h[?25l[?7l[4A[K  > G1B4_PTY_PROMPT：展示状态栏                                                 [?7h[17;80H[?7l
+[K  ● 本地状态栏验收回答。                                                        [?7h[18;80H[24;59H⠙ responding │ 104ms[21;6H[?25h[?25l[?7l[4A[K  > G1B4_PTY_PROMPT：展示状态栏                                                 [?7h[17;80H[?7l
+[K  ● 本地状态栏验收回答。                                                        [?7h[18;80H[24;75H55m[21;6H[?25h[?25l[?7l[4A[K  > G1B4_PTY_PROMPT：展示状态栏                                                 [?7h[17;80H[?7l
+[K  ● 本地状态栏验收回答。                                                        [?7h[18;80H[24;54H1s │ ⠙ responding │ 17[21;6H[?25h[?25l[1;18r[18;1H[4S[1;24r[?7l[13;1H[K  > G1B4_PTY_PROMPT：展示状态栏                                                 [?7h[13;80H[?7l
+[K  ● 本地状态栏验收回答。                                                        [?7h[14;80H
+    [incomplete][K
+  ! run failed: model error: stream_interrupted provider=deepseek protocol=opena
+    i-chat-completions status=200 summary="stream ended without finish and DONE[K
+    evidence"[K[24;59Hidle │ 204ms[K[21;6H[?25h

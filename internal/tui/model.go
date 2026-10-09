@@ -5,6 +5,7 @@ package tui
 
 import (
 	"runtime"
+	"strings"
 	"time"
 
 	"charm.land/bubbles/v2/textarea"
@@ -99,6 +100,8 @@ type Model struct {
 
 	lastCtrlC       time.Time // Ctrl+C 双击判定窗口
 	lastInputHeight int       // 上次同步给 viewport 的输入区高度
+	lastStatusRows  int       // 上次同步给 viewport 的状态栏高度
+	layoutReady     bool      // View 使用实际预留行数，避免时间/Thought 临界点重新改变栏高
 
 	// splash 是开屏数据（cmd 注入）。首次 resize 按当前宽度渲染进 lines
 	// 头部后置空——开屏只出现一次，窗口变化不重排，新会话不复活。
@@ -118,6 +121,7 @@ type Model struct {
 	firstAnswerRun           string
 	firstAnswerAt            time.Time
 	firstAnswerReported      bool
+	status                   statusState
 }
 
 // AppEvent 包装一条 app.Service 事件供 Update 消费。cmd 层的桥接
@@ -150,7 +154,7 @@ func NewWithOptions(modelLabel string, hooks Hooks, options Options) Model {
 	input.SetVirtualCursor(false)
 	input.Focus()
 
-	return Model{
+	m := Model{
 		state:           stateIdle,
 		modelLabel:      modelLabel,
 		input:           input,
@@ -163,10 +167,24 @@ func NewWithOptions(modelLabel string, hooks Hooks, options Options) Model {
 		thoughtStart:    -1,
 		answerStart:     -1,
 	}
+	m.status.sessionStarted = options.Clock()
+	if options.InitialStats != nil {
+		m.status.stats = *options.InitialStats
+		m.status.sessionStarted = options.InitialStats.StartedAt
+	}
+	if options.ModelID == "" {
+		if p, id, found := strings.Cut(modelLabel, "/"); found {
+			m.options.Provider, m.options.ModelID = p, id
+		} else {
+			m.options.ModelID = modelLabel
+		}
+	}
+	m.initializeEmptyContext()
+	return m
 }
 
 // Init 实现 tea.Model。
-func (m *Model) Init() tea.Cmd { return nil }
+func (m *Model) Init() tea.Cmd { return m.nextStatusTick() }
 
 // AddSystemLine 追加一条系统提示行（装配层启动时展示欢迎/键位说明）。
 func (m *Model) AddSystemLine(text string) { m.appendLine(lineSystem, text) }
@@ -241,7 +259,7 @@ func (m *Model) syncViewport() {
 // syncLayout 在输入区高度变化（换行/折行/重置）时重排 viewport。
 // textarea 的 DynamicHeight 自身维护高度，这里只做联动。
 func (m *Model) syncLayout() {
-	if m.input.Height() != m.lastInputHeight {
+	if m.input.Height() != m.lastInputHeight || m.desiredStatusRows() != m.lastStatusRows {
 		m.resize()
 	}
 }
@@ -252,6 +270,8 @@ func (m *Model) startRun(runID string) {
 		return
 	}
 	m.state = stateRunning
+	m.status.cacheBeforeRun = &cacheSnapshot{stats: m.status.stats, usage: m.status.usage}
+	m.status.usageCurrent = false
 	m.runID = runID
 	m.startedAt = m.options.Clock()
 	m.notice = ""
@@ -268,6 +288,8 @@ func (m *Model) startRun(runID string) {
 
 // endRun 回到空闲态。
 func (m *Model) endRun() {
+	m.status.lastRunID = m.runID
+	m.status.runDuration = max(m.options.Clock().Sub(m.startedAt), 0)
 	m.state = stateIdle
 	m.runID = ""
 }

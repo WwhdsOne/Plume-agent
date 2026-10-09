@@ -10,7 +10,7 @@ import (
 
 // validateResponse 检查 SDK 保留的原始字段类型，阻止宽松转换把错误协议变成成功。
 // 流分帧仍完全由 SDK 完成；这里只验证已经解码的 JSON 对象。
-func validateResponse(raw string, stream bool) (model.Usage, error) {
+func validateResponse(raw string, stream, deepseek bool) (model.Usage, error) {
 	if !json.Valid([]byte(raw)) {
 		return model.Usage{}, invalidField()
 	}
@@ -66,7 +66,7 @@ func validateResponse(raw string, stream bool) (model.Usage, error) {
 			}
 		}
 	}
-	return responseUsage(root["usage"])
+	return responseUsage(root["usage"], deepseek)
 }
 
 func validateToolCalls(raw json.RawMessage, stream bool) error {
@@ -159,7 +159,7 @@ func rejectDuplicateFields(decoder *json.Decoder) error {
 	return nil
 }
 
-func responseUsage(raw json.RawMessage) (model.Usage, error) {
+func responseUsage(raw json.RawMessage, deepseek bool) (model.Usage, error) {
 	if len(raw) == 0 || bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
 		return model.Usage{}, nil
 	}
@@ -180,10 +180,48 @@ func responseUsage(raw json.RawMessage) (model.Usage, error) {
 			return model.Usage{}, invalidField()
 		}
 	}
-	if !known {
-		return model.Usage{}, nil
+	cached, err := responseCachedPromptTokens(usage, deepseek)
+	if err != nil {
+		return model.Usage{}, err
 	}
-	return model.Usage{OK: true, PromptTokens: counts[0], CompletionTokens: counts[1], TotalTokens: counts[2]}, nil
+	if _, promptKnown := usage["prompt_tokens"]; promptKnown && cached != nil && *cached > counts[0] {
+		return model.Usage{}, invalidField()
+	}
+	result := model.Usage{CachedPromptTokens: cached}
+	if known {
+		result.OK = true
+		result.PromptTokens, result.CompletionTokens, result.TotalTokens = counts[0], counts[1], counts[2]
+	}
+	return result, nil
+}
+
+// responseCachedPromptTokens 读取 SDK 已定义的标准缓存字段；DeepSeek 官方
+// 专有字段只在显式扩展适配器中启用，不从 provider 品牌字符串猜测。
+func responseCachedPromptTokens(usage map[string]json.RawMessage, deepseek bool) (*int64, error) {
+	var cached *int64
+	if raw, present := usage["prompt_tokens_details"]; present && !bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+		details, err := responseObject(raw)
+		if err != nil {
+			return nil, err
+		}
+		if value, present := details["cached_tokens"]; present {
+			n, err := responseInteger(value)
+			if err != nil || n < 0 {
+				return nil, invalidField()
+			}
+			cached = &n
+		}
+	}
+	if deepseek {
+		if value, present := usage["prompt_cache_hit_tokens"]; present {
+			n, err := responseInteger(value)
+			if err != nil || n < 0 || (cached != nil && *cached != n) {
+				return nil, invalidField()
+			}
+			cached = &n
+		}
+	}
+	return cached, nil
 }
 
 func responseObject(raw json.RawMessage) (map[string]json.RawMessage, error) {

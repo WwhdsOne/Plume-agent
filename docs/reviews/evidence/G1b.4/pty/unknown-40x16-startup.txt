@@ -1,0 +1,16 @@
+N                                       
+n                                       
+e                                       
+w                                       
+s                                       
+e                                       
+s                                       
+s                                       
+i                                       
+o                                       
+n                                       
+                                        
+────────────────────────────────────────
+┃  1 Say something… (Enter to send,     
+────────────────────────────────────────
+c:capacity unknown │ ca(last):unknown   

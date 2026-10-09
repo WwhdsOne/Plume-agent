@@ -1,6 +1,6 @@
 ---
 title: TUI 流式输出、思考展示与状态文案（G1b.3）
-status: active
+status: superseded-part
 updated: 2026-10-08
 summary: G1b.3 契约（已通过）：流式、Markdown、统一左对齐、Thought 动画与默认 high 配置
 ---
@@ -12,6 +12,8 @@ summary: G1b.3 契约（已通过）：流式、Markdown、统一左对齐、Tho
 > 依据：[第一阶段计划](phase-01-tui-agent.md)、[模型运行时决策 0003](decisions/0003-model-runtime.md)、[现行键位契约](tui-keys.md)、[主题契约](tui-splash.md)。2026-10-07 用户要求先改技术文档，审核后再实现。
 >
 > 2026-10-08 展示修订：用户消息改用 `>`、助手回答改用 `●`；思考输出默认显示 `Thought`，前置三个小点呈三角排列的旋转动画；标记和标题同列，正文统一左对齐。
+>
+> 状态栏扩展：[G1b.4 可配置底部状态栏](tui-statusline.md) 已实现，待用户审核。本文阶段/动画/思考/流式语义继续有效；底部字段清单、固定布局与优先级已由新契约替代，支持亮色单行优先、最多两行与容量/缓存/环境/累计计时配置。
 
 ## 1. 目标与范围
 

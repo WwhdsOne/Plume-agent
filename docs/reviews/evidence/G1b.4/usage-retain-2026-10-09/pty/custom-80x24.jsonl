@@ -1,0 +1,9 @@
+{"level": "info", "ts": "2026-10-09T09:41:45.069+0800", "msg": "run_started", "run_id": "run-000001", "accepted_at": "2026-10-09T09:41:45.069+0800"}
+{"level": "info", "ts": "2026-10-09T09:41:45.069+0800", "msg": "run_phase", "run_id": "run-000001", "phase": "preparing"}
+{"level": "info", "ts": "2026-10-09T09:41:45.069+0800", "msg": "run_phase", "run_id": "run-000001", "phase": "waiting"}
+{"level": "info", "ts": "2026-10-09T09:41:45.069+0800", "msg": "model_start", "model_call_id": "run-000001/model-1", "provider": "deepseek", "protocol": "openai-chat-completions", "model": "deepseek-flash", "step_seq": 1}
+{"level": "info", "ts": "2026-10-09T09:41:45.069+0800", "msg": "model_reasoning", "model_call_id": "run-000001/model-1", "requested": "high", "source": "default", "effective": "unknown", "capability": "provider_default"}
+{"level": "info", "ts": "2026-10-09T09:41:45.071+0800", "msg": "run_phase", "run_id": "run-000001", "phase": "responding"}
+{"level": "info", "ts": "2026-10-09T09:41:45.073+0800", "msg": "ui_first_answer", "run_id": "run-000001", "latency_ms": 3.732708}
+{"level": "info", "ts": "2026-10-09T09:41:45.276+0800", "msg": "model_completed", "model_call_id": "run-000001/model-1", "duration_ms": 207, "first_reasoning_ms": null, "first_answer_ms": 1.841333, "reasoning_bytes": 0, "answer_bytes": 30, "cached_prompt_tokens": 8, "finish_reason": "stop", "usage_known": true, "prompt_tokens": 20, "completion_tokens": 5, "total_tokens": 25, "status": "ok"}
+{"level": "info", "ts": "2026-10-09T09:41:45.276+0800", "msg": "run_ended", "run_id": "run-000001", "status": "ok", "error_code": "", "duration_ms": 207.638916, "preparation_ms": 0.222666, "first_reasoning_ms": null, "first_answer_ms": 1.85675, "reasoning_bytes": 0, "answer_bytes": 30}

@@ -2,6 +2,7 @@ package setup
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -131,6 +132,84 @@ func defaultFake() *fakePrompter {
 		secret:   "sk-test-SENTINEL-DO-NOT-LEAK",
 		needsKey: true,
 		chType:   weixin,
+	}
+}
+
+func TestWizardPreservesStatusLineAndSameModelCapacity(t *testing.T) {
+	for _, changedModel := range []bool{false, true} {
+		t.Run(map[bool]string{false: "same_model", true: "new_model"}[changedModel], func(t *testing.T) {
+			fake := defaultFake()
+			fake.skipChannel = true
+			if changedModel {
+				fake.model = "deepseek-v4-pro"
+			}
+			h := newHarness(t, fake)
+			var existing config.Config
+			raw := `{"schema_version":1,"default_model":"deepseek-default","models":[{"id":"deepseek-default","provider":"deepseek","protocol":"deepseek","base_url":"https://api.deepseek.com","model":"deepseek-flash","context_window_tokens":128000}],"tui":{"status_line":{"enabled":false,"items":[]}}}`
+			if err := json.Unmarshal([]byte(raw), &existing); err != nil {
+				t.Fatal(err)
+			}
+			res, err := h.wiz.Run(&existing)
+			if err != nil {
+				t.Fatal(err)
+			}
+			encoded, err := json.Marshal(res.Config)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var saved struct {
+				Models []map[string]any `json:"models"`
+				TUI    struct {
+					StatusLine map[string]any `json:"status_line"`
+				} `json:"tui"`
+			}
+			if err := json.Unmarshal(encoded, &saved); err != nil {
+				t.Fatal(err)
+			}
+			if saved.TUI.StatusLine["enabled"] != false {
+				t.Fatal("setup lost status line customization")
+			}
+			if items, ok := saved.TUI.StatusLine["items"].([]any); !ok || len(items) != 0 {
+				t.Fatal("setup restored explicitly empty status items")
+			}
+			capacity, present := saved.Models[0]["context_window_tokens"]
+			if !present || (!changedModel && capacity != float64(128000)) || (changedModel && capacity != float64(1000000)) {
+				t.Fatalf("capacity = %v, changedModel = %v", capacity, changedModel)
+			}
+		})
+	}
+}
+
+func TestWizardWritesContextWindowDefaults(t *testing.T) {
+	for _, model := range []string{"deepseek-flash", "deepseek-v4-pro", "unknown"} {
+		t.Run(model, func(t *testing.T) {
+			fake := defaultFake()
+			fake.model = model
+			fake.skipChannel = true
+			h := newHarness(t, fake)
+			res, err := h.wiz.Run(nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			raw, err := os.ReadFile(mustPath(t))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var saved config.Config
+			if err := json.Unmarshal(raw, &saved); err != nil {
+				t.Fatal(err)
+			}
+			for _, cfg := range []*config.Config{res.Config, &saved} {
+				capacity := cfg.Models[0].ContextWindowTokens
+				if model == "unknown" {
+					if capacity != nil {
+						t.Fatalf("unverified model capacity = %d", *capacity)
+					}
+				} else if capacity == nil || *capacity != 1000000 {
+					t.Fatalf("preset capacity = %v, want 1000000", capacity)
+				}
+			}
+		})
 	}
 }
 

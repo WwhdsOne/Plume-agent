@@ -6,19 +6,20 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
-	"plume-agent/internal/app"
 )
 
 // 渲染样式。主题三色 token 见 theme.go（雾青，G1b.2.2）；错误红/提示黄/
 // 中性灰是语义色不占用主题色。克制的单屏配色：前缀标来源，正文不加花哨装饰。
 var (
-	styleUser      = lipgloss.NewStyle().Foreground(themeDark)    // 深色态
-	styleAssistant = lipgloss.NewStyle().Foreground(themePrimary) // 主色
-	styleSystem    = lipgloss.NewStyle().Foreground(colorMuted)
-	styleError     = lipgloss.NewStyle().Foreground(colorError)
-	styleStatus    = lipgloss.NewStyle().Foreground(colorMuted)
-	styleNotice    = lipgloss.NewStyle().Foreground(colorNotice)
-	styleRunning   = lipgloss.NewStyle().Foreground(themeDark) // running 强调
+	styleUser            = lipgloss.NewStyle().Foreground(themeDark)    // 深色态
+	styleAssistant       = lipgloss.NewStyle().Foreground(themePrimary) // 主色
+	styleSystem          = lipgloss.NewStyle().Foreground(colorMuted)
+	styleError           = lipgloss.NewStyle().Foreground(colorError)
+	styleStatus          = lipgloss.NewStyle().Foreground(themeLight)
+	styleStatusLabel     = lipgloss.NewStyle().Foreground(themePrimary).Bold(true)
+	styleStatusSeparator = lipgloss.NewStyle().Foreground(themeDark)
+	styleNotice          = lipgloss.NewStyle().Foreground(colorNotice)
+	styleRunning         = lipgloss.NewStyle().Foreground(themeDark) // running 强调
 	// styleSeparator 渲染输入区上下分隔线（用户要求醒目标出输入框，
 	// 用主题主色；语义色不占用主题色，横线属于装饰性主题元素）。
 	styleSeparator = lipgloss.NewStyle().Foreground(themePrimary)
@@ -40,8 +41,10 @@ func (m *Model) View() string {
 	b.WriteString(m.input.View())
 	b.WriteString("\n")
 	b.WriteString(inputSeparator(m.width))
-	b.WriteString("\n")
-	b.WriteString(m.statusBar())
+	if m.statusRows() > 0 {
+		b.WriteString("\n")
+		b.WriteString(m.statusBar())
+	}
 	return b.String()
 }
 
@@ -104,52 +107,4 @@ func wrapText(text string, width int) []string {
 		return strings.Split(text, "\n")
 	}
 	return strings.Split(ansi.Hardwrap(text, width, true), "\n")
-}
-
-// statusBar 渲染模型、运行状态、run ID、耗时与已知 usage。
-func (m *Model) statusBar() string {
-	var stage string
-	if m.state == stateRunning {
-		label := m.phaseLabels[m.phase]
-		if m.phase == app.PhaseThinking && m.thoughtVisible() {
-			label = ""
-		}
-		icon := ""
-		if label != "" {
-			icon = thoughtSpinner[m.spinnerFrame%len(thoughtSpinner)] + " "
-		}
-		stage = strings.TrimSpace(fmt.Sprintf("%s%s %s", icon, label, m.elapsed()))
-	} else {
-		stage = "idle"
-	}
-	width := max(m.width, 1)
-	// 阶段+耗时优先于模型标签，窄屏仍能判断当前阶段与总耗时。
-	if ansi.StringWidth(stage) > width {
-		if m.state == stateRunning {
-			timeLabel := m.elapsed().String()
-			room := width - ansi.StringWidth(timeLabel) - 1
-			if room > 0 {
-				stage = ansi.Truncate(m.phaseLabels[m.phase], room, "") + " " + timeLabel
-			} else {
-				stage = ansi.Truncate(timeLabel, width, "")
-			}
-		} else {
-			stage = ansi.Truncate(stage, width, "")
-		}
-	}
-	left := m.modelLabel
-	if m.state == stateRunning && m.runID != "" {
-		left += " " + m.runID
-	}
-	if m.lastUsage != "" {
-		left += " │ " + m.lastUsage
-	}
-	if m.notice != "" {
-		left += "  " + sanitize(m.notice)
-	}
-	room := width - ansi.StringWidth(stage) - 3
-	if room <= 0 {
-		return styleStatus.Render(stage)
-	}
-	return styleStatus.Render(ansi.Truncate(left, room, "…") + " │ " + stage)
 }

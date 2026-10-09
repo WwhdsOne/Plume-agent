@@ -1,0 +1,14 @@
+{
+  "columns": 100,
+  "rows": 34,
+  "checks": {
+    "version_visible": true,
+    "offline_visible": true,
+    "clean_exit": true,
+    "tips_visible": true,
+    "braille_visible": true,
+    "closed_box": true,
+    "aligned_box": true,
+    "theme_colors": true
+  }
+}

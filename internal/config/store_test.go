@@ -166,6 +166,25 @@ func TestLoadMissingFileReportsNotExist(t *testing.T) {
 	}
 }
 
+func TestLoadRejectsUnsupportedSchemaWithoutChangingFile(t *testing.T) {
+	for _, raw := range []string{`{"schema_version":2,"default_model":"main"}`, `{"default_model":"main"}`} {
+		t.Run(raw, func(t *testing.T) {
+			dir := withTempDir(t)
+			path := filepath.Join(dir, "config.json")
+			if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := Load(); err == nil || !strings.Contains(err.Error(), "schema_version") {
+				t.Fatalf("unsupported schema was accepted: %v", err)
+			}
+			after, err := os.ReadFile(path)
+			if err != nil || string(after) != raw {
+				t.Fatalf("unsupported config was changed: %v", err)
+			}
+		})
+	}
+}
+
 func TestLoadRejectsMalformedJSON(t *testing.T) {
 	dir := withTempDir(t)
 	if err := os.WriteFile(filepath.Join(dir, "config.json"), []byte("{not json"), 0o600); err != nil {

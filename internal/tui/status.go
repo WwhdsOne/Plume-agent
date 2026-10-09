@@ -11,9 +11,13 @@ import (
 
 // Options 是 TUI 的展示策略；Clock 与 Choose 只用于可重复的时钟和抽选。
 type Options struct {
-	StatusMessages map[string][]string
-	Clock          func() time.Time
-	Choose         func(int) int
+	StatusMessages                             map[string][]string
+	StatusLine                                 *config.StatusLineConfig
+	Provider, ModelID, Reasoning, Dir, HomeDir string
+	ContextWindowTokens                        *int64
+	InitialStats                               *app.SessionStats
+	Clock                                      func() time.Time
+	Choose                                     func(int) int
 }
 
 // DefaultStatusMessages 每次返回独立默认集合，调用方可安全修改。
@@ -39,6 +43,9 @@ func ResolvedStatusMessages(overrides map[string][]string) map[string][]string {
 }
 
 func normalizeOptions(options Options) Options {
+	if options.StatusLine == nil {
+		options.StatusLine = config.DefaultStatusLine()
+	}
 	options.StatusMessages = ResolvedStatusMessages(options.StatusMessages)
 	if options.Clock == nil {
 		options.Clock = time.Now

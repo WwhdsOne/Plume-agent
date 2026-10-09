@@ -15,7 +15,7 @@ func TestInputSeparatorWrapsInput(t *testing.T) {
 	m.resize()
 
 	lines := strings.Split(m.View(), "\n")
-	wantTotal := m.viewport.Height() + 1 + m.input.Height() + 1 + 1
+	wantTotal := m.viewport.Height() + 1 + m.input.Height() + 1 + m.statusRows()
 	if len(lines) != wantTotal {
 		t.Fatalf("view lines = %d, want %d (viewport + sep + input + sep + status)", len(lines), wantTotal)
 	}

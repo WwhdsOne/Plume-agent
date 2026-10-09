@@ -1,0 +1,24 @@
+t                                                                               
+·                                                                               
+C                                                                               
+t                                                                               
+r                                                                               
+l                                                                               
++                                                                               
+N                                                                               
+n                                                                               
+e                                                                               
+w                                                                               
+s                                                                               
+e                                                                               
+s                                                                               
+s                                                                               
+i                                                                               
+o                                                                               
+n                                                                               
+                                                                                
+────────────────────────────────────────────────────────────────────────────────
+┃  1 Say something… (Enter to send, Shift+Enter or \ for newline)               
+────────────────────────────────────────────────────────────────────────────────
+fake │ offline │ think:unverified │ ctx:capacity unknown │ cache(last):unknown  
+git:fixture-branch* │ env:uv/.venv(active) │ session:0s │ idle                  

@@ -1,0 +1,40 @@
+{
+  "cases": 1,
+  "results": [
+    {
+      "case": "cache-last-call-80x24",
+      "status": "passed",
+      "width": 80,
+      "height": 24,
+      "status_rows": 1,
+      "request_count": 2,
+      "cursor": {
+        "x": 5,
+        "y": 21
+      },
+      "status_frame": "cache: 80% │ deepseek-flash                                                     ",
+      "terminal": {
+        "level": "info",
+        "ts": "2026-10-09T08:58:06.475+0800",
+        "msg": "run_ended",
+        "run_id": "run-000002",
+        "status": "ok",
+        "error_code": "",
+        "duration_ms": 211.176,
+        "preparation_ms": 0.073375,
+        "first_reasoning_ms": null,
+        "first_answer_ms": 0.904709,
+        "reasoning_bytes": 0,
+        "answer_bytes": 30
+      }
+    }
+  ],
+  "dependencies": {
+    "pyte": "0.8.2",
+    "wcwidth": "0.9.2"
+  },
+  "limits": [
+    "本地人工 SSE fixture，不代表真实供应商性能或缓存命中率。",
+    "pyte 重建 ANSI 帧，未替代真实终端输入法/kitty/Windows 人工验证。"
+  ]
+}

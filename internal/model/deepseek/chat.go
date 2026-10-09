@@ -1,6 +1,6 @@
 // Package deepseek 是 DeepSeek 的协议适配器：组合 openai 兼容实现
 // （openai-chat-completions 协议族，0003 §7 映射表），不复制整套客户端。
-// 显式选择已验证的 thinking/reasoning_content 扩展，传输和 SSE
+// 显式选择已验证的 thinking/reasoning_content 与 prompt_cache_hit_tokens 扩展，传输和 SSE
 // 解码继续复用同一 SDK 实现，不按品牌复制客户端。
 package deepseek
 

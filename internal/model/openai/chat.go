@@ -102,7 +102,7 @@ func (a *Adapter) Generate(ctx context.Context, req model.ChatRequest) (*model.C
 		return nil, a.wrap(ctx, err, httpResp)
 	}
 
-	resp, err := decodeResponse(a.provider, completion, httpResp)
+	resp, err := a.decodeResponse(completion, httpResp)
 	if err != nil {
 		return nil, a.wrap(ctx, err, httpResp)
 	}
@@ -186,8 +186,9 @@ func encodeAssistant(m model.Message) openai.ChatCompletionMessageParamUnion {
 
 // decodeResponse 把 SDK 响应归一化：单候选校验、finish reason、可选 usage
 // 与供应商请求 ID。HTTP 2xx 之后的协议错误仍是失败（0003 §4）。
-func decodeResponse(provider string, completion *openai.ChatCompletion, httpResp *http.Response) (*model.ChatResponse, error) {
-	usage, err := validateResponse(completion.RawJSON(), false)
+func (a *Adapter) decodeResponse(completion *openai.ChatCompletion, httpResp *http.Response) (*model.ChatResponse, error) {
+	provider := a.provider
+	usage, err := validateResponse(completion.RawJSON(), false, a.deepseek)
 	if err != nil {
 		return nil, err
 	}

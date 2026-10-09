@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -65,28 +66,72 @@ func Load() (*Config, error) {
 	if err := json.Unmarshal(raw, &cfg); err != nil {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
-	if cfg.SchemaVersion == SchemaVersion && cfg.fillDefaults() {
-		updated, err := mergeDefaultsIntoRaw(raw, &cfg)
-		if err != nil {
-			return nil, fmt.Errorf("encode config defaults: %w", err)
-		}
+	if cfg.SchemaVersion != SchemaVersion {
+		return nil, fmt.Errorf("schema_version is %d, want %d", cfg.SchemaVersion, SchemaVersion)
+	}
+	if err := cfg.validateDisplayOptions(); err != nil {
+		return nil, err
+	}
+	cfg.fillDefaults()
+	updated, changed, err := mergeDefaultsIntoRaw(raw, &cfg)
+	if err != nil {
+		return nil, fmt.Errorf("encode config defaults: %w", err)
+	}
+	if changed {
 		if err := writeFileAtomic(path, updated, 0o600); err != nil {
 			return nil, fmt.Errorf("write %s: %w", path, err)
 		}
+		cfg.rawJSON = append([]byte(nil), bytes.TrimSpace(updated)...)
 	}
 	return &cfg, nil
 }
 
 // 合并已有 JSON 而非重建整个结构，避免读取旧配置时丢弃未知扩展字段。
-func mergeDefaultsIntoRaw(raw []byte, cfg *Config) ([]byte, error) {
+func mergeDefaultsIntoRaw(raw []byte, cfg *Config) ([]byte, bool, error) {
+	defaults, err := json.Marshal(cfg)
+	if err != nil {
+		return nil, false, err
+	}
+	merged, changed, err := fillMissingRaw(raw, defaults)
+	if err != nil {
+		return nil, false, err
+	}
 	var root map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &root); err != nil {
-		return nil, err
+	if err := json.Unmarshal(merged, &root); err != nil {
+		return nil, false, err
+	}
+	// 容量 null 表示自动解析；仅已验证预设可覆盖它，其他标量仍由 fillMissingRaw 保留。
+	if len(cfg.Models) > 0 {
+		var models []map[string]json.RawMessage
+		if err := json.Unmarshal(root["models"], &models); err != nil {
+			return nil, false, err
+		}
+		modelsChanged := false
+		for i, m := range cfg.Models {
+			if m.ContextWindowTokens == nil || !verifiedDeepSeekPreset(m) {
+				continue
+			}
+			if !bytes.Equal(bytes.TrimSpace(models[i]["context_window_tokens"]), []byte("null")) {
+				continue
+			}
+			models[i]["context_window_tokens"], err = json.Marshal(m.ContextWindowTokens)
+			if err != nil {
+				return nil, false, err
+			}
+			modelsChanged = true
+		}
+		if modelsChanged {
+			root["models"], err = json.Marshal(models)
+			if err != nil {
+				return nil, false, err
+			}
+			changed = true
+		}
 	}
 	var tui map[string]json.RawMessage
 	if len(root["tui"]) > 0 && string(root["tui"]) != "null" {
 		if err := json.Unmarshal(root["tui"], &tui); err != nil {
-			return nil, err
+			return nil, false, err
 		}
 	}
 	if tui == nil {
@@ -94,35 +139,24 @@ func mergeDefaultsIntoRaw(raw []byte, cfg *Config) ([]byte, error) {
 	}
 	status, err := json.Marshal(cfg.TUI.StatusMessages)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
+	var previousMessages map[string][]string
+	if err := json.Unmarshal(tui["status_messages"], &previousMessages); err != nil {
+		return nil, false, err
+	}
+	previousStatus, err := json.Marshal(previousMessages)
+	if err != nil {
+		return nil, false, err
+	}
+	changed = changed || !bytes.Equal(previousStatus, status)
 	tui["status_messages"] = status
 	root["tui"], err = json.Marshal(tui)
 	if err != nil {
-		return nil, err
-	}
-	var models []map[string]json.RawMessage
-	if len(root["models"]) > 0 {
-		if err := json.Unmarshal(root["models"], &models); err != nil {
-			return nil, err
-		}
-	}
-	for i := range models {
-		if cfg.Models[i].ReasoningEffort != nil {
-			models[i]["reasoning_effort"], err = json.Marshal(cfg.Models[i].ReasoningEffort)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-	if len(models) > 0 {
-		root["models"], err = json.Marshal(models)
-		if err != nil {
-			return nil, err
-		}
+		return nil, false, err
 	}
 	updated, err := json.MarshalIndent(root, "", "  ")
-	return append(updated, '\n'), err
+	return append(updated, '\n'), changed, err
 }
 
 // Save 原子写入 config.json：先在同目录写临时文件，fsync 后 rename 覆盖目标。
@@ -131,6 +165,9 @@ func Save(cfg *Config) error {
 	if cfg.SchemaVersion == SchemaVersion {
 		cfg.fillDefaults()
 	}
+	if err := cfg.validateDisplayOptions(); err != nil {
+		return err
+	}
 	path, err := Path()
 	if err != nil {
 		return err
@@ -138,7 +175,25 @@ func Save(cfg *Config) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return fmt.Errorf("create config directory: %w", err)
 	}
-	raw, err := json.MarshalIndent(cfg, "", "  ")
+	raw, err := json.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("encode config: %w", err)
+	}
+	if len(cfg.rawJSON) > 0 {
+		raw, err = preserveUnknownFields(cfg.rawJSON, raw, configShape)
+		if err != nil {
+			return fmt.Errorf("preserve decoded config extensions: %w", err)
+		}
+	}
+	if previous, err := os.ReadFile(path); err == nil {
+		raw, err = preserveUnknownFields(previous, raw, configShape)
+		if err != nil {
+			return fmt.Errorf("preserve config extensions: %w", err)
+		}
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("read %s before save: %w", path, err)
+	}
+	raw, err = json.MarshalIndent(json.RawMessage(raw), "", "  ")
 	if err != nil {
 		return fmt.Errorf("encode config: %w", err)
 	}
@@ -146,6 +201,7 @@ func Save(cfg *Config) error {
 	if err := writeFileAtomic(path, raw, 0o600); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
+	cfg.rawJSON = append([]byte(nil), bytes.TrimSpace(raw)...)
 	return nil
 }
 

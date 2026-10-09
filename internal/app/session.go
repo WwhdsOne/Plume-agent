@@ -5,6 +5,7 @@ package app
 
 import (
 	"sync"
+	"time"
 
 	"plume-agent/internal/model"
 )
@@ -12,13 +13,18 @@ import (
 // Session 是一个进程内聊天会话：有序消息历史与单调递增的轮次号。
 // 只追加完整提交的轮次；失败/取消的 run 不进入历史（0003/阶段计划 §2）。
 type Session struct {
-	mu       sync.Mutex
-	messages []model.Message
-	turnSeq  int
+	mu        sync.Mutex
+	messages  []model.Message
+	turnSeq   int
+	startedAt time.Time
+	usage     map[string]model.Usage
+	lastCall  string
 }
 
 // NewSession 创建空会话。
-func NewSession() *Session { return &Session{} }
+func NewSession() *Session {
+	return &Session{startedAt: time.Now(), usage: make(map[string]model.Usage)}
+}
 
 // Append 提交一轮完整对话（用户输入 + assistant 回复）。只有成功结束的
 // run 才应调用；历史追加是原子的，失败轮次不会留下半截上下文。
@@ -51,4 +57,7 @@ func (s *Session) Reset() {
 	defer s.mu.Unlock()
 	s.messages = nil
 	s.turnSeq = 0
+	s.startedAt = time.Now()
+	s.usage = make(map[string]model.Usage)
+	s.lastCall = ""
 }

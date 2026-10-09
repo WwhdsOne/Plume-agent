@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -32,6 +33,44 @@ func TestThemeColorsMatchContract(t *testing.T) {
 	}
 }
 
+// 启动时颜色能力、环境快照或时钟可能先于窗口尺寸到达，不能提前消耗开屏。
+func TestSplashWaitsForValidWindowSize(t *testing.T) {
+	cases := []struct {
+		name string
+		msg  func(*Model) tea.Msg
+	}{
+		{"color-profile", func(*Model) tea.Msg { return tea.ColorProfileMsg{} }},
+		{"workspace", func(*Model) tea.Msg { return WorkspaceEvent{} }},
+		{"clock", func(m *Model) tea.Msg { return statusClockTick{m.status.sessionStarted} }},
+		{"zero-width", func(*Model) tea.Msg { return tea.WindowSizeMsg{Width: 0, Height: 34} }},
+		{"zero-height", func(*Model) tea.Msg { return tea.WindowSizeMsg{Width: 100, Height: 0} }},
+		{"negative-size", func(*Model) tea.Msg { return tea.WindowSizeMsg{Width: -1, Height: -1} }},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			m := New("test/model", Hooks{})
+			m.SetSplash(Splash{Version: "v0.1.0 (test)", Label: "test/model"})
+			m, _ = m.Update(tc.msg(&m))
+			if m.splash == nil || len(m.lines) != 0 || m.layoutReady {
+				t.Fatalf("startup message consumed splash before valid dimensions: pending=%v lines=%d layout=%v", m.splash != nil, len(m.lines), m.layoutReady)
+			}
+			m, _ = m.Update(tea.WindowSizeMsg{Width: 100, Height: 34})
+			if m.splash != nil {
+				t.Fatal("valid dimensions must render splash")
+			}
+			frame := stripANSI(m.View())
+			for _, want := range []string{"╭", "╮", "╰", "╯", featherBraille[0], "Plume-agent", "Tips for getting started"} {
+				if !strings.Contains(frame, want) {
+					t.Errorf("startup frame missing %q", want)
+				}
+			}
+			if strings.Count(frame, strings.Repeat("─", 100)) != 2 {
+				t.Error("startup frame must retain both input separators")
+			}
+		})
+	}
+}
+
 // TestSplashRendersBoxedSplash：宽终端渲染像素字标题 + 圆角方框（完整边框）。
 func TestSplashRendersBoxedSplash(t *testing.T) {
 	m := newTestModel(t, Hooks{})
@@ -43,7 +82,7 @@ func TestSplashRendersBoxedSplash(t *testing.T) {
 	if m.splash != nil {
 		t.Fatal("splash must be consumed after first resize")
 	}
-	// 像素字 5 行 + 方框（顶边 + 羽毛栏 + 底边）
+	// 立体字标题 + 方框（顶边 + 羽毛栏 + 底边）
 	wantLines := len(plumeWordmark) + featherHeight + 2
 	if len(m.lines) != wantLines {
 		t.Fatalf("splash lines = %d, want %d", len(m.lines), wantLines)
@@ -55,16 +94,14 @@ func TestSplashRendersBoxedSplash(t *testing.T) {
 		}
 		joined += l.text + "\n"
 	}
-	// 方框上方的像素字标题：前 5 行是实心块字
+	// 方框上方是六行立体标题，沿用当前左对齐。
 	for i := range len(plumeWordmark) {
 		row := stripANSI(m.lines[i].text)
-		if !strings.Contains(row, "█") || strings.Contains(row, ".") {
+		if i < len(plumeWordmark)-1 && !strings.Contains(row, "█") || strings.Contains(row, ".") {
 			t.Errorf("wordmark row %d = %q, want pixel blocks and blank negative space", i, row)
 		}
-		left := len(row) - len(strings.TrimLeft(row, " "))
-		right := 78 - lipgloss.Width(row)
-		if left-right < -1 || left-right > 1 {
-			t.Errorf("wordmark row %d is not centered: left=%d, right=%d", i, left, right)
+		if strings.HasPrefix(row, " ") {
+			t.Errorf("wordmark row %d must be left aligned", i)
 		}
 	}
 	// 顶边框完整且不嵌任何文字（宽 80 → 方框 78，内宽 76）
@@ -103,6 +140,37 @@ func TestSplashRendersBoxedSplash(t *testing.T) {
 	last := stripANSI(m.lines[len(m.lines)-1].text)
 	if !strings.HasPrefix(last, "╰") || !strings.HasSuffix(last, "╯") {
 		t.Errorf("bottom border = %q, want rounded box close", last)
+	}
+}
+
+func TestWordmarkShadow(t *testing.T) {
+	for _, width := range []int{80, 93, 94, 100, 160} {
+		t.Run(fmt.Sprint(width), func(t *testing.T) {
+			lines := buildSplashLines(width, Splash{})
+			if len(plumeWordmark) != 6 {
+				t.Fatalf("wordmark height = %d, want six shadow-font rows", len(plumeWordmark))
+			}
+			var title strings.Builder
+			wantWidth := 94
+			if width < 94 {
+				wantWidth = 71
+			}
+			for i := 0; i < 6; i++ {
+				row := stripANSI(lines[i].text)
+				if got := lipgloss.Width(row); got != wantWidth || got > width {
+					t.Errorf("row %d width = %d, want %d within %d", i, got, wantWidth, width)
+				}
+				if !strings.ContainsAny(row, "╔╗╚╝═║") || strings.HasPrefix(row, " ") {
+					t.Errorf("row %d lacks left aligned shadow outline: %q", i, row)
+				}
+				title.WriteString(lines[i].text)
+			}
+			for _, rgb := range []string{"38;2;91;200;200", "38;2;58;158;163"} {
+				if !strings.Contains(title.String(), "\x1b["+rgb+"m") {
+					t.Errorf("wordmark missing face/shadow color %s", rgb)
+				}
+			}
+		})
 	}
 }
 

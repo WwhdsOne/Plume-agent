@@ -1,0 +1,375 @@
+{
+  "cases": 11,
+  "results": [
+    {
+      "case": "default-120x24",
+      "status": "passed",
+      "width": 120,
+      "height": 24,
+      "status_rows": 2,
+      "request_count": 1,
+      "cursor": {
+        "x": 5,
+        "y": 20
+      },
+      "status_frame": "deepseek │ deepseek-flash │ think:unverified │ ctx(last):[██░░░░░░░░] 20% │ cache: 40%                                  \ngit:fixture-branch* │ env:uv/.venv(active) │ session:1s │ idle │ 204ms                                                  ",
+      "terminal": {
+        "level": "info",
+        "ts": "2026-10-09T08:54:31.558+0800",
+        "msg": "run_ended",
+        "run_id": "run-000001",
+        "status": "ok",
+        "error_code": "",
+        "duration_ms": 203.678125,
+        "preparation_ms": 0.240875,
+        "first_reasoning_ms": null,
+        "first_answer_ms": 2.337,
+        "reasoning_bytes": 0,
+        "answer_bytes": 30
+      }
+    },
+    {
+      "case": "custom-80x24",
+      "status": "passed",
+      "width": 80,
+      "height": 24,
+      "status_rows": 1,
+      "request_count": 1,
+      "cursor": {
+        "x": 5,
+        "y": 21
+      },
+      "status_frame": "缓存: 8 (40%) / 容量(last):[#----] 20% / 模型:deepseek-flash / 累计:25          ",
+      "terminal": {
+        "level": "info",
+        "ts": "2026-10-09T08:54:33.610+0800",
+        "msg": "run_ended",
+        "run_id": "run-000001",
+        "status": "ok",
+        "error_code": "",
+        "duration_ms": 208.271542,
+        "preparation_ms": 0.4375,
+        "first_reasoning_ms": null,
+        "first_answer_ms": 2.6135,
+        "reasoning_bytes": 0,
+        "answer_bytes": 30
+      }
+    },
+    {
+      "case": "narrow-20x8",
+      "status": "passed",
+      "width": 20,
+      "height": 8,
+      "status_rows": 1,
+      "request_count": 1,
+      "cursor": {
+        "x": 5,
+        "y": 5
+      },
+      "status_frame": "ctx(last):[░░░░] 20%",
+      "terminal": {
+        "level": "info",
+        "ts": "2026-10-09T08:54:35.528+0800",
+        "msg": "run_ended",
+        "run_id": "run-000001",
+        "status": "ok",
+        "error_code": "",
+        "duration_ms": 206.300375,
+        "preparation_ms": 0.417917,
+        "first_reasoning_ms": null,
+        "first_answer_ms": 2.16925,
+        "reasoning_bytes": 0,
+        "answer_bytes": 30
+      }
+    },
+    {
+      "case": "unknown-40x16",
+      "status": "passed",
+      "width": 40,
+      "height": 16,
+      "status_rows": 1,
+      "request_count": 1,
+      "cursor": {
+        "x": 5,
+        "y": 13
+      },
+      "status_frame": "c:capacity unknown │ ca: unknown        ",
+      "terminal": {
+        "level": "info",
+        "ts": "2026-10-09T08:54:37.455+0800",
+        "msg": "run_ended",
+        "run_id": "run-000001",
+        "status": "ok",
+        "error_code": "",
+        "duration_ms": 208.635875,
+        "preparation_ms": 0.461584,
+        "first_reasoning_ms": null,
+        "first_answer_ms": 3.091125,
+        "reasoning_bytes": 0,
+        "answer_bytes": 30
+      }
+    },
+    {
+      "case": "disabled-120x24",
+      "status": "passed",
+      "width": 120,
+      "height": 24,
+      "status_rows": 0,
+      "request_count": 1,
+      "cursor": {
+        "x": 5,
+        "y": 22
+      },
+      "status_frame": "",
+      "terminal": {
+        "level": "info",
+        "ts": "2026-10-09T08:54:39.381+0800",
+        "msg": "run_ended",
+        "run_id": "run-000001",
+        "status": "ok",
+        "error_code": "",
+        "duration_ms": 203.243416,
+        "preparation_ms": 0.271583,
+        "first_reasoning_ms": null,
+        "first_answer_ms": 1.171458,
+        "reasoning_bytes": 0,
+        "answer_bytes": 30
+      }
+    },
+    {
+      "case": "cancel-80x24",
+      "status": "passed",
+      "width": 80,
+      "height": 24,
+      "status_rows": 2,
+      "request_count": 1,
+      "cursor": {
+        "x": 5,
+        "y": 20
+      },
+      "status_frame": "deepseek │ deepseek-flash │ think:unverified │ ctx:usage unknown                \ngit:fixture-branch* │ env:uv/.venv(active) │ session:1s │ idle │ 335ms          ",
+      "terminal": {
+        "level": "info",
+        "ts": "2026-10-09T08:54:41.428+0800",
+        "msg": "run_ended",
+        "run_id": "run-000001",
+        "status": "error",
+        "error_code": "cancelled",
+        "duration_ms": 335.396792,
+        "preparation_ms": 0.360042,
+        "first_reasoning_ms": null,
+        "first_answer_ms": 1.638542,
+        "reasoning_bytes": 0,
+        "answer_bytes": 30
+      },
+      "cancel_latency_ms": 50.912109375
+    },
+    {
+      "case": "disconnect-80x24",
+      "status": "passed",
+      "width": 80,
+      "height": 24,
+      "status_rows": 2,
+      "request_count": 1,
+      "cursor": {
+        "x": 5,
+        "y": 20
+      },
+      "status_frame": "deepseek │ deepseek-flash │ think:unverified │ ctx:usage unknown                \ngit:fixture-branch* │ env:uv/.venv(active) │ session:1s │ idle │ 204ms          ",
+      "terminal": {
+        "level": "info",
+        "ts": "2026-10-09T08:54:43.221+0800",
+        "msg": "run_ended",
+        "run_id": "run-000001",
+        "status": "error",
+        "error_code": "stream_interrupted",
+        "duration_ms": 203.757292,
+        "preparation_ms": 0.378209,
+        "first_reasoning_ms": null,
+        "first_answer_ms": 1.798833,
+        "reasoning_bytes": 0,
+        "answer_bytes": 30
+      }
+    },
+    {
+      "case": "offline-invalid-80x24",
+      "status": "passed",
+      "width": 80,
+      "height": 24,
+      "status_rows": 2,
+      "request_count": 0,
+      "cursor": {
+        "x": 5,
+        "y": 20
+      },
+      "status_frame": "fake │ offline │ think:unverified │ ctx:capacity unknown │ cache: unknown       \ngit:fixture-branch* │ env:uv/.venv(active) │ session:1s │ idle │ 9ms            ",
+      "terminal": {
+        "level": "info",
+        "ts": "2026-10-09T08:54:44.957+0800",
+        "msg": "run_ended",
+        "run_id": "run-000001",
+        "status": "ok",
+        "error_code": "",
+        "duration_ms": 9.167,
+        "preparation_ms": 0.355333,
+        "first_reasoning_ms": null,
+        "first_answer_ms": 0.05925,
+        "reasoning_bytes": 0,
+        "answer_bytes": 131
+      }
+    },
+    {
+      "case": "truecolor-wide-220x24",
+      "status": "passed",
+      "width": 220,
+      "height": 24,
+      "status_rows": 1,
+      "request_count": 1,
+      "cursor": {
+        "x": 5,
+        "y": 21
+      },
+      "status_frame": "deepseek │ deepseek-flash │ think:unverified │ ctx(last):[██░░░░░░░░] 20% │ cache: 40% │ git:fixture-branch* │ env:uv/.venv(active) │ session:1s │ idle │ 205ms                                                             ",
+      "terminal": {
+        "level": "info",
+        "ts": "2026-10-09T08:54:46.660+0800",
+        "msg": "run_ended",
+        "run_id": "run-000001",
+        "status": "ok",
+        "error_code": "",
+        "duration_ms": 204.747167,
+        "preparation_ms": 0.358125,
+        "first_reasoning_ms": null,
+        "first_answer_ms": 1.3155,
+        "reasoning_bytes": 0,
+        "answer_bytes": 30
+      },
+      "footer_colors": {
+        "source": "pyte visible footer cells",
+        "colors": [
+          "3a9ea3",
+          "5bc8c8",
+          "7dd3d8",
+          "brightbrown"
+        ],
+        "samples": [
+          {
+            "text": "ctx(last):",
+            "row": 23,
+            "column": 47,
+            "foregrounds": [
+              "5bc8c8",
+              "5bc8c8",
+              "5bc8c8",
+              "5bc8c8",
+              "5bc8c8",
+              "5bc8c8",
+              "5bc8c8",
+              "5bc8c8",
+              "5bc8c8",
+              "5bc8c8"
+            ]
+          },
+          {
+            "text": "20%",
+            "row": 23,
+            "column": 70,
+            "foregrounds": [
+              "7dd3d8",
+              "7dd3d8",
+              "7dd3d8"
+            ]
+          },
+          {
+            "text": "cache:",
+            "row": 23,
+            "column": 76,
+            "foregrounds": [
+              "5bc8c8",
+              "5bc8c8",
+              "5bc8c8",
+              "5bc8c8",
+              "5bc8c8",
+              "5bc8c8"
+            ]
+          },
+          {
+            "text": "40%",
+            "row": 23,
+            "column": 83,
+            "foregrounds": [
+              "7dd3d8",
+              "7dd3d8",
+              "7dd3d8"
+            ]
+          }
+        ],
+        "color_names": {
+          "brightbrown": "ANSI 93 bright yellow"
+        }
+      }
+    },
+    {
+      "case": "cache-session-80x24",
+      "status": "passed",
+      "width": 80,
+      "height": 24,
+      "status_rows": 1,
+      "request_count": 2,
+      "cursor": {
+        "x": 5,
+        "y": 21
+      },
+      "status_frame": "cache: 70% │ deepseek-flash                                                     ",
+      "terminal": {
+        "level": "info",
+        "ts": "2026-10-09T08:54:49.008+0800",
+        "msg": "run_ended",
+        "run_id": "run-000002",
+        "status": "ok",
+        "error_code": "",
+        "duration_ms": 205.92425,
+        "preparation_ms": 0.676542,
+        "first_reasoning_ms": null,
+        "first_answer_ms": 1.59825,
+        "reasoning_bytes": 0,
+        "answer_bytes": 30
+      }
+    },
+    {
+      "case": "cache-last-call-80x24",
+      "status": "passed",
+      "width": 80,
+      "height": 24,
+      "status_rows": 1,
+      "request_count": 2,
+      "cursor": {
+        "x": 5,
+        "y": 21
+      },
+      "status_frame": "cache: 80% │ deepseek-flash                                                     ",
+      "terminal": {
+        "level": "info",
+        "ts": "2026-10-09T08:54:51.390+0800",
+        "msg": "run_ended",
+        "run_id": "run-000002",
+        "status": "ok",
+        "error_code": "",
+        "duration_ms": 202.638125,
+        "preparation_ms": 0.196875,
+        "first_reasoning_ms": null,
+        "first_answer_ms": 1.405708,
+        "reasoning_bytes": 0,
+        "answer_bytes": 30
+      }
+    }
+  ],
+  "dependencies": {
+    "pyte": "0.8.2",
+    "wcwidth": "0.9.2"
+  },
+  "limits": [
+    "本地人工 SSE fixture，不代表真实供应商性能或缓存命中率。",
+    "pyte 重建 ANSI 帧，未替代真实终端输入法/kitty/Windows 人工验证。"
+  ]
+}

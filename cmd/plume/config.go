@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -103,6 +104,11 @@ func printConfig(w io.Writer, cfg *config.Config, channels *channel.Registry) {
 		if err != nil {
 			fmt.Fprintf(w, "      reasoning_error: %v\n", err)
 		}
+		if m.ContextWindowTokens == nil {
+			fmt.Fprintln(w, "      context_window_tokens: unknown")
+		} else {
+			fmt.Fprintf(w, "      context_window_tokens: %d (configured; display only)\n", *m.ContextWindowTokens)
+		}
 	}
 	fmt.Fprintln(w, "\ntui.status_messages:")
 	overrides := cfg.TUI.MessageOverrides()
@@ -115,6 +121,13 @@ func printConfig(w io.Writer, cfg *config.Config, channels *channel.Registry) {
 		}
 		fmt.Fprintf(w, "  %s: %q (%s)\n", phase, resolved[phase], source)
 	}
+	fmt.Fprintln(w, "\ntui.status_line:")
+	statusCfg := config.DefaultStatusLine()
+	if cfg.TUI != nil && cfg.TUI.StatusLine != nil {
+		statusCfg = cfg.TUI.StatusLine
+	}
+	statusJSON, _ := json.MarshalIndent(statusCfg, "  ", "  ")
+	fmt.Fprintln(w, "  "+string(statusJSON))
 
 	fmt.Fprintln(w, "\nchannels:")
 	if len(cfg.Channels) == 0 {

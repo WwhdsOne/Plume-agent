@@ -21,6 +21,8 @@ plume config show                 # 脱敏查看配置
 
 模型级 `reasoning_effort` 省略时默认偏好 `high`，`none` 关闭思考，setup 不增加问题。支持范围由端点和模型能力共同验证，未验证服务不会自动发送 high 参数；`plume config show` 显示来源与实际生效状态。四阶段文案可在 `tui.status_messages` 中自定义，详见 [流式契约](docs/tui-streaming.md)。
 
+底部状态栏支持配置字段顺序、显隐、两行布局与窄屏优先级，默认项完整写入 `tui.status_line`，详见 [状态栏契约](docs/tui-statusline.md)（G1b.4 实现待审核）。优先单行并使用亮青/浅青配色，最左默认 `Provider: deepseek`。上下文默认 `ctx: x.x% used/capacity`，context_format:bar 可用进度条；官方 DeepSeek 两模型容量默认 1M，新会话为 `ctx: 0.0% 0/1M`。缓存默认 `cache [░░░░░░░░░░]0.0% 0/0`，末尾为命中量/对应总输入；默认会话累计，cache_scope:last_call 可选最近调用，cache_bar 的条宽/样式可配置。其他模型容量或请求统计缺失显示明确原因；Git/uv 和会话时长来自实际数据。
+
 模型传输用 [OpenAI 官方 Go SDK](https://github.com/openai/openai-go)（自动重试/重定向已显式禁用），DeepSeek 与自定义 OpenAI 兼容服务同走 Chat Completions 适配器；Anthropic/Gemini 等协议未来以新增适配器接入同一接口。配置里永不出现密钥值——`config.json` 只存引用，密钥在 `~/.plume/credentials/`（0700/0600）。
 
 ## 架构
@@ -39,7 +41,7 @@ TUI → app（会话/run）→ agent（循环/预算）→ 模型接口 / 受控
 | `internal/provider/` | 供应商预设、模型工厂、显式 probe |
 | `internal/model/` | 自有模型契约、endpoint 安全、协议适配器（openai/deepseek/fake） |
 | `internal/tui/` | 聊天界面（Bubble Tea；不发送 HTTP、不执行工具） |
-| `internal/app/` | 会话与 run 生命周期（串行、取消、事件） |
+| `internal/app/` | 会话与 run 生命周期、用量快照去重累计、Git/uv 异步环境采集 |
 | `internal/agent/` | 模型—工具循环（工具在 G3） |
 | `internal/telemetry/` | 脱敏 JSON Lines trace（setup/模型/run/UI 首答案） |
 | `internal/eval/` | 离线种子数据集与运行器 |

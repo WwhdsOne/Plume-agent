@@ -178,7 +178,7 @@ func (s *eventStream) Next(ctx context.Context) bool {
 }
 
 func (s *eventStream) normalize(chunk openai.ChatCompletionChunk) error {
-	usage, err := validateResponse(chunk.RawJSON(), true)
+	usage, err := validateResponse(chunk.RawJSON(), true, s.adapter.deepseek)
 	if err != nil {
 		return err
 	}
@@ -233,7 +233,7 @@ func (s *eventStream) normalize(chunk openai.ChatCompletionChunk) error {
 			s.queue = append(s.queue, model.Event{Kind: model.EventModelDone, FinishReason: decodeFinishReason(c.FinishReason)})
 		}
 	}
-	if usage.OK {
+	if usage.OK || usage.CachedPromptTokens != nil {
 		s.queue = append(s.queue, model.Event{Kind: model.EventUsageUpdate, Usage: usage})
 	}
 	return nil

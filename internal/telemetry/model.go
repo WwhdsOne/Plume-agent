@@ -20,7 +20,8 @@ const (
 )
 
 // ModelRecorder 记录模型调用的脱敏 trace（JSON Lines）。它的方法刻意
-// 不接受密钥参数；usage 以 usage_known 布尔表达缺失，绝不把 unknown 当 0。
+// 不接受密钥参数；主要 usage 以 usage_known 表达缺失，缓存以 null 表达未知，
+// 绝不把 unknown 当 0。
 // run/message 关联 ID 由应用层（G1b.2）补充，本记录器只负责单次调用 span。
 type ModelRecorder struct {
 	logger *zap.Logger
@@ -79,11 +80,16 @@ type ModelSpan struct {
 func (s *ModelSpan) End(resp *model.ChatResponse, err error) {
 	s.once.Do(func() {
 		duration := time.Since(s.start).Milliseconds()
+		cached := zap.Any("cached_prompt_tokens", nil)
+		if resp != nil && resp.Usage.CachedPromptTokens != nil {
+			cached = zap.Int64("cached_prompt_tokens", *resp.Usage.CachedPromptTokens)
+		}
 		fields := []zap.Field{
 			zap.String("model_call_id", s.callID),
 			zap.Int64("duration_ms", duration),
 			optionalMillis("first_reasoning_ms", s.firstReasoning), optionalMillis("first_answer_ms", s.firstAnswer),
 			zap.Int("reasoning_bytes", s.reasoningBytes), zap.Int("answer_bytes", s.answerBytes),
+			cached,
 		}
 		if resp != nil {
 			fields = append(fields, zap.String("finish_reason", string(resp.FinishReason)), zap.Bool("usage_known", resp.Usage.OK))

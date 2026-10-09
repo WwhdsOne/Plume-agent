@@ -1,0 +1,30 @@
+[?2026$p[?2027$p[>4m[?1049h[?5W[?2004h[?1002h[?1006h[>4;2m[>1u[?u]12;#c0c0c0[1 q[H[2J│[29X[1;31H⣠⡞ ⠁⡀  │[39X[78G│
+│[28X[2;30H⣾⡿⠃⣠⡞   │ Tips for getting started[13X[77G │
+│[23X[3;25H⢀⣠⣴⠂⢸⠟⠁ ⠁    │[39X[78G│
+│[19X[4;21H⣀⣤⣴⣾⣿⣿⡟ ⢀⣠⣴⡟     │ Enter / Esc     Send / cancel         │
+│[15X[5;17H⢀⣤⣶⣿⣿⣿⣿⣿⣿⡿⠁⢠⡿⠟⠉      │ Shift+Enter     Newline[15X[78G│
+│            ⢀⡀⣰⣿⣿⣿⣿⣿⣿⣿⣿⠟⠁ ⢁⣠        │ Option+Enter    Newline[15X[78G│
+│          ⢀⣴⣿⢠⣿⣿⣿⣿⣿⣿⣿⠟⢁⣠⣴⣾⣿⠃        │ \+Enter         Newline fallback      │
+│         ⣴⣿⣿⣧⣿⣿⣿⣿⡿⠟⣉⣤⣾⣿⣿⣿⡿⠃         │ Up / Down       Input history         │
+│       ⢀⣾⣿⣿⣿⣿⣿⣿⠟⣉⣴⣾⣿⣿⣿⣿⣿⠟⠁          │ PgUp / PgDn     Scroll chat           │
+│      ⢀⣾⣿⣿⣿⣿⡿⢋⣤⣾⣿⣿⣿⠿⠛⢋⠁[13X[10;38H│ Ctrl+L / Ctrl+N Clear / new session   │
+│      ⣼⣿⣿⣿⠟⢋⣴⣿⣿⣿⣿⣷⣾⣿⡿⠋[14X[11;38H│ Ctrl+C twice    Quit on empty input   │
+│      ⣿⣿⡿⢃⣴⣿⣿⣿⣿⣿⣿⣿⠟⠉[16X[12;38H│ Ctrl+D          Quit on empty input   │
+│     ⢸⣿⠋⣴⣿⣿⣿⣿⠿⠟⠛⠉[19X[13;38H│[39X[78G│
+│     ⠈⣡⣾⣿⠿⠛⠉[24X[14;38H│ ────────────────────────              │
+│     ⣴⣿⠟⠁[27X[15;38H│[39X[78G│
+│   ⢀⣾⡟⠁[29X[16;38H│ deepseek/deepseek-flash[14X[77G │
+│  ⢠⣿⡟[31X[17;38H│ /private/var/folders/zm/yjlbch017pb6… │
+│  ⠛⠉[32X[18;38H│[39X[78G│
+╰────────────────────────────────────────────────────────────────────────────╯
+
+────────────────────────────────────────────────────────────────────────────────
+┃  1 Say something… (Enter to send, Shift+Enter or \ for newline)[K
+────────────────────────────────────────────────────────────────────────────────[?7l
+[K[1m缓存(last):[munknown / [1m容量:[m[-----] 0% / [1m模型:deepseek-flash[m / [1m累计:[m0[?7h[24;68H[22;6H[?25h[?25lG1B4_PTY_PR[K[?7l
+
+[K[1m缓存(last):[munknown / [1m容量:[m[-----] 0% / [1m模型:deepseek-flash[m / [1m累计:[m0             [?7h[24;80H[22;17H[?25h[?25l[1;19r[19;1H[2S[1;24r[?7l[18;1H[K  > G1B4_PTY_PROMPT：展示状态栏                                                 [?7h[18;80H[?7l
+[K  ● 本地状态栏验收回答。                                                        [?7h[19;80H[22;6HSay something… (Enter to send, Shift+Enter or \ for newline)[?7l
+
+[K[1m缓存(last):[munknown / [1m容量:[musage unknown / [1m模型:deepseek-flash[m / [1m累计:[munknown    [?7h[24;80H[22;6H[?25h[?25l[?7l[4A[K  > G1B4_PTY_PROMPT：展示状态栏                                                 [?7h[18;80H[?7l
+[K  ● 本地状态栏验收回答。                                                        [?7h[19;80H[?7l[5B[K[1m缓存(last):[m8 (40%) / [1m容量(last):[m[#----] 20% / [1m模型:deepseek-flash[m / [1m累计:[m25     [?7h[24;80H[22;6H[?25h

@@ -12,13 +12,24 @@ import (
 // 键位提示与真实信息；是聊天记录区的初始内容（随记录滚动），只渲染一次，
 // 不伪造信息。
 
-// plumeWordmark 是 PLUME-AGENT 的像素块字（5 行 × 65 列，█ 为实块）。
+// plumeWordmark 按参考图使用实心笔画与双线阴影：6 行 × 94 列。
 var plumeWordmark = [...]string{
-	"████. █.... █...█ █...█ █████ ..... .███. .████ █████ █...█ █████",
-	"█...█ █.... █...█ ██.██ █.... ..... █...█ █.... █.... ██..█ ..█..",
-	"████. █.... █...█ █.█.█ ████. .███. █████ █..██ ████. ███.█ ..█..",
-	"█.... █.... █...█ █...█ █.... ..... █...█ █...█ █.... █..██ ..█..",
-	"█.... █████ .███. █...█ █████ ..... █...█ .███. █████ █...█ ..█..",
+	"██████╗ ██╗     ██╗   ██╗███╗   ███╗███████╗       █████╗  ██████╗ ███████╗███╗   ██╗████████╗",
+	"██╔══██╗██║     ██║   ██║████╗ ████║██╔════╝      ██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝",
+	"██████╔╝██║     ██║   ██║██╔████╔██║█████╗  █████╗███████║██║  ███╗█████╗  ██╔██╗ ██║   ██║   ",
+	"██╔═══╝ ██║     ██║   ██║██║╚██╔╝██║██╔══╝  ╚════╝██╔══██║██║   ██║██╔══╝  ██║╚██╗██║   ██║   ",
+	"██║     ███████╗╚██████╔╝██║ ╚═╝ ██║███████╗      ██║  ██║╚██████╔╝███████╗██║ ╚████║   ██║   ",
+	"╚═╝     ╚══════╝ ╚═════╝ ╚═╝     ╚═╝╚══════╝      ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝   ",
+}
+
+// 紧凑版保留相同轮廓，80–93 列窗口使用 6 行 × 71 列字形。
+var plumeWordmarkCompact = [...]string{
+	"████╗ █╗    █╗  █╗██╗  ██╗█████╗      ███╗  ████╗ █████╗██╗  █╗███████╗",
+	"█╔══█╗█║    █║  █║███╗███║█╔═══╝     █╔══█╗█╔═══╝ █╔═══╝███╗ █║╚══█╔══╝",
+	"████╔╝█║    █║  █║█╔███╔█║████╗ ████╗█████║█║ ███╗████╗ █╔██╗█║   █║   ",
+	"█╔══╝ █║    █║  █║█║╚█╔╝█║█╔══╝ ╚═══╝█╔══█║█║   █║█╔══╝ █║╚███║   █║   ",
+	"█║    █████╗╚███╔╝█║ ╚╝ █║█████╗     █║  █║╚████╔╝█████╗█║ ╚██║   █║   ",
+	"╚╝    ╚════╝ ╚══╝ ╚╝    ╚╝╚════╝     ╚╝  ╚╝ ╚═══╝ ╚════╝╚╝  ╚═╝   ╚╝   ",
 }
 
 // featherBraille 从参考图等比例采样为 64×80 点位，以每字符 2×4 点
@@ -48,8 +59,8 @@ var featherBraille = [...]string{
 }
 
 // 布局常量：splashBoxMinWidth 同时容纳 32 列羽毛与最长 35 列提示，
-// 低于此值竖排降级。开屏总高 = 像素字 5 + 方框(羽毛 20+2) = 27 行，
-// 100×30 终端的记录区（28 行）恰好容纳；更矮终端靠滚动（用户要求加大画幅）。
+// 低于此值竖排降级。开屏总高 = 标题 6 + 方框(羽毛 20+2) = 28 行，
+// 记录区不足时靠滚动，标题与羽毛原始行不折行。
 const (
 	splashBoxMinWidth = 80
 	splashBoxMaxWidth = 88 // 方框宽度上限
@@ -78,6 +89,7 @@ const (
 var (
 	styleSplashBorder = lipgloss.NewStyle().Foreground(themePrimary)
 	styleSplashWord   = lipgloss.NewStyle().Foreground(themePrimary)
+	styleSplashShadow = lipgloss.NewStyle().Foreground(themeDark)
 	styleSplashHead   = lipgloss.NewStyle().Foreground(themeLight)
 	styleSplashLabel  = lipgloss.NewStyle().Foreground(themeLight)
 	styleSplashHint   = lipgloss.NewStyle().Foreground(colorMuted)
@@ -107,14 +119,14 @@ func buildBoxedSplash(width int, s Splash) []chatLine {
 	rightW := inner - featherWidth - 2*featherPadding - 3
 
 	var lines []chatLine
-	// 方框上方的像素字标题，居中对齐方框宽度。
-	for _, row := range plumeWordmark {
-		text := strings.ReplaceAll(row, ".", " ")
-		if pad := (boxW - lipgloss.Width(text)) / 2; pad > 0 {
-			text = strings.Repeat(" ", pad) + text
-		}
+	// 沿用左对齐；按可见列宽选择完整或紧凑字形，避免截断标题。
+	wordmark := plumeWordmark
+	if lipgloss.Width(wordmark[0]) > width {
+		wordmark = plumeWordmarkCompact
+	}
+	for _, row := range wordmark {
 		lines = append(lines, chatLine{kind: lineSplash, role: splashRawRole,
-			text: styleSplashWord.Render(text)})
+			text: renderWordmarkRow(row)})
 	}
 
 	// 右栏单元格按可见列宽补齐，提示内的快捷键与说明分别染色。
@@ -165,6 +177,22 @@ func buildBoxedSplash(width int, s Splash) []chatLine {
 	lines = append(lines, chatLine{kind: lineSplash, role: splashRawRole,
 		text: styleSplashBorder.Render("╰" + strings.Repeat("─", inner) + "╯")})
 	return lines
+}
+
+// 标题主体与双线阴影分别着色，空白保留，不增加背景或终端列宽。
+func renderWordmarkRow(row string) string {
+	var b strings.Builder
+	for _, glyph := range row {
+		switch glyph {
+		case ' ':
+			b.WriteRune(glyph)
+		case '█':
+			b.WriteString(styleSplashWord.Render(string(glyph)))
+		default:
+			b.WriteString(styleSplashShadow.Render(string(glyph)))
+		}
+	}
+	return b.String()
 }
 
 // buildPlainSplash 是窄端降级：羽毛 + 折行信息/提示，极窄端仅保留小标题与文本。

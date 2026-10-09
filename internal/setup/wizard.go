@@ -225,6 +225,11 @@ func (w *Wizard) runModel(existing *config.Config) (*Result, error) {
 		effort := *prev.ReasoningEffort
 		model.ReasoningEffort = &effort
 	}
+	// 展示容量只适用于相同端点与模型，不在换模型时继承旧容量。
+	if prev != nil && prev.Provider == preset.ID && prev.Protocol == preset.Protocol && prev.BaseURL == baseURL && prev.Model == modelName && prev.ContextWindowTokens != nil {
+		tokens := *prev.ContextWindowTokens
+		model.ContextWindowTokens = &tokens
+	}
 	cfg := &config.Config{
 		SchemaVersion: config.SchemaVersion,
 		DefaultModel:  model.ID,
@@ -234,6 +239,11 @@ func (w *Wizard) runModel(existing *config.Config) (*Result, error) {
 		cfg.TUI = &config.TUIConfig{StatusMessages: make(map[string][]string)}
 		for phase, messages := range existing.TUI.StatusMessages {
 			cfg.TUI.StatusMessages[phase] = append([]string(nil), messages...)
+		}
+		if existing.TUI.StatusLine != nil {
+			line := *existing.TUI.StatusLine
+			line.Items = append([]config.StatusItemConfig{}, line.Items...)
+			cfg.TUI.StatusLine = &line
 		}
 	}
 	// 保留已有渠道，但把它们重新指向新的默认模型。

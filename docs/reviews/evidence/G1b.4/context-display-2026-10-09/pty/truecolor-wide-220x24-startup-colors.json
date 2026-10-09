@@ -1,0 +1,64 @@
+{
+  "source": "pyte visible footer cells",
+  "colors": [
+    "3a9ea3",
+    "5bc8c8",
+    "7dd3d8",
+    "brightbrown"
+  ],
+  "samples": [
+    {
+      "text": "ctx:",
+      "row": 23,
+      "column": 47,
+      "foregrounds": [
+        "5bc8c8",
+        "5bc8c8",
+        "5bc8c8",
+        "5bc8c8"
+      ]
+    },
+    {
+      "text": "cache:",
+      "row": 23,
+      "column": 65,
+      "foregrounds": [
+        "5bc8c8",
+        "5bc8c8",
+        "5bc8c8",
+        "5bc8c8",
+        "5bc8c8",
+        "5bc8c8"
+      ]
+    },
+    {
+      "text": "0.0% 0/100",
+      "row": 23,
+      "column": 52,
+      "foregrounds": [
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8",
+        "7dd3d8"
+      ]
+    },
+    {
+      "text": "0%",
+      "row": 23,
+      "column": 72,
+      "foregrounds": [
+        "7dd3d8",
+        "7dd3d8"
+      ]
+    }
+  ],
+  "color_names": {
+    "brightbrown": "ANSI 93 bright yellow"
+  }
+}

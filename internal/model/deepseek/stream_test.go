@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"plume-agent/internal/model"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -22,7 +23,7 @@ func TestGenerateStreamReasoningAnswerUsageAgree(t *testing.T) {
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				var req map[string]any
 				_ = json.NewDecoder(r.Body).Decode(&req)
-				usage := map[string]any{"prompt_tokens": 2, "completion_tokens": 5, "total_tokens": 7}
+				usage := map[string]any{"prompt_tokens": 2, "completion_tokens": 5, "total_tokens": 7, "prompt_cache_hit_tokens": 1}
 				if req["stream"] == true {
 					w.Header().Set("Content-Type", "text/event-stream")
 					frame := func(delta map[string]any, finish any) {
@@ -65,8 +66,11 @@ func TestGenerateStreamReasoningAnswerUsageAgree(t *testing.T) {
 					finish = e.FinishReason
 				}
 			}
-			if s.Err() != nil || answer != generated.Message.Content || thought != generated.Message.Reasoning || usage != generated.Usage || finish != generated.FinishReason {
+			if s.Err() != nil || answer != generated.Message.Content || thought != generated.Message.Reasoning || !reflect.DeepEqual(usage, generated.Usage) || finish != generated.FinishReason {
 				t.Fatalf("stream answer=%q thought=%q usage=%+v finish=%q err=%v generate=%+v", answer, thought, usage, finish, s.Err(), generated)
+			}
+			if usage.CachedPromptTokens == nil || *usage.CachedPromptTokens != 1 || usage.PromptTokens != 2 || usage.TotalTokens != 7 {
+				t.Fatalf("cache usage was omitted or double counted: %+v", usage)
 			}
 		})
 	}

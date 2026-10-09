@@ -1,0 +1,16 @@
+   ⣴⣿⠟⠁                                 
+ ⢀⣾⡟⠁                                   
+⢠⣿⡟                                     
+⠛⠉                                      
+plume-agent v0.1.0 (e118207-dirty) ·    
+deepseek/deepseek-flash                 
+Enter send · Shift+Enter or \+Enter     
+newline · Esc cancel · double Ctrl+C    
+quit · Ctrl+N new session               
+  > G1B4_PTY_PROMPT：展示状态栏         
+  ● 本地状态栏验收回答。                
+                                        
+────────────────────────────────────────
+┃  1 Say something… (Enter to send,     
+────────────────────────────────────────
+c:capacity unknown │ ca(last):unknown   

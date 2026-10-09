@@ -22,6 +22,7 @@ const (
 	EventRunPhase       EventKind = "run_phase"
 	EventTextDelta      EventKind = "text_delta"
 	EventReasoningDelta EventKind = "reasoning_delta"
+	EventUsageUpdate    EventKind = "usage_update"
 )
 
 type Phase string
@@ -51,6 +52,7 @@ type Event struct {
 	FirstReasoning time.Duration
 	FirstAnswer    time.Duration
 	AcceptedAt     time.Time
+	Stats          SessionStats
 }
 
 // ErrBusy 表示当前已有 run 在执行。首版同会话串行：再次发送被明确拒绝，
@@ -150,11 +152,19 @@ func (s *Service) Submit(ctx context.Context, input string) (string, error) {
 			callingAt = time.Now()
 			preparation = callingAt.Sub(accepted)
 			phase = PhaseWaiting
-			s.emit(Event{Kind: EventRunPhase, RunID: runID, Phase: phase}, runCtx)
+			s.session.ObserveUsage(runID+"/model-1", model.Usage{})
+			s.emit(Event{Kind: EventRunPhase, RunID: runID, Phase: phase, Stats: s.session.Statistics()}, runCtx)
 		}, func(e model.Event) error {
 			next := phase
 			ev := Event{RunID: runID}
 			switch e.Kind {
+			case model.EventUsageUpdate:
+				s.session.ObserveUsage(runID+"/model-1", e.Usage)
+				returnStatus := s.emit(Event{Kind: EventUsageUpdate, RunID: runID, Usage: e.Usage, Stats: s.session.Statistics()}, runCtx)
+				if !returnStatus {
+					return runCtx.Err()
+				}
+				return nil
 			case model.EventReasoningDelta:
 				if e.ReasoningDelta == "" {
 					return nil
@@ -216,7 +226,10 @@ func (s *Service) finish(ctx context.Context, runID string, result *agent.RunRes
 		ev.Reasoning = result.Message.Reasoning
 		ev.FinishReason = result.FinishReason
 		ev.Usage = result.Usage
+		// finish 与 usage_update 是同一个模型调用，按 ID 替换而不累加。
+		s.session.observeUsage(runID+"/model-1", result.Usage, true)
 	}
+	ev.Stats = s.session.Statistics()
 	if s.recorder != nil {
 		s.recorder.RunEnd(runID, telemetry.RunMetrics{Duration: total, Preparation: preparation, FirstReasoning: firstReasoning, FirstAnswer: firstAnswer, ReasoningBytes: len(ev.Reasoning), AnswerBytes: len(ev.Reply)}, err)
 	}

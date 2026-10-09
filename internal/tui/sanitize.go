@@ -8,7 +8,7 @@ import "regexp"
 var (
 	ansiCSI        = regexp.MustCompile(`(?:\x1b\[|\x{009b})[0-?]*[ -/]*[@-~]`)
 	ansiPartialCSI = regexp.MustCompile(`(?:\x1b\[|\x{009b})[0-?]*[ -/]*$`)
-	ansiOSC        = regexp.MustCompile(`\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)?`)
+	ansiOSC        = regexp.MustCompile(`\x1b][^\x07\x1b]*(?:\x07|\x1b\\)?`)
 	ansiString     = regexp.MustCompile(`(?s)\x1b[P_X^].*?(?:\x1b\\|$)`)
 	ansiEsc        = regexp.MustCompile(`\x1b[@-_]`)
 	c0Ctrl         = regexp.MustCompile(`[\x00-\x08\x0b-\x1f\x7f-\x{009f}]`)

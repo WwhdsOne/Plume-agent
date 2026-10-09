@@ -89,7 +89,7 @@ func TestReviewFirstAnswerSkipsVisibleBlankMarkdownRow(t *testing.T) {
 func TestReviewThoughtCollapseKeepsReaderFrozenUntilManualBottom(t *testing.T) {
 	m, now := streamModel(t)
 	m.Update(tea.WindowSizeMsg{Width: 40, Height: 10})
-	for i := 0; i < 30; i++ {
+	for range 30 {
 		m.appendLine(lineSystem, "older")
 	}
 	send(m, app.Event{RunID: "r1", Kind: app.EventReasoningDelta, ReasoningDelta: strings.Repeat("reason\n", 20)})

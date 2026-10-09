@@ -109,9 +109,7 @@ func (f *LoopFake) Generate(_ context.Context, req ChatRequest) (*ChatResponse, 
 	out := *resp
 	out.Message = Message{Role: RoleAssistant, Content: OfflineReply}
 	out.FinishReason = FinishStop
-	if out.Usage.OK {
-		out.Usage = Usage{OK: true, PromptTokens: 1, CompletionTokens: 1, TotalTokens: 2}
-	}
+	// 用量是脚本提供的快照；固定回复不能重新推算或覆盖其缓存字段。
 	return &out, nil
 }
 
@@ -125,7 +123,13 @@ func (f *LoopFake) Stream(ctx context.Context, req ChatRequest) (EventStream, er
 	f.calls = append(f.calls, req)
 	script := f.script
 	if script.Stream == nil && (script.Response == nil || (script.Response.Message.Content == "" && script.Response.Message.Reasoning == "")) {
-		script.Response = &ChatResponse{Message: Message{Role: RoleAssistant, Content: OfflineReply}, FinishReason: FinishStop}
+		response := ChatResponse{}
+		if script.Response != nil {
+			response = *script.Response
+		}
+		response.Message = Message{Role: RoleAssistant, Content: OfflineReply}
+		response.FinishReason = FinishStop
+		script.Response = &response
 	}
 	return newFakeStream(ctx, script)
 }
@@ -181,7 +185,7 @@ func newFakeStream(ctx context.Context, script FakeScript) (EventStream, error) 
 		}
 		appendText(EventReasoningDelta, r.Message.Reasoning)
 		appendText(EventTextDelta, r.Message.Content)
-		if r.Usage.OK {
+		if r.Usage.OK || r.Usage.CachedPromptTokens != nil {
 			steps = append(steps, FakeStep{Event: Event{Kind: EventUsageUpdate, Usage: r.Usage}})
 		}
 		finish := r.FinishReason

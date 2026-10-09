@@ -1,0 +1,16 @@
+e                                       
+w                                       
+s                                       
+e                                       
+s                                       
+s                                       
+i                                       
+o                                       
+n                                       
+  > G1B4_PTY_PROMPT：展示状态栏         
+  ● 本地状态栏验收回答。                
+                                        
+────────────────────────────────────────
+┃  1 Say something… (Enter to send,     
+────────────────────────────────────────
+c:capacity unknown │ ca(last):unknown   

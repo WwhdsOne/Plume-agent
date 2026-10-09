@@ -120,7 +120,7 @@ func TestRoleAlignmentAndGraphemeWrapping(t *testing.T) {
 func TestMarkdownCompactReadableFallbacks(t *testing.T) {
 	for _, raw := range []string{"**unfinished", "<div>HTML</div>", "$x^2$", "| a | very-long-cell-preserved |\n|---|---|\n| x | contents |"} {
 		v := ansi.Strip(renderMarkdown(raw, 18))
-		for _, token := range strings.Fields(raw) {
+		for token := range strings.FieldsSeq(raw) {
 			if !strings.Contains(strings.ReplaceAll(v, "\n", ""), token) {
 				t.Fatalf("fallback lost %q: %q", token, v)
 			}
@@ -167,7 +167,7 @@ func TestRefreshThrottleAndCompletedCache(t *testing.T) {
 
 func TestScrollFreezeAndResizePreservePosition(t *testing.T) {
 	m, now := streamModel(t)
-	for i := 0; i < 30; i++ {
+	for range 30 {
 		m.appendLine(lineSystem, "older line")
 	}
 	m.Update(specialKey(tea.KeyPgUp))
@@ -272,11 +272,23 @@ func TestSanitizeIncompleteAndExtendedSequences(t *testing.T) {
 
 func TestFooterPreservesRunIDAndNarrowElapsed(t *testing.T) {
 	m, now := streamModel(t)
+	// 新契约默认隐藏 run ID；开启后仍应保持正确关联。
+	for i := range m.options.StatusLine.Items {
+		if m.options.StatusLine.Items[i].ID == "phase" {
+			m.options.StatusLine.Items[i].Priority = 98
+		}
+		if m.options.StatusLine.Items[i].ID == "run_id" {
+			m.options.StatusLine.Items[i].Enabled = true
+			m.options.StatusLine.Items[i].Row = 1
+			m.options.StatusLine.Items[i].Priority = 99
+		}
+	}
 	*now = now.Add(1234 * time.Millisecond)
 	if !strings.Contains(ansi.Strip(m.statusBar()), "r1") {
 		t.Fatal("footer lost run ID")
 	}
-	m.width = 18
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 18, Height: m.height})
+	*m = updated
 	v := ansi.Strip(m.statusBar())
 	if !strings.Contains(v, "1.234s") || ansi.StringWidth(v) > 18 {
 		t.Fatalf("narrow footer = %q", v)
@@ -320,7 +332,7 @@ func TestThoughtPreviewUsesVisibleWrappedRows(t *testing.T) {
 func TestMarkdownTableAlwaysLeftAlignedAndKeepsWideCells(t *testing.T) {
 	raw := "| name | values |\n| :---: | ---: |\n| x | y |\n| longname | z |"
 	v := ansi.Strip(renderMarkdown(raw, 50))
-	for _, line := range strings.Split(v, "\n") {
+	for line := range strings.SplitSeq(v, "\n") {
 		if strings.Contains(line, "x") && strings.Contains(line, "y") && strings.HasPrefix(line, " ") {
 			t.Fatalf("center/right table cell = %q", line)
 		}

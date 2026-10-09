@@ -5,9 +5,10 @@ import (
 	"strings"
 	"time"
 
+	"plume-agent/internal/app"
+
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
-	"plume-agent/internal/app"
 )
 
 type streamTick time.Time
@@ -83,7 +84,7 @@ func thoughtPreview(raw string, width int) []string {
 	text := sanitize(raw)
 	// 最后三个自然段至少占三个可见行，之前的段无需分配折行结果。
 	start := len(text)
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		index := strings.LastIndexByte(text[:start], '\n')
 		if index < 0 {
 			start = 0
