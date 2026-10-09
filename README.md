@@ -1,6 +1,6 @@
 # plume-agent
 
-用 Go 构建的个人 Agent：终端输入 `plume` 直接进入聊天 TUI（模仿 [Hermes](https://github.com/NousResearch/hermes-agent) 的零参数体验）。当前实现多轮流式聊天、Markdown、独立思考、可配置状态栏与 read/grep/glob/edit/write/bash 工具循环（G3/G3.1 于 2026-10-09 审核通过）。微信 iLink Bot、飞书、QQ 属于后续渠道扩展。
+用 Go 构建的个人 Agent：终端输入 `plume`，首次没有配置时自动进入 setup，配置就绪后直接进入聊天 TUI（模仿 [Hermes](https://github.com/NousResearch/hermes-agent) 的零参数体验）。当前实现多轮流式聊天、Markdown、独立思考、可配置状态栏与 read/grep/glob/edit/write/bash 工具循环（G3/G3.1 于 2026-10-09 审核通过）。微信 iLink Bot、飞书、QQ 属于后续渠道扩展。
 
 项目按审核单元推进（G0 → G1a → G1b.1 → G1b.2 → …），单元边界、审核记录与指标协议见 [`docs/`](docs/)。
 
@@ -10,12 +10,14 @@
 go build ./...                     # Go 1.27.1
 ./scripts/build.sh                 # 构建带版本信息的 ./plume
 
-plume setup                       # 首次设置：供应商/模型/Key（渠道可选"暂不接入"）
-plume                             # 配置就绪 + TTY：直接进入聊天 TUI
+plume                             # 交互终端首次自动 setup；配置就绪后进入聊天 TUI
+plume setup                       # 再次设置：供应商/模型/Key（渠道可选"暂不接入"）
 plume chat --offline              # 脚本化 fake 演示：无配置/无 Key/不联网
 plume chat --model <配置ID>        # 显式指定 config.json 里的模型配置
 plume config show                 # 脱敏查看配置
 ```
+
+setup 正常结束后返回终端，并打印开始聊天、再次设置和查看配置的命令提示；输入 `plume setup` 可随时重新配置。缺配置的非交互调用只显示帮助与提示，不启动向导。
 
 聊天键位：`Enter` 发送；`Shift+Enter`、`Alt/Option+Enter` 或行尾 `\`+`Enter` 换行；`PgUp/PgDn` 滚动；`Esc` 取消；`Ctrl+C` 运行中取消、空闲有草稿时清空、空草稿时两次退出；`Ctrl+D` 空输入退出；`Ctrl+L` 清屏；`Ctrl+N` 新会话；`Ctrl+O` 展开/收起思考。
 

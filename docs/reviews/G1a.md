@@ -1,7 +1,7 @@
 ---
 title: G1a 审核记录：首次设置向导与配置边界
 status: passed
-updated: 2026-10-07
+updated: 2026-10-09
 summary: G1a 已通过（2026-10-06）：配置、凭据、向导、setup trace 的交付与验证证据
 ---
 
@@ -121,3 +121,9 @@ setup_start → select_provider → resolve_base_url(source=preset_default) → 
 ## 6. 下一步
 
 后续路线更新为 G1b.1：非流式模型请求（OpenAI 官方 SDK）、自有模型接口、trace 与 12 个离线种子；之后分别审核 G1b.2 TUI、G1b.3 流式、G3 工具循环。详见 `docs/plans/phase-01-tui.md`。这次变更不重新审核或重测已通过的 G1a。
+
+## 2026-10-09 首启自动设置与完成后命令提示
+
+按用户要求，无配置且 stdin/stdout 都为终端时，裸 plume 自动进入 setup；非 TTY 保留帮助与设置提示。设置完成后返回 shell，显示开始聊天 plume、重新设置 plume setup、查看配置 plume config show 三条提示。模型阶段取消不显示成功提示；模型已保存而跳过/取消渠道时仍显示总结及命令，不自动发起聊天。
+
+修复前安装版真实 PTY 首启只显示帮助并退出；修复后首启、再次显式 setup、模型取消、渠道取消和 stdout 重定向五条路径均通过。CLI/setup 45 项竞态测试、定向 vet、格式与 diff 检查通过。验收只用临时 PLUME_HOME 和测试凭据，无真实模型调用；真实配置保持不变。已从原目录安装 /Users/go/bin/plume，built 2026-10-09T13:16:00Z、b36ba6f-dirty。本次属于入口小修，不新增审核单元或提交推送。

@@ -36,7 +36,13 @@ func newRootCmd() *cobra.Command {
 			cfg, err := config.Load()
 			switch {
 			case errors.Is(err, os.ErrNotExist):
-				// 还没配置过：给用法和向导提示。
+				// 首次交互启动直接进入向导；非终端入口只给用法和提示。
+				if inFile, ok := cmd.InOrStdin().(*os.File); ok && isTerminal(inFile) {
+					if outFile, ok := out.(*os.File); ok && isTerminal(outFile) {
+						fmt.Fprintln(out, "No configuration found. Starting setup...")
+						return runSetup(inFile, outFile, cmd.ErrOrStderr())
+					}
+				}
 				if herr := cmd.Help(); herr != nil {
 					return herr
 				}

@@ -230,7 +230,7 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 - **聊天 TUI（G1b.2.1 起）用 v2 栈**：`charm.land/bubbletea/v2` + `bubbles/v2` + `lipgloss/v2`，huh 同走 v2，不留 v1/v2 双栈。**键位、开屏、流式、状态栏的行为契约分别见 `docs/specs/tui/{keys,splash,streaming,statusline}.md`，本文件不重复细节。** 以下架构边界另行守住：`internal/tui` 的 Model/Update 是纯状态转移，副作用只经 `Hooks` 注入；`TeaModel` 是到 tea.Model 的适配层（指针接收者，`tea.NewProgram(&tui.TeaModel{...})`；v2 的 alt screen 与鼠标模式在 `tea.View` 上声明，没有 `WithAltScreen` 选项）；Update/View 不出现键名硬编码与平台分支（经 `internal/tui/keys.go` 的 KeyMap）；模型输出经 `sanitize` 过滤终端控制序列；普通日志/trace 写文件，不破坏屏幕。
 - **主题与配色**：雾青三色 token（主 `#5BC8C8` / 浅 `#7DD3D8` / 深 `#3A9EA3`）集中在 `internal/tui/theme.go`，**其他文件不得出现裸色值**；错误红/提示黄/中性灰是语义色，不占用主题色。
 - **配置与展示文案**：`tui.status_messages`（四阶段文案）、模型级 `reasoning_effort`（默认偏好 high、`none` 关闭、setup 不询问、未验证端点不盲发显式强度）、`tui.status_line`（状态栏字段与上下文/缓存统计）的字段语义见 [`docs/specs/config.md`](docs/specs/config.md) 与 `docs/specs/tui/{streaming,statusline}.md`；状态栏 context 项默认 `enabled:false` 隐藏 ctx，可设 `enabled:true` 恢复，缓存口径与用量采集不变。`config show` 显示来源与 requested/effective/capability，不联网探测。
-- 裸 `plume` 配置就绪+TTY 直接进入聊天，缺配置提示 setup；`plume chat --offline` 不需要配置/Key。setup 支持「暂不接入渠道」，不伪造账号或要求扫码。以上入口行为已随 G1b.2 通过。
+- 裸 `plume` 配置就绪+TTY 直接进入聊天；缺配置且 stdin/stdout 都是 TTY 时自动进入 setup，结束后返回终端并提示 `plume`、`plume setup`、`plume config show`，不自动开启聊天。缺配置的非 TTY 调用只显示帮助与 setup 提示。`plume chat --offline` 不需要配置/Key；setup 支持「暂不接入渠道」，不伪造账号或要求扫码。
 - **向导流程与终端库分离**：`internal/setup` 只依赖 `Prompter` 接口，新增一步交互时先加接口方法，再在 `prompter.go` 实现，不要把 huh 的类型渗进 `internal/setup`。
 - **Base URL 不再逐次询问**（2026-10-06）：有预填默认值的预设直接跳过；只有无默认值的预设才问。已有配置里的地址与默认值不同时**原样保留**，不要"顺手"重置——`TestWizardPreservesExistingNonDefaultBaseURL` 守住这条。
 - **模型走列表选择**：模型 ID 来自 `provider.Preset.Models`，列表末尾附"自定义…"才落到文本输入。新增预设时把候选模型写进 `Models`。

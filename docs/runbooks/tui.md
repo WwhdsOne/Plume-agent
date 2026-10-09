@@ -12,12 +12,14 @@ G1b.2.1 起使用 v2 终端栈；G1b.3 流式与思考展示已通过审核；G1
 ## 启动方式
 
 ```bash
-plume                        # 配置就绪 + TTY：直接进入聊天（默认模型）
+plume                        # 交互终端无配置自动 setup；配置就绪后进入聊天（默认模型）
 plume chat                   # 显式入口，同上
 plume chat --model deepseek-default   # 指定 config.json 里的模型配置 ID
 plume chat --offline         # 脚本化 fake：无配置/无 Key/不联网
 plume setup                  # 首次设置；渠道步骤可选「暂不接入渠道」
 ```
+
+首次无配置时，裸 `plume` 仅在 stdin/stdout 都是 TTY 时自动进入 setup；设置正常结束后返回终端，并提示 `plume`、`plume setup`、`plume config show`。再次运行 `plume` 开始聊天，`plume setup` 可随时重新设置；无配置的非 TTY 调用只显示帮助与提示。
 
 隔离试验（不污染真实配置）：
 

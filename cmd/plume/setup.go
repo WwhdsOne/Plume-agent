@@ -115,7 +115,10 @@ func printSetupSummary(w io.Writer, result *setup.Result, tracePath string) {
 	if tracePath != "" {
 		fmt.Fprintf(w, "  trace:    %s\n", tracePath)
 	}
-	fmt.Fprintln(w, "\n查看当前配置: plume config show")
+	fmt.Fprintln(w, "\nNext steps:")
+	fmt.Fprintln(w, "  Start chatting: plume")
+	fmt.Fprintln(w, "  Run setup again: plume setup")
+	fmt.Fprintln(w, "  View configuration: plume config show")
 }
 
 // isTerminal 判断文件是不是真正的终端。
