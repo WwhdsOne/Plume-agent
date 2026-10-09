@@ -2,7 +2,7 @@
 title: 配置契约（schema v1）
 status: active
 updated: 2026-10-09
-summary: 配置目录解析、目录布局、原子持久化、凭据边界与 v1 字段总览；配置目录默认 ~/.plume
+summary: 配置目录解析、原子持久化、凭据边界与 v1 字段总览；含 soul.md 人格默认配置
 ---
 
 # 配置契约（schema v1）
@@ -20,6 +20,7 @@ summary: 配置目录解析、目录布局、原子持久化、凭据边界与 v
 ```text
 ~/.plume/
   config.json          # 含 schema_version，非敏感
+  soul.md              # setup 初始化的人格模板，0600；用户可编辑
   credentials/         # 0700，文件 0600
   logs/                # 0700；setup.jsonl 等结构化 trace，文件 0600
 ```
@@ -55,13 +56,14 @@ PLUME_HOME=$(mktemp -d) go run ./cmd/plume config show
 | `tui.status_line` | 底部状态栏：`items[]`、`row`、`priority`、`max_rows`、`separator`、`token_format`、`time_format`、`context_format`、`context_bar`、`cache_format`、`cache_scope`、`cache_bar`、`clock_refresh_ms`、`environment_refresh_ms`、`git_timeout_ms` |
 | `channels[]` | 渠道记录：`type`、`enabled`、`credential_ref`、`settings` |
 | `agent.budget` | 模型/工具次数、单响应工具数、请求/参数/结果字节与整体/单步超时；完整默认落盘，零次数/整体时长表示不限 |
+| `agent.soul` | enabled、path、max_bytes；默认开启、配置目录相对 soul.md、65536 字节；完整默认落盘 |
 | `tools` | workspace、enabled、read_lines、search_results、max_file_bytes、max_output_bytes、shell；允许空许可列表关闭工具 |
 
 易混点：`provider` 是品牌、`protocol` 是适配选择器、`model` 是发给供应商的 API 模型名——三者在 `internal/provider` 工厂里映射，配置 ID（`id`）不参与请求。
 
 字段语义的现行契约：模型与协议见 [模型运行时决策](../decisions/0003-model-runtime.md)；状态栏与上下文/缓存统计见 [状态栏契约](tui/statusline.md)；文案与思考强度见 [流式契约](tui/streaming.md)。
 
-状态栏完整默认配置保留 `context` 项并写入 `enabled:false`，默认仅缓存条展示用量信息；用户可将该项改为 `enabled:true` 恢复 ctx。旧配置已有显隐选择仍保留，隐藏不改变 usage 采集或缓存命中率的 CC/Pi 口径。
+状态栏完整默认配置的 `context` 项为 `enabled:true`、`context_format:bar`、`context_bar.show_percent:false`，显示进度条与当前输入/总容量；`cache_format:ratio` 只显示缓存命中百分比。用户可自定义显隐与格式，旧配置已有选择保留，不改变 usage 采集或缓存 CC/Pi 分母。
 
 ## 5. 开发工具与预算默认值（G3.1）
 
@@ -97,3 +99,23 @@ PLUME_HOME=$(mktemp -d) go run ./cmd/plume config show
 model_calls/tool_calls/run_timeout_seconds 的 0 表示无限；其他数值为正，result_bytes 最小 256，所有整数最多 2147483647。没有自动重试。bash 默认超时来自 tool_timeout_seconds，请求参数可缩短但不能绕过外层期限。workspace 相对路径从启动目录解析；shell 可为 PATH 内可执行文件名或绝对路径；实际命令不是文件工具的根目录沙箱。enabled 可加 calculate/current_time，也可显式设置 []。
 
 工具参数、截断、先读后改及宿主执行局限见 [工具契约](agent/tools.md)。
+
+## 6. 人格默认配置（G3.2）
+
+以下默认值由 Save 和旧配置首次 Load 实际写入，不新增 setup 问题；已有 false、自定义值和未知字段原样保留。
+
+```json
+{
+  "agent": {
+    "soul": {
+      "enabled": true,
+      "path": "soul.md",
+      "max_bytes": 65536
+    }
+  }
+}
+```
+
+path 相对配置目录解析，支持 `~`、环境变量及绝对路径；与 `tools.workspace` 从启动目录解析的规则不同。path 原值及展开后必须非空且不含 Unicode 控制字符，max_bytes 范围1..8388608（最多8MiB）。agent.soul 对象及三个已知字段缺失/null 均补默认，类型错误拒绝；显式空路径/0 不被默认替代，按非法值拒绝。enabled:false 时不初始化或读取人格文件，仍保留 path/max_bytes 设置。
+
+Load 只补配置，不创建 soul.md。setup 保存模型成功后以无覆盖原子发布初始化默认文件，新文件0600；已有文件（包括空文件）不覆盖。在线每 run preparing 读取一次，缺失/空白跳过，读取失败或超限在首次模型调用前失败；正文不出现在 config show 或 trace。完整文件行为、快照与执行边界见 [人格契约](agent/soul.md)。

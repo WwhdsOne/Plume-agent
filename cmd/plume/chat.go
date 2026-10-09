@@ -232,6 +232,9 @@ func buildRuntime(cfg *config.Config, modelFlag string) (*agent.Runtime, string,
 		return nil, "", fmt.Errorf("build model client: %w", err)
 	}
 	runtime := agent.New(client, selected.Model)
+	if err := configureRuntimeSoul(runtime, cfg.Agent); err != nil {
+		return nil, "", fmt.Errorf("configure soul: %w", err)
+	}
 	if err := configureRuntimeTools(runtime, cfg); err != nil {
 		return nil, "", fmt.Errorf("configure tools: %w", err)
 	}

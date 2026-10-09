@@ -203,8 +203,8 @@ def footer_colors(terminal, output, name, stage, rows):
     row = terminal.height - rows
     text = terminal.screen.display[row]
     # pyte 将 ANSI 93（亮黄色）命名为 brightbrown，按标准颜色码核对语义。
-    assert "ctx:" not in text, (name, stage, "default context item visible", text)
-    expected = [("Provider:", "5bc8c8", None), ("cache", "5bc8c8", None)]
+    assert "ctx:" in text, (name, stage, "default context item missing", text)
+    expected = [("Provider:", "5bc8c8", None), ("ctx:", "5bc8c8", None), ("cache", "5bc8c8", None)]
     expected += [("[░░░░░░░░░░]0.0% 0/0", "7dd3d8", "cache ")] if stage == "startup" else [
         ("[████░░░░░░]40.0% 8/20", "7dd3d8", "cache ")]
     samples = []
@@ -247,8 +247,8 @@ def run_case(binary, output, case):
         cfg = {"schema_version": 1, "default_model": "fixture", "models": [{"id": "fixture", "provider": "deepseek", "protocol": "deepseek",
                "model": "deepseek-flash", "base_url": f"http://127.0.0.1:{server.server_port}", "api_key_ref": "fixture-key",
                "context_window_tokens": case.get("capacity", 100)}], "tui": {"status_messages": {"preparing": ["preparing"], "waiting": ["waiting"], "thinking": ["Thought"], "responding": ["responding"]}}}
-        if "status_line" in case:
-            cfg["tui"]["status_line"] = case["status_line"]
+        # 本脚本保留旧展示格式的兼容验收；新默认格式另由 pty_demo_status_format.py 验收。
+        cfg["tui"]["status_line"] = {"cache_format": "bar", "context_format": "usage", **case.get("status_line", {})}
         initial = "{invalid json" if scenario == "offline" else json.dumps(cfg, ensure_ascii=False)
         (home / "config.json").write_text(initial)
         env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
@@ -340,7 +340,7 @@ def run_case(binary, output, case):
                 assert persisted["tui"]["status_line"]["cache_bar"] == case.get("status_line", {}).get("cache_bar", {"width": 10, "style": "unicode"})
                 if "items" not in case.get("status_line", {}):
                     context_items = [entry for entry in persisted["tui"]["status_line"]["items"] if entry["id"] == "context"]
-                    assert len(context_items) == 1 and context_items[0]["enabled"] is False, (name, context_items)
+                    assert len(context_items) == 1 and context_items[0]["enabled"] is True, (name, context_items)
                 assert all("context_window_tokens" in model for model in persisted["models"])
                 (output / f"{name}-config.json").write_text(json.dumps(persisted, ensure_ascii=False, indent=2) + "\n")
             result = {"case": name, "status": "passed", "width": width, "height": height, "status_rows": case["rows"],
@@ -371,12 +371,13 @@ def contains(*values):
 
 def default_check(status, frame):
     contains("Provider: deepseek", "deepseek-flash", "cache [████░░░░░░]40.0% 8/20", "git:fixture-branch*", "env:uv/.venv(active)", "session:", "idle")(status, frame)
-    assert "ctx:" not in status and "ctx(last)" not in status, status
+    contains("ctx: 20.0% 20/100")(status, frame)
+    assert "ctx(last)" not in status, status
 
 
 def default_startup_check(status, frame):
     contains("Provider: deepseek", "cache [░░░░░░░░░░]0.0% 0/0")(status, frame)
-    assert "ctx:" not in status, status
+    contains("ctx: 0.0% 0/100")(status, frame)
 
 
 def custom_check(status, frame):
@@ -413,7 +414,7 @@ def main():
     cases = [
         {"name": "default-120x24", "width": 120, "height": 24, "rows": 2, "startup_check": default_startup_check, "check": default_check},
         {"name": "custom-80x24", "width": 80, "height": 24, "rows": 1, "status_line": {"max_rows": 1, "separator": " / ", "cache_format": "both", "context_format": "bar",
-         "context_bar": {"width": 5, "style": "ascii"}, "items": [item("cache", "缓存", row=2), item("context", "容量"), item("model", "模型"), item("session_usage", "累计", enabled=True)]}, "check": custom_check},
+         "context_bar": {"width": 5, "style": "ascii", "show_percent": True}, "items": [item("cache", "缓存", row=2), item("context", "容量"), item("model", "模型"), item("session_usage", "累计", enabled=True)]}, "check": custom_check},
         {"name": "narrow-20x8", "width": 20, "height": 8, "rows": 1, "status_line": {"items": [item("context")]}, "check": contains("ctx: 20.0% 20/100")},
         {"name": "unknown-40x16", "width": 40, "height": 16, "rows": 1, "scenario": "unknown", "capacity": None,
          "status_line": {"items": [item("context", "c", priority=80), item("cache", "ca", row=2, priority=70)]}, "check": contains("c: capacity unknown", "ca unknown")},

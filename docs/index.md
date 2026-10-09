@@ -18,7 +18,9 @@ docs/
 ├── specs/              现行契约——"现在怎么工作"
 │   ├── config.md       配置 schema v1、目录解析、凭据与原子写入
 │   ├── metrics.md      指标与比较协议（全阶段共用）
-│   ├── agent/tools.md  G3 受控工具循环契约
+│   ├── agent/          Agent 契约
+│   │   ├── tools.md   G3 受控工具循环契约
+│   │   └── soul.md    G3.2 人格初始化与拼装契约
 │   └── tui/            TUI 契约
 │       ├── keys.md        键位与平台适配（G1b.2.1）
 │       ├── splash.md      开屏与主题色（G1b.2.2）
@@ -27,7 +29,8 @@ docs/
 ├── plans/              计划——"将要做什么"
 │   ├── phase-01-tui.md        第一阶段
 │   ├── phase-02-channel.md    第二阶段（渠道网关，另行授权）
-│   └── agent-context.md       G3 上下文与 tools 拼装规划
+│   ├── agent-context.md       Agent 上下文与 tools 拼装规划
+│   └── 2026-10-09-soul-context.md  G3.2 实施计划
 ├── decisions/          决策记录（ADR，编号不复用）
 │   ├── 0001-scope.md
 │   ├── 0002-wechat.md
@@ -49,13 +52,16 @@ docs/
 | 知道某个决定的理由 | `decisions/` |
 | 知道某单元做了什么、限制是什么 | `reviews/Gx.md` |
 | 复现/排查本地问题 | `runbooks/` |
+| 修改人格或关闭 soul.md | [人格契约](specs/agent/soul.md) + [setup 手册](runbooks/setup.md) |
 | 回看某天发生了什么 | `daily/` |
 | 找历史快照或已完成的计划 | `archive/` |
 
 ## 3. 状态速览（2026-10-09）
 
 已通过：G0、G1a、G1b.1、G1b.2（.1/.2.1/.2.2）、G1b.3、G1b.4。
-**G3/G3.1 于 2026-10-09 审核通过**，见 [循环审核](reviews/G3.md) 与 [开发工具审核](reviews/G3.1.md)。已完成计划归档为 [G3 初始计划](archive/plans/2026-10-09-g3-tools.md)、[G3.1 开发工具计划](archive/plans/2026-10-09-g3-workspace-tools.md)，现行契约为 `specs/agent/tools.md`；状态栏默认隐藏 ctx、保留 cache。审核窗口证据已按 runbook 删除，重跑方法保留在审核记录。后续阶段仍待另行授权。
+**G3/G3.1 于 2026-10-09 审核通过**，见 [循环审核](reviews/G3.md) 与 [开发工具审核](reviews/G3.1.md)。已完成计划归档为 [G3 初始计划](archive/plans/2026-10-09-g3-tools.md)、[G3.1 开发工具计划](archive/plans/2026-10-09-g3-workspace-tools.md)，现行契约为 `specs/agent/tools.md`；状态栏最新定制恢复 ctx 进度条加当前/总计，cache 仅百分比。审核窗口证据已按 runbook 删除，重跑方法保留在审核记录。后续阶段仍待另行授权。
+
+**G3.2 人格初始化与拼装**：用户于 2026-10-09 明确授权，交付状态见 [审核记录](reviews/G3.2.md)，默认配置、文件与每 run 快照行为见 [现行契约](specs/agent/soul.md)，执行步骤见 [计划](plans/2026-10-09-soul-context.md)。该授权不推进记忆、MCP、skill 或渠道。
 
 单一事实来源：单元状态只在 `reviews/Gx.md` 的 frontmatter 维护；`roadmap.html` 是可读快照，两者冲突时以 reviews 为准。`plans/` 与 `specs/` 不再重复记录单元状态。
 

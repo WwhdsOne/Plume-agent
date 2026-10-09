@@ -2,12 +2,12 @@
 title: TUI 可配置底部状态栏（G1b.4）
 status: active
 updated: 2026-10-09
-summary: G1b.4 状态栏契约（已通过）：默认隐藏 ctx，保留 Provider 与可配置缓存命中率条
+summary: G1b.4 状态栏契约：默认 ctx 进度条与当前/总计，cache 仅显示命中百分比
 ---
 
 # TUI 可配置底部状态栏（G1b.4）
 
-> 2026-10-08 用户审核方案后授权实施。G1b.4 已实现并于 2026-10-09 审核通过，位于已通过的 G1b.3 与尚未开始的 G3 之间；实现证据与限制见 [G1b.4 审核记录](../../reviews/G1b.4.md)。
+> 2026-10-08 用户审核方案后授权实施。G1b.4 于 2026-10-09 审核通过，实施顺序位于 G1b.3 与 G3 之间；G3/G3.1 此后也已通过。实现证据与限制见 [G1b.4 审核记录](../../reviews/G1b.4.md)。
 >
 > 关联：[第一阶段计划](../../plans/phase-01-tui.md)、[流式展示契约](streaming.md)、[Agent 上下文规划](../../plans/agent-context.md)、[模型运行时决策](../../decisions/0003-model-runtime.md)。
 
@@ -15,14 +15,14 @@ summary: G1b.4 状态栏契约（已通过）：默认隐藏 ctx，保留 Provid
 
 底部状态栏固定在输入区下方，提供模型、用量、项目环境和计时信息。采用最多两行的字段组合，不把所有信息塞进一个不可配置的长字符串。
 
-以下仅为样式示例，数值不代表真实调用；按 2026-10-09 用户最新要求，默认隐藏上下文 `ctx`，用量信息保留缓存条：
+以下仅为样式示例，数值不代表真实调用；按用户最新要求，恢复 ctx 进度条与当前/总计，cache 仅显示百分比：
 
 ```text
-Provider: deepseek │ deepseek-flash │ think:high │ cache [████████░░]80.0% 160k/200k
+Provider: deepseek │ deepseek-flash │ think:high │ ctx: [██░░░░░░░░] 200k/1M │ cache: 80%
 git:main* │ env:uv/.venv(active) │ session:12m30s │ responding 6.8s
 ```
 
-优先把全部字段合并成一行，完整字段放不下时才按 row 分成两行。默认逻辑分组为模型/缓存与 Git/uv/计时。标签使用亮青色，数值使用浅青色，unknown 使用提示黄。`context` 项保留在完整配置中，默认 `enabled:false`；设置 `enabled:true` 可恢复显示，使用 `context_format:usage` 默认格式或可选 `bar` 进度条及 warning/critical 语义色。顺序、所在行、标签、显隐、窄屏优先级和进度条样式均由 `config.json` 控制。主题继续使用既有 token，不新增散落的颜色常量。
+优先合并成一行，完整字段放不下才按 row 分成两行。默认显示模型、上下文/缓存与 Git/uv/计时。标签亮青、数值浅青、未知提示黄；context 默认 enabled:true、context_format:bar，以进度条及当前/总计展示，show_percent 默认 false。缓存默认 ratio 仅百分比；其他格式、显隐、顺序、位置、窄屏优先级及条体样式仍由 config.json 控制。
 
 本单元实现信息采集、结构化状态快照、配置落盘和自适应渲染。它不开始 G3 工具执行、不加载 soul/记忆/skill、不连接 MCP，也不添加任意自定义 Shell 状态脚本。
 
@@ -33,7 +33,7 @@ git:main* │ env:uv/.venv(active) │ session:12m30s │ responding 6.8s
 | `provider` | 所选模型配置的供应商品牌 ID；默认标签 Provider，不把自定义 Base URL 当成品牌名称 | 显示，第 1 行首项 |
 | `model` | 实际发给 API 的模型名，不是配置项 ID | 显示，第 1 行 |
 | `reasoning` | provider 能力解析得到的有效强度；未验证时显示 `unverified`，none 显示 `off`；映射过的 medium 可压缩显示为 `medium→high` | 显示，第 1 行 |
-| `context` | 最近实际请求输入量/已知上下文容量；启用后为百分比及用量/容量，可选进度条，见 §3 | 可选，默认关闭，第 1 行 |
+| `context` | 最近实际请求输入量/已知容量，默认进度条与当前/总计，见 §3 | 显示，第 1 行 |
 | `cache` | 供应商报告的缓存命中输入占比；默认会话累计，可切换最近一次调用，见 §4 | 显示，第 1 行 |
 | `git` | 启动工作目录所在仓库的分支；detached HEAD 显示短 commit；`*` 表示存在工作区修改 | 显示，第 2 行 |
 | `uv_env` | 启动工作目录的 uv 项目标记与可确认的虚拟环境状态，见 §5 | 显示，第 2 行 |
@@ -49,11 +49,11 @@ git:main* │ env:uv/.venv(active) │ session:12m30s │ responding 6.8s
 
 ## 3. 上下文占用的口径
 
-`context` 默认隐藏；以下为用户将该项 `enabled` 设置为 `true` 后的显示口径。隐藏只影响状态栏，不改变 usage 采集、缓存计量或模型请求。上下文表示一次模型请求的输入规模，包含实际发送的基础规则、历史、当前任务及工具声明等；不是多次请求 `TotalTokens` 的累计。G1b.4 使用供应商实际报告的 `PromptTokens`，当前没有经过验证的发送前估算器；G3 的 PromptBuilder 后续扩展数据入口。
+`context` 默认显示，可关闭该项 enabled；显隐不改变 usage 采集、缓存计量或模型请求。上下文为单次实际请求的输入规模，不是多次 TotalTokens 的累计；没有发送前估算器，不通过字符数猜 token。
 
-- 默认 `context_format:usage` 显示 `ctx: x.x% used/capacity`，百分比固定一位小数，数量遵循 token_format，默认十进制 k/M，例如 `ctx: 12.3% 123.5k/1M`；不再自动加 `(last)`，旧标签尾部的 `(last)` 也移除。`context_format:bar` 可恢复原进度条，标签同样不带后缀。
+- 默认 context_format:bar 显示 `ctx: [██░░░░░░░░] 200k/1M`，条体后固定带当前/总计，数量遵循 token_format。show_percent:false 默认不加比例，true 可额外显示；context_format:usage 仍可显示 `ctx: 20.0% 200k/1M`。两种格式均不显示 `(last)`。
 - 供应商给出本次 `PromptTokens` 且容量已知时：使用该次调用的实际输入比例；完成后保留这个快照。它是最近实际请求的输入，不是下一请求的发送前估算。
-- 新草稿、成功回答追加历史、工具轨迹或上下文变化不会通过字符长度猜 token。没有估算器时保留最近已知快照；已知 1M 容量的新会话为 `ctx: 0.0% 0/1M`。请求准备、等待、思考和回答期间保留初始零值或请求前快照，收到本次实际输入统计立即更新；新调用结束仍无输入统计才显示 `ctx: usage unknown`。准备阶段取消且未发起新调用时保留原值；容量未知始终显示 `ctx: capacity unknown`，`unknown:hide` 时隐藏整个字段。未来估算器若启用须带 `~` 来源标记并独立验收。
+- 新草稿、成功回答追加历史、工具轨迹或上下文变化不会通过字符长度猜 token。没有估算器时保留最近已知快照；已知 1M 容量的新会话为 `ctx: [░░░░░░░░░░] 0/1M`。请求准备、等待、思考和回答期间保留初始零值或请求前快照，收到本次实际输入统计立即更新；新调用结束仍无输入统计才显示 `ctx: usage unknown`。准备阶段取消且未发起新调用时保留原值；容量未知始终显示 `ctx: capacity unknown`，`unknown:hide` 时隐藏整个字段。未来估算器若启用须带 `~` 来源标记并独立验收。
 - 流式生成中的答案/思考不能用字符长度冒充新增 token。供应商的 output token 统计可能包含思考，也不直接等于未来回传历史的输入规模。
 - 用户可在模型配置中提供 `context_window_tokens` 正整数，作为展示容量。官方 HTTPS DeepSeek 的 `deepseek-flash` / `deepseek-v4-pro` 缺失或 null 自动补写 `1000000`（1M），保留用户手填值；自定义端点或未知模型保持 null。该字段不修改 API 请求、不保证模型真实支持该容量、不代替执行预算。
 - usage 模式超过 100% 时如实显示 `120.0% 1.2M/1M`，不裁成 100%。可选 bar 模式默认 10 格、填充向下取整、百分比最多一位小数；超过容量时条体填满但比例仍显示实际超限值。两种模式都不自动压缩或删除历史。
@@ -68,10 +68,10 @@ git:main* │ env:uv/.venv(active) │ session:12m30s │ responding 6.8s
 缓存字段专指供应商报告的输入 token 缓存命中，不是客户端 Markdown 缓存、内存占用、历史条数或永久缓存配额。
 
 - 模型层 Usage 提供独立可选的 `CachedPromptTokens`；有正数输入且明确命中 `0` 时显示 `0%`，缺失显示 `unknown`。OpenAI 使用 `prompt_tokens_details.cached_tokens`，DeepSeek 适配器同时支持 `prompt_cache_hit_tokens`，由协议层校验归一化；TUI 不读取 SDK 或供应商原始 JSON。
-- 默认 `cache_format:bar`、`cache_scope:session`，显示 `cache [████░░░░░░]40.0% 8/20`，不加冒号或 `(last)`。百分比固定一位小数；末尾是缓存读取命中量/对应总输入，用户已明确选择沿用 CC/Pi 命中率分母，不能写成模型的 1M 上下文容量。累计口径是本会话缓存读取命中总和/对应总输入总和，按 token 加权，不平均各次百分比。失败/取消的有效 usage 同样参与，Ctrl+N 清零、Ctrl+L 保留；没有跨进程恢复。
+- 默认 cache_format:ratio、cache_scope:session，显示 `cache: 40%`，不显示条体或具体命中量/总输入。CC 累计口径仍为本会话缓存读取命中总和/对应总输入总和，按 token 加权；失败/取消的有效 usage 参与，Ctrl+N 清零、Ctrl+L 保留。其他 tokens/both/bar 格式保留可选。
 - `cache_scope:last_call` 提供 Pi 的最近一次调用口径：该次 cached input / 该次 prompt input × 100%。请求进行中保留最近已报告的值；收到新 usage 后更新，新调用终态仍无 usage 则显示 unknown。准备阶段取消没有产生新调用时保留真实最近调用。
-- 缓存命中是 prompt token 的子集，不再次加到 prompt/total；输出 token 和上下文容量不参与分母。尚无调用的新会话以 Go 数值零值初始化显示 `cache [░░░░░░░░░░]0.0% 0/0`，ratio 为 0%、tokens 为 0、both 为 0 (0%)，Ctrl+N 恢复零值；这只是初始显示，不作为供应商 usage 或已知调用计入统计。两种 scope 在尚未收到新缓存统计时保留请求前的零值或快照，不因当前调用尚未报告 usage 提前显示 unknown/partial；收到新缓存统计后更新，终态再按实际缺失情况显示 unknown/partial。输入统计先到但缓存尚未到时，两字段分别更新。缺失分母、非法数据或累计溢出仍区分 unknown，不猜数据。
-- 累计中有缺失缓存或输入统计的调用时，只用两者都已知且合法的同一组调用计算，例如 `cache [████░░░░░░]40.0% 8/20 (partial)`；比率、分子与分母全部来自同组已知调用。没有任何已知缓存调用则为 unknown；未知缓存不能当零命中加入分母。tokens/ratio/both 仍可选，均沿用所选 scope，部分累计保留 partial。
+- 缓存命中是 prompt token 的子集，不再次加到 prompt/total；输出 token 和上下文容量不参与分母。尚无调用的新会话以 Go 数值零值初始化，默认 ratio 为 `cache: 0%`；tokens 为 0、both 为 0 (0%)，可选 bar 为条体加比例及命中量/对应输入，Ctrl+N 恢复零值；这只是初始显示，不作为供应商 usage 或已知调用计入统计。两种 scope 在尚未收到新缓存统计时保留请求前的零值或快照，不因当前调用尚未报告 usage 提前显示 unknown/partial；收到新缓存统计后更新，终态再按实际缺失情况显示 unknown/partial。输入统计先到但缓存尚未到时，两字段分别更新。缺失分母、非法数据或累计溢出仍区分 unknown，不猜数据。
+- 累计中有缺失缓存或输入统计的调用时，只用两者都已知且合法的同一组调用计算，例如默认显示 `cache: 40% (partial)`（可选 bar 模式显示对应数量）；比率、分子与分母全部来自同组已知调用。没有任何已知缓存调用则为 unknown；未知缓存不能当零命中加入分母。tokens/ratio/both 仍可选，均沿用所选 scope，部分累计保留 partial。
 - cache_bar 默认 10 格 Unicode 条，可配置 width 5–30 与 style unicode/ascii，比例按命中率填充、格数向下取整。cache_bar 和 context_bar 的宽度独立；窄屏先缩到最低三格，再按 priority 隐藏字段。命中率高表示较多输入由缓存读取，不使用上下文容量的 warning/critical 告警色。
 - 只解析已核对的供应商字段并用 HTTP fixture 固化，模型适配器归一化。协议没有报告缓存就显示未知，不从重复 prompt 猜测命中，不为采集状态付费探测。
 - usage 流更新是同一次调用的快照替换，不是可累加 delta。按模型调用标识幂等汇总，终态重复或与已有模型 trace 同时存在时不得重复计数。
@@ -113,22 +113,22 @@ uv/虚拟环境仅检查本地元数据：
       "git_timeout_ms": 500,
       "token_format": "compact",
       "time_format": "compact",
-      "context_format": "usage",
+      "context_format": "bar",
       "context_bar": {
         "width": 10,
-        "show_percent": true,
+        "show_percent": false,
         "style": "unicode",
         "warning_percent": 80,
         "critical_percent": 95
       },
-      "cache_format": "bar",
+      "cache_format": "ratio",
       "cache_scope": "session",
       "cache_bar": {"width": 10, "style": "unicode"},
       "items": [
         {"id": "provider", "label": "Provider", "enabled": true, "row": 1, "priority": 60},
         {"id": "model", "label": "", "enabled": true, "row": 1, "priority": 90},
         {"id": "reasoning", "label": "think", "enabled": true, "row": 1, "priority": 50},
-        {"id": "context", "label": "ctx", "enabled": false, "row": 1, "priority": 80},
+        {"id": "context", "label": "ctx", "enabled": true, "row": 1, "priority": 80},
         {"id": "cache", "label": "cache", "enabled": true, "row": 1, "priority": 40},
         {"id": "git", "label": "git", "enabled": true, "row": 2, "priority": 50},
         {"id": "uv_env", "label": "env", "enabled": true, "row": 2, "priority": 30},
@@ -155,11 +155,11 @@ uv/虚拟环境仅检查本地元数据：
 
 - 保持 schema v1 的增量兼容策略。新 setup/Save 写出所有默认字段；旧配置首次 Load 原子补齐缺失键，同时保留未知扩展字段和用户自定义值。重复读取不改写；setup 不新增状态栏或容量问题。
 - `items` 数组的顺序就是显示顺序；缺省数组补写默认数组。用户提供数组则视为完整选择，未列出的字段不被自动加回；`[]` 表示隐藏全部字段，`enabled:false` 关闭整栏。数组中单项缺失的属性按对应字段默认值补齐并落盘。
-- `context` 默认 `enabled:false`，可在已有该项上设置 `enabled:true` 恢复；不调整缓存条、CC/Pi 分母或用量采集。旧配置已显式设置的 `enabled` 保留，缺失属性才补入新默认。
+- context 默认 enabled:true，设为 false 可隐藏；旧配置已有显式值保留，缺失属性才补默认。当前用户配置按本次要求同步，其他字段和 CC/Pi 统计保持。
 - `max_rows` 为 1 或 2；`row` 为 1 或 2；`priority` 为 0–100，数字越大越晚被窄屏隐藏，优先级相同时先隐藏数组靠后的字段。标签为空时只显示值，非空时显示 `label:value`（provider/context 和非 bar 缓存为 `label: value`；bar 缓存为 `label [条体]百分比 命中量/总输入`）。context 不显示 `(last)`，partial/stale 等标记保留；缓存 scope 和自定义标签保持配置原样。
 - `unknown` 为 `show` 或 `hide`，决定未知数据是否占位；已知 0 永不按未知隐藏。非适用数据使用 `—`，也受该策略控制。
-- token 格式为 `compact` / `full`，控制上下文的输入量/容量、缓存和 usage 数量；compact 按十进制 k/M 缩写、最多一位小数。时间为 `compact` / `clock`；cache_format 为 `bar`（默认）/ `tokens` / `ratio` / `both`，cache_scope 为 `session`（默认，CC 口径）/ `last_call`（Pi 口径），两项独立控制；cache_bar.width/style 完整落盘。
-- `context_format` 为 `usage`（默认）或 `bar`。`context_bar.width` 为 5–30 格，show_percent/style 仅控制 bar 的数字与条体；`style` 为 `unicode` / `ascii`。warning/critical 为整数且满足 `1 ≤ warning < critical ≤ 100`，两种上下文格式都采用它们着色。全部默认项随状态栏配置落盘，usage 不因 show_percent:false 隐藏固定的一位小数比例。
+- token 格式为 `compact` / `full`，控制上下文的输入量/容量、缓存和 usage 数量；compact 按十进制 k/M 缩写、最多一位小数。时间为 `compact` / `clock`；cache_format 为 `ratio`（默认）/ `tokens` / `both` / `bar`，cache_scope 为 `session`（默认，CC 口径）/ `last_call`（Pi 口径），两项独立控制；cache_bar.width/style 完整落盘。
+- context_format 为 bar（默认）或 usage。context_bar.width 为5–30格，show_percent 只控制 bar 的可选百分比，默认false，当前/总计始终显示；style 为 unicode/ascii，阈值颜色沿用 warning/critical。usage 模式固定一位小数比例不受 show_percent 控制。
 - `clock_refresh_ms` 为 250–5000，`environment_refresh_ms` 为 1000–60000，`git_timeout_ms` 为 100–2000。独立于现有 100ms spinner 和 50ms 正文刷新；显示字段不需要时不订阅额外时钟。
 - 单项 ID 必须来自 §2，不能重复；最多 14 项。`separator` 最多 8 个显示列，label 最多 20 个显示列，均禁止控制字符与换行；未知 ID、非法类型/枚举/范围在本地校验失败，定位字段路径，不执行配置内容。
 - `context_window_tokens` 允许 `null` 或 1–2147483647 的整数；null 表示自动解析，已验证官方两预设补 1000000，其余仍为 null。配置 show 显示状态栏字段的有效值和模型容量来源，不输出凭据、环境变量全集或私密路径日志。

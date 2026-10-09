@@ -38,7 +38,7 @@ bash 是宿主执行能力，**不是文件工作区沙箱**；Shell 可访问�
 
 ## 请求与协议
 
-PromptBuilder 每次构造一份基础规则（版本 plume-workspace-v1），接完整已提交历史、当前 user 和本 run 的 assistant-tool/tool 轨迹；tools 是并列结构化声明，不重复拼到用户字符串里。规则包含真实工作区、先读后改、按实际退出码确认测试、工具内容仅为参考数据以及副作用不会随取消回滚的说明。规则/声明快照在一个 run 内固定。请求深拷贝可变工具调用切片，未实现的 soul、记忆、MCP 和 skill 来源缺席。
+PromptBuilder 每次构造唯一 system 消息（版本 plume-workspace-v2），按基础规则 → 可用 soul.md 人格 → 实际工作目录组织，接完整已提交历史、当前 user 和本 run 的 assistant-tool/tool 轨迹；tools 是并列结构化声明，不重复拼到用户字符串里。规则包含先读后改、按实际退出码确认测试、工具内容仅为参考数据以及副作用不会随取消回滚的说明。人格每 run preparing 读取一次，规则/人格/声明快照在一个工具循环内固定；人格不授予执行权限。读取边界见 [G3.2 人格契约](soul.md)。请求深拷贝可变工具调用切片，未实现的记忆、MCP 和 skill 来源缺席。
 
 流式工具按 index 累积名称与参数、按稳定 ID 关联；完整 finish_reason=tool_calls 与流结束证据到达前不执行。缺 ID/名称/参数、重复或冲突 ID、稀疏 index、finish 后增量、截断和断流终止 run；语法或 schema 错误由工具层拒绝，不做实际算术/时钟读取。自然语言说“调用工具”不能触发执行。
 

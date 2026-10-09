@@ -22,6 +22,8 @@ type Runtime struct {
 	reasoning telemetry.ReasoningInfo
 	tools     *tools.Registry
 	limits    Limits
+	soulPath  string
+	soulBytes int
 }
 
 // New 构造 Runtime。client 可以是真实适配器（工厂 Build 的产物）
@@ -32,6 +34,12 @@ func New(client model.Client, modelID string) *Runtime {
 
 // SetTools 在启动时固定允许声明与执行的工具集合；nil 关闭工具。
 func (r *Runtime) SetTools(registry *tools.Registry) { r.tools = registry }
+
+// SetSoul 在启动时注入已解析的人格文件路径和字节上限；空路径关闭读取。
+// 正文每个 run 开始时读取一次，同一工具循环复用快照，下一轮可见用户修改。
+func (r *Runtime) SetSoul(path string, maxBytes int) {
+	r.soulPath, r.soulBytes = path, maxBytes
+}
 
 // Close 在 app 的运行任务全部退出后释放工作区句柄。
 func (r *Runtime) Close() error { return r.tools.Close() }

@@ -1,0 +1,30 @@
+{"level":"info","ts":"2026-10-09T22:07:08.264+0800","msg":"setup_start","setup_id":"setup-20261009T140708-001","event_kind":"setup"}
+{"level":"info","ts":"2026-10-09T22:07:17.050+0800","msg":"setup_step","setup_id":"setup-20261009T140708-001","event_kind":"step","step":"select_provider","status":"ok","duration_ms":8786,"step_seq":1}
+{"level":"info","ts":"2026-10-09T22:07:17.050+0800","msg":"provider_selected","setup_id":"setup-20261009T140708-001","event_kind":"event","provider":"deepseek","protocol":"deepseek"}
+{"level":"info","ts":"2026-10-09T22:07:17.050+0800","msg":"setup_step","setup_id":"setup-20261009T140708-001","event_kind":"step","step":"resolve_base_url","status":"ok","duration_ms":0,"step_seq":2}
+{"level":"info","ts":"2026-10-09T22:07:17.050+0800","msg":"base_url_resolved","setup_id":"setup-20261009T140708-001","event_kind":"event","provider":"deepseek","source":"preset_default"}
+{"level":"info","ts":"2026-10-09T22:07:22.299+0800","msg":"setup_step","setup_id":"setup-20261009T140708-001","event_kind":"step","step":"select_model","status":"ok","duration_ms":5248,"step_seq":3}
+{"level":"info","ts":"2026-10-09T22:07:27.241+0800","msg":"setup_step","setup_id":"setup-20261009T140708-001","event_kind":"step","step":"input_credential","status":"ok","duration_ms":4941,"step_seq":4}
+{"level":"info","ts":"2026-10-09T22:07:27.242+0800","msg":"setup_step","setup_id":"setup-20261009T140708-001","event_kind":"step","step":"validate","status":"ok","duration_ms":0,"step_seq":5}
+{"level":"info","ts":"2026-10-09T22:07:27.251+0800","msg":"setup_step","setup_id":"setup-20261009T140708-001","event_kind":"step","step":"store_credential","status":"ok","duration_ms":9,"step_seq":6}
+{"level":"info","ts":"2026-10-09T22:07:27.251+0800","msg":"setup_credential","setup_id":"setup-20261009T140708-001","event_kind":"event","credential_ref":"deepseek-default","status":"ok"}
+{"level":"info","ts":"2026-10-09T22:07:27.259+0800","msg":"setup_step","setup_id":"setup-20261009T140708-001","event_kind":"step","step":"save_config","status":"ok","duration_ms":8,"step_seq":7}
+{"level":"info","ts":"2026-10-09T22:07:27.259+0800","msg":"setup_saved","setup_id":"setup-20261009T140708-001","event_kind":"event","path":"/tmp/plume-g32-setup.i8xB9K/config.json","models":1,"channels":0,"status":"ok"}
+{"level":"info","ts":"2026-10-09T22:07:27.267+0800","msg":"setup_step","setup_id":"setup-20261009T140708-001","event_kind":"step","step":"initialize_soul","status":"ok","duration_ms":7,"step_seq":8}
+{"level":"info","ts":"2026-10-09T22:07:34.035+0800","msg":"setup_step","setup_id":"setup-20261009T140708-001","event_kind":"step","step":"select_channel","status":"ok","duration_ms":6767,"step_seq":9}
+{"level":"info","ts":"2026-10-09T22:07:34.035+0800","msg":"channel_skipped_explicitly","setup_id":"setup-20261009T140708-001","event_kind":"event","reason":"user chose to skip channels"}
+{"level":"info","ts":"2026-10-09T22:07:34.036+0800","msg":"setup_completed","setup_id":"setup-20261009T140708-001","event_kind":"finish","outcome":"setup_completed","status":"ok","duration_ms":25772}
+{"level":"info","ts":"2026-10-09T22:09:47.112+0800","msg":"setup_start","setup_id":"setup-20261009T140947-001","event_kind":"setup"}
+{"level":"info","ts":"2026-10-09T22:09:55.761+0800","msg":"setup_step","setup_id":"setup-20261009T140947-001","event_kind":"step","step":"select_provider","status":"ok","duration_ms":8648,"step_seq":1}
+{"level":"info","ts":"2026-10-09T22:09:55.761+0800","msg":"provider_selected","setup_id":"setup-20261009T140947-001","event_kind":"event","provider":"deepseek","protocol":"deepseek"}
+{"level":"info","ts":"2026-10-09T22:09:55.761+0800","msg":"setup_step","setup_id":"setup-20261009T140947-001","event_kind":"step","step":"resolve_base_url","status":"ok","duration_ms":0,"step_seq":2}
+{"level":"info","ts":"2026-10-09T22:09:55.761+0800","msg":"base_url_resolved","setup_id":"setup-20261009T140947-001","event_kind":"event","provider":"deepseek","source":"preset_default"}
+{"level":"info","ts":"2026-10-09T22:10:01.097+0800","msg":"setup_step","setup_id":"setup-20261009T140947-001","event_kind":"step","step":"select_model","status":"ok","duration_ms":5335,"step_seq":3}
+{"level":"info","ts":"2026-10-09T22:10:07.779+0800","msg":"setup_step","setup_id":"setup-20261009T140947-001","event_kind":"step","step":"input_credential","status":"ok","duration_ms":6682,"step_seq":4}
+{"level":"info","ts":"2026-10-09T22:10:07.780+0800","msg":"setup_step","setup_id":"setup-20261009T140947-001","event_kind":"step","step":"validate","status":"ok","duration_ms":0,"step_seq":5}
+{"level":"info","ts":"2026-10-09T22:10:07.790+0800","msg":"setup_step","setup_id":"setup-20261009T140947-001","event_kind":"step","step":"save_config","status":"ok","duration_ms":10,"step_seq":6}
+{"level":"info","ts":"2026-10-09T22:10:07.790+0800","msg":"setup_saved","setup_id":"setup-20261009T140947-001","event_kind":"event","path":"/tmp/plume-g32-setup.i8xB9K/config.json","models":1,"channels":0,"status":"ok"}
+{"level":"info","ts":"2026-10-09T22:10:07.790+0800","msg":"setup_step","setup_id":"setup-20261009T140947-001","event_kind":"step","step":"initialize_soul","status":"ok","duration_ms":0,"step_seq":7}
+{"level":"info","ts":"2026-10-09T22:10:14.553+0800","msg":"setup_step","setup_id":"setup-20261009T140947-001","event_kind":"step","step":"select_channel","status":"ok","duration_ms":6763,"step_seq":8}
+{"level":"info","ts":"2026-10-09T22:10:14.554+0800","msg":"channel_skipped_explicitly","setup_id":"setup-20261009T140947-001","event_kind":"event","reason":"user chose to skip channels"}
+{"level":"info","ts":"2026-10-09T22:10:14.554+0800","msg":"setup_completed","setup_id":"setup-20261009T140947-001","event_kind":"finish","outcome":"setup_completed","status":"ok","duration_ms":27441}

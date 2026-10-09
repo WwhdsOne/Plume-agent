@@ -10,6 +10,7 @@ import (
 	"plume-agent/internal/channel"
 	"plume-agent/internal/config"
 	"plume-agent/internal/provider"
+	"plume-agent/internal/soul"
 	"plume-agent/internal/telemetry"
 )
 
@@ -26,6 +27,8 @@ type Result struct {
 	ModelID       string
 	ChannelID     string // 渠道被跳过时为空
 	CredentialRef string // 本次新写入的凭据引用；沿用旧凭据时为空
+	SoulPath      string // 本次初始化或保留的人格路径；关闭时为空
+	SoulCreated   bool   // 本次是否新建默认人格，既有内容从不覆盖
 }
 
 // Prompter 抽象向导所需的交互。真实实现基于 huh，见 cmd/plume/prompter.go。
@@ -62,10 +65,11 @@ func New(providers *provider.Registry, channels *channel.Registry, prompter Prom
 	return &Wizard{providers: providers, channels: channels, prompter: prompter, trace: trace}
 }
 
-// Run 执行向导。分两阶段落盘：先模型（含凭据），后渠道。
+// Run 执行向导。先保存模型（含凭据），再初始化人格，最后保存渠道。
 //
 // 返回约定：
 //   - 模型阶段失败或被取消：Result 为 nil，**磁盘上什么都没有写**。
+//   - 人格初始化失败：Result 非 nil，返回错误，保留已保存的模型与凭据。
 //   - 渠道阶段被取消：Result 非 nil（Config 里只有模型），错误为 ErrChannelSkipped。
 //     阶段计划要求"渠道配置失败不撤销已保存的模型配置"。
 func (w *Wizard) Run(existing *config.Config) (*Result, error) {
@@ -79,6 +83,11 @@ func (w *Wizard) Run(existing *config.Config) (*Result, error) {
 			w.trace.Finish(telemetry.EventSetupFailed, err)
 		}
 		return nil, err
+	}
+
+	if err := w.initializeSoul(res); err != nil {
+		w.trace.Finish(telemetry.EventSetupFailed, err)
+		return res, err
 	}
 
 	if err := w.runChannel(res); err != nil {
@@ -238,6 +247,10 @@ func (w *Wizard) runModel(existing *config.Config) (*Result, error) {
 	if existing != nil {
 		if existing.Agent != nil {
 			agentOptions := *existing.Agent
+			if existing.Agent.Soul != nil {
+				soulOptions := *existing.Agent.Soul
+				agentOptions.Soul = &soulOptions
+			}
 			cfg.Agent = &agentOptions
 		}
 		if existing.Tools != nil {
@@ -311,6 +324,27 @@ func (w *Wizard) runModel(existing *config.Config) (*Result, error) {
 		ModelID:       model.ID,
 		CredentialRef: credentialRef,
 	}, nil
+}
+
+// initializeSoul 在模型配置确实落盘后创建默认人格；不增加问题，也不把
+// 文件正文写进 trace。重复 setup 保留空文件、用户修改和既有文件权限。
+func (w *Wizard) initializeSoul(res *Result) (err error) {
+	done := w.trace.Step("initialize_soul")
+	defer func() { done(err) }()
+	options := res.Config.Agent.SoulConfig()
+	if !options.Enabled {
+		return nil
+	}
+	path, err := options.ResolvePath()
+	if err != nil {
+		return err
+	}
+	created, err := soul.Ensure(path)
+	if err != nil {
+		return err
+	}
+	res.SoulPath, res.SoulCreated = path, created
+	return nil
 }
 
 // runChannel 收集渠道选择并保存。"暂不接入渠道"是显式选择：只保存模型，

@@ -19,6 +19,10 @@ func (c *Config) fillDefaults() bool {
 		c.Agent = DefaultAgent()
 		changed = true
 	}
+	if c.Agent.Soul == nil {
+		c.Agent.Soul = DefaultSoul()
+		changed = true
+	}
 	if c.Tools == nil {
 		c.Tools = DefaultTools()
 		changed = true

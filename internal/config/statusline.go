@@ -60,14 +60,14 @@ func DefaultStatusLine() *StatusLineConfig {
 	return &StatusLineConfig{
 		Enabled: true, MaxRows: 2, Separator: " │ ", Unknown: "show",
 		ClockRefreshMS: 1000, EnvironmentRefreshMS: 5000, GitTimeoutMS: 500,
-		TokenFormat: "compact", TimeFormat: "compact", ContextFormat: "usage", CacheFormat: "bar", CacheScope: "session",
-		ContextBar: ContextBarConfig{Width: 10, ShowPercent: true, Style: "unicode", WarningPercent: 80, CriticalPercent: 95},
+		TokenFormat: "compact", TimeFormat: "compact", ContextFormat: "bar", CacheFormat: "ratio", CacheScope: "session",
+		ContextBar: ContextBarConfig{Width: 10, ShowPercent: false, Style: "unicode", WarningPercent: 80, CriticalPercent: 95},
 		CacheBar:   CacheBarConfig{Width: 10, Style: "unicode"},
 		Items: []StatusItemConfig{
 			{ID: "provider", Label: "Provider", Enabled: true, Row: 1, Priority: 60},
 			{ID: "model", Enabled: true, Row: 1, Priority: 90},
 			{ID: "reasoning", Label: "think", Enabled: true, Row: 1, Priority: 50},
-			{ID: "context", Label: "ctx", Enabled: false, Row: 1, Priority: 80},
+			{ID: "context", Label: "ctx", Enabled: true, Row: 1, Priority: 80},
 			{ID: "cache", Label: "cache", Enabled: true, Row: 1, Priority: 40},
 			{ID: "git", Label: "git", Enabled: true, Row: 2, Priority: 50},
 			{ID: "uv_env", Label: "env", Enabled: true, Row: 2, Priority: 30},

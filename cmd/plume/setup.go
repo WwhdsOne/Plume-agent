@@ -112,6 +112,15 @@ func printSetupSummary(w io.Writer, result *setup.Result, tracePath string) {
 	if result.ChannelID != "" {
 		fmt.Fprintf(w, "  渠道:     %s（待登录；真实扫码在 G2a.1 实现）\n", result.Config.Channels[0].Type)
 	}
+	if result.SoulPath == "" {
+		fmt.Fprintln(w, "  Soul:     disabled")
+	} else {
+		state := "preserved"
+		if result.SoulCreated {
+			state = "created"
+		}
+		fmt.Fprintf(w, "  Soul:     %s (%s)\n", result.SoulPath, state)
+	}
 	if tracePath != "" {
 		fmt.Fprintf(w, "  trace:    %s\n", tracePath)
 	}

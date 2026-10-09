@@ -92,7 +92,12 @@ func mergeDefaultsIntoRaw(raw []byte, cfg *Config) ([]byte, bool, error) {
 	if err != nil {
 		return nil, false, err
 	}
+	raw, normalized, err := dropNullSoulFields(raw)
+	if err != nil {
+		return nil, false, err
+	}
 	merged, changed, err := fillMissingRaw(raw, defaults)
+	changed = changed || normalized
 	if err != nil {
 		return nil, false, err
 	}

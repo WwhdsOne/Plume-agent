@@ -2,13 +2,13 @@
 title: 第一阶段：TUI Agent 开发计划
 status: active
 updated: 2026-10-09
-summary: 第一阶段审核计划：G1b.4、G3/G3.1 已通过，后续渠道/记忆/技能需另行授权
+summary: 第一阶段审核计划：G3/G3.1 已通过，G3.2 人格初始化已授权，后续记忆/技能独立推进
 ---
 
 # 第一阶段：TUI Agent 开发计划
 
 > 日期：2026-10-06。范围：终端聊天、OpenAI SDK 模型适配、自研 Agent 循环、trace 和基线评测；微信登录不属于本阶段。
-> 状态（2026-10-09）：G0 至 G1b.4、G3/G3.1 已通过。用户审核通过六种开发工具、可配置宽松预算及其基础工具循环；后续阶段仍待独立授权。单元状态以 [审核记录](../reviews/) 为准。原微信优先/Eino 方案由 [决策 0003](../decisions/0003-model-runtime.md) 替代；模型传输采用 OpenAI 官方 SDK。
+> 状态（2026-10-09）：G0 至 G1b.4、G3/G3.1 已通过。用户审核通过六种开发工具、可配置宽松预算及其基础工具循环，并随后明确授权 G3.2 人格初始化与拼装；后续渠道、记忆、技能仍待独立授权。单元状态以 [审核记录](../reviews/) 为准。原微信优先/Eino 方案由 [决策 0003](../decisions/0003-model-runtime.md) 替代；模型传输采用 OpenAI 官方 SDK。
 > 执行约定：使用 executing-plans 按审核单元推进；每个单元完成即停，用户明确通过后才进入下一单元，不使用默认批量执行。本文是阶段计划，各单元开工前再细化测试与实现步骤。
 
 **Goal：** 用 Go 构建可在 TUI 中多轮聊天、执行受控工具、解释每一步执行过程的个人 Agent，并用固定任务集衡量后续改造的收益与退步。
@@ -59,6 +59,8 @@ plume config show           # 已实现，脱敏查看配置
 ### 设置向导的目标行为
 
 保留 G1a 的供应商列表、候选模型/自定义输入、隐藏 Key、默认 Base URL、原子保存和 setup trace。模型保存后即具备 TUI 启动条件；渠道步骤允许选择“暂不接入渠道”，这是跳过渠道设置，**不把 TUI 伪装成微信或持久化一个假渠道**。旧渠道记录原样保留；不要求删除微信配置才能聊天。
+
+G3.2 在模型成功保存后、渠道步骤前初始化配置目录的 soul.md；默认模板无覆盖发布，新文件0600、已有空文件/自定义内容保留，不新增向导问题。初始化失败不回滚已保存模型。人格配置与运行快照见 [人格契约](../specs/agent/soul.md)。
 
 首批预设继续是 `deepseek` 和 `custom-openai`。有默认 URL 时不逐次询问，已有非默认 URL 不静默重置；切换供应商不复用旧 Key。模型名允许自定义，不依赖模型列表接口成功。
 
@@ -178,12 +180,12 @@ G1b.1/G1b.2 的清单保留原规划口径，实际通过状态及限制以对�
 
 ### G1b.4：可配置底部状态栏（紧急插入 G3 前）
 
-**状态：已通过（2026-10-09）。** 用户审核 [技术契约](../specs/tui/statusline.md) 后授权实施。供应商、API 模型名、可选上下文百分比/用量及进度条、两种缓存占比、Git/uv、会话与 run 计时已接入；完整默认项实际写入 config.json。10-09 按用户反馈调整格式及初始零值，随后要求默认隐藏 ctx、保留缓存条；context 项可设 enabled:true 恢复。实现证据见 [G1b.4](../reviews/G1b.4.md)。
+**状态：已通过（2026-10-09）。** 用户审核 [技术契约](../specs/tui/statusline.md) 后授权实施。供应商、模型、上下文/缓存、Git/uv、会话与 run 计时及完整默认配置已接入。10-09 最新定制恢复 ctx 进度条加当前/总计，cache 默认只显示百分比；显隐和其他格式仍可配置。原单元实现证据见 [G1b.4](../reviews/G1b.4.md)，后续定制回归见当日日志。
 
 **实现范围：** config 默认补齐与校验、CLI 装配/show、模型 Usage 缓存归一化、app 调用统计与异步本地采集、TUI 两行/窄屏布局及真实光标。当前没有发送前估算器，使用供应商实际 PromptTokens；不新增外部依赖。
 
 - [x] 四阶段文案与新 status_line 配置共存，默认项完整落盘；保留用户数组选择/自定义值，旧配置原子补齐且重复读取不改写，offline 保持不读配置。
-- [x] 上下文按 10-09 用户最新要求默认隐藏，完整配置 context.enabled:false，设 true 可恢复 `ctx: x.x% used/capacity`、固定一位小数、不显示 `(last)`；context_format:bar 保留进度条，两种格式沿用阈值颜色。默认最左 Provider 标签；缓存为可配置条体、一位小数及命中量/对应输入，分母按用户选择沿用 CC/Pi 命中率。官方 DeepSeek 两预设默认容量 1M，其余未知；新会话缓存显示 `cache [░░░░░░░░░░]0.0% 0/0`，恢复上下文后为 `ctx: 0.0% 0/1M`。缓存默认会话累计、可选最近调用；实际字段缺失区分 unknown，累计去重并标 partial。隐藏不改变用量采集或缓存计算；发送前估算未实现，保留 future 接口边界。
+- [x] 上下文按最新要求恢复默认显示：context.enabled:true、context_format:bar、show_percent:false，进度条后带实际输入/容量，不显示 `(last)`。缓存默认 cache_format:ratio，只显示百分比，CC/Pi 分母和统计口径不变；初始为 `cache: 0%` 与 `ctx: [░░░░░░░░░░] 0/1M`。官方两预设容量1M，其余未知；等待保留快照、终态缺统计 unknown/partial、去重累计和阈值颜色继续生效。
 - [x] 10-09 修复生成期间 ctx/cache 提前变 unknown：两字段分别保留初始零或请求前快照，收到对应统计再更新，终态仍缺数据才按实际口径显示 unknown/partial；准备阶段取消且未调用模型时保留原值。显示快照不写入真实 usage 或影响调用累计。
 - [x] Git/uv 异步只读采集，超时/禁用/退出与过期快照测试通过；不存在的环境不能标成 active，未知数据不影响聊天。
 - [x] 优先单行、放不下才两行，自定义字段顺序/标签/显隐/优先级/格式；窄屏最多一行，布局和真实光标正确，Thought 进度不重复，关闭状态栏仍能看到关键错误。
@@ -195,7 +197,7 @@ G1b.1/G1b.2 的清单保留原规划口径，实际通过状态及限制以对�
 
 2026-10-09 用户审核通过 G3.1 及其基础 G3 循环；初始交付见 [G3](../reviews/G3.md)，现行交付见 [G3.1](../reviews/G3.1.md)，行为见 [工具循环契约](../specs/agent/tools.md)，初始步骤见[归档实施计划](../archive/plans/2026-10-09-g3-tools.md)。本期保留完整历史，必要组超过字节预算明确失败，不实现隐式裁剪。
 
-**上下文规划：** 按 [Agent 上下文与工具请求拼装契约](agent-context.md) 统一组织 messages 与 tools。提前约定 `soul.md` 人格、长期记忆、MCP tools 和 skill 的来源边界；G3.1 已扩展为六种开发工具与可选计算器/时间，不读取或创建未来来源，不提前搭空框架。
+**上下文规划：** 按 [Agent 上下文与工具请求拼装契约](agent-context.md) 统一组织 messages 与 tools。G3.1 已扩展为六种开发工具与可选计算器/时间；人格由后续单独授权的 G3.2 接入，长期记忆、MCP 和 skill 仍只预留边界，不提前搭空框架。
 
 **拟改文件：** `internal/agent/{runtime,prompt,budget}.go`、`internal/tools/{registry,calculator,clock}.go`、模型适配器的工具请求/响应编码、对应 `_test.go`、`internal/telemetry/agent.go`、`internal/tui/update.go`、`internal/eval/smoke_test.go`、`eval/datasets/tools.v1.jsonl`。
 
@@ -212,6 +214,18 @@ G1b.1/G1b.2 的清单保留原规划口径，实际通过状态及限制以对�
 G1b.1、G1b.2、G1b.3、插入的 G1b.4、G3 各自通过审核；用户在**不配置微信、不扫码**的情况下完成配置、真实 TUI 多轮/流式聊天、可配置状态栏与一次工具调用；fake 可独立演示成功、失败、超时、取消。交付逐步 trace 和首份绝对值基线，无任何收益承诺。
 
 第一阶段通过后，另行确认是否开始 [第二阶段渠道计划](phase-02-channel.md)。G4a（持久历史/记忆）、G4b（上下文压缩）、G5（已审核技能）、G6（实验与简历整理）作为后续路线储备；具体实现各自另建阶段计划，不提前搭空框架。
+
+### G3.2：人格初始化与上下文拼装
+
+用户于 2026-10-09 明确授权实现，详见 [实施计划](2026-10-09-soul-context.md)、[人格契约](../specs/agent/soul.md) 与 [审核记录](../reviews/G3.2.md)。本单元独立交付待审核，不自动提交推送或推进其他来源。
+
+**拟改文件：** `internal/soul/{soul,soul_test}.go`、config 人格字段/默认补齐/路径与测试、setup 流程/测试、agent runtime/loop/prompt 与测试、CLI runtime 装配/config show/setup 总结，以及相应文档。
+
+- [ ] agent.soul 三个默认字段实际落盘，缺失/null补默认，false/自定义/未知值保留，schema仍为v1；相对路径基于配置目录。
+- [ ] setup 模型保存成功后无覆盖初始化默认模板，0600、已有空文件/自定义/并发创建均不覆盖，失败不伪称全局回滚。
+- [ ] 每 run preparing 读取一次，唯一 system 按基础规则→人格→运行环境组织，同工具循环固定、下一run更新；Generate/Stream一致、offline不读用户文件。
+- [ ] 禁用/缺失/空白跳过，非法UTF-8/非普通/读取失败/超限首次模型前失败；人格不授权执行、不进trace正文，完整请求预算与历史隔离继续有效。
+- [ ] 完成竞态/vet/格式/构建及隔离配置、成功/失败trace验证，交付真实结果后停止等待审核。
 
 ## 6. “详细每一步 trace”的验收定义
 
@@ -260,9 +274,9 @@ G1b.3 拟新增的思考全文与自定义状态文案同样不默认写 trace�
 
 ## 9. 目录与展示材料
 
-当前入口是 `cmd/plume/`。`internal/config`、`setup`、`provider`、`channel`、`telemetry`、`model`、`tui`、`app`、`agent`、`eval` 均已建立；G1b.3 在现有边界上扩展，不预建空实现。
+当前入口是 `cmd/plume/`。`internal/config`、`setup`、`provider`、`channel`、`telemetry`、`model`、`tui`、`app`、`agent`、`tools`、`eval` 均已建立；G3.2 增加 `internal/soul` 默认模板/初始化/读取，不预建其他来源的空实现。
 
-`internal/tools/` 留 G3；后续 `internal/store`、`memory`、`skills` 各自另行审核。应用接口不返回 openai-go、Bubble Tea 等第三方类型。
+后续 `internal/store`、`memory`、`skills` 各自另行审核。应用接口不返回 openai-go、Bubble Tea 等第三方类型。
 
 首版演示：TUI 多轮/流式回答、一次工具调用、一次取消/失败定位、一份可复现基线。简历只使用真实实现与测量数据；微信效果不能在渠道尚未实现时写为成果。
 

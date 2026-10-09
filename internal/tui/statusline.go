@@ -129,7 +129,7 @@ func formatStatusTime(d time.Duration, style string) string {
 // percent 保留一位精度，展示舍入不冒充 token 估算。
 func percent(value float64) string { return strings.TrimSuffix(fmt.Sprintf("%.1f", value), ".0") + "%" }
 
-func contextBar(tokens *int64, capacity *int64, cfg config.ContextBarConfig, width int) (string, bool) {
+func contextBar(tokens *int64, capacity *int64, cfg config.ContextBarConfig, width int, tokenFormat string) (string, bool) {
 	width = max(width, 3)
 	if capacity == nil || *capacity <= 0 {
 		return "capacity unknown", false
@@ -142,6 +142,7 @@ func contextBar(tokens *int64, capacity *int64, cfg config.ContextBarConfig, wid
 	if cfg.ShowPercent || ratio > 1 {
 		bar += " " + percent(ratio*100)
 	}
+	bar += " " + formatToken(*tokens, tokenFormat) + "/" + formatToken(*capacity, tokenFormat)
 	return renderContextValue(bar, ratio, cfg), true
 }
 
@@ -170,7 +171,7 @@ func (m *Model) contextValue(barWidth int) (string, bool) {
 	cfg := m.options.StatusLine
 	tokens, capacity := m.status.contextTokens, m.options.ContextWindowTokens
 	if cfg.ContextFormat == "bar" {
-		return contextBar(tokens, capacity, cfg.ContextBar, barWidth)
+		return contextBar(tokens, capacity, cfg.ContextBar, barWidth, cfg.TokenFormat)
 	}
 	if capacity == nil || *capacity <= 0 {
 		return "capacity unknown", false

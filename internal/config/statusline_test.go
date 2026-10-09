@@ -40,14 +40,14 @@ func TestSaveWritesCompleteStatusLineDefaults(t *testing.T) {
 	for key, want := range map[string]any{
 		"enabled": true, "max_rows": float64(2), "separator": " │ ", "unknown": "show",
 		"clock_refresh_ms": float64(1000), "environment_refresh_ms": float64(5000), "git_timeout_ms": float64(500),
-		"token_format": "compact", "time_format": "compact", "context_format": "usage", "cache_format": "bar", "cache_scope": "session",
+		"token_format": "compact", "time_format": "compact", "context_format": "bar", "cache_format": "ratio", "cache_scope": "session",
 	} {
 		if line[key] != want {
 			t.Errorf("%s = %v, want %v", key, line[key], want)
 		}
 	}
 	bar := line["context_bar"].(map[string]any)
-	wantBar := map[string]any{"width": float64(10), "show_percent": true, "style": "unicode", "warning_percent": float64(80), "critical_percent": float64(95)}
+	wantBar := map[string]any{"width": float64(10), "show_percent": false, "style": "unicode", "warning_percent": float64(80), "critical_percent": float64(95)}
 	if !reflect.DeepEqual(bar, wantBar) {
 		t.Errorf("context_bar = %v, want %v", bar, wantBar)
 	}
@@ -61,7 +61,7 @@ func TestSaveWritesCompleteStatusLineDefaults(t *testing.T) {
 	}
 	for i, id := range wantIDs {
 		item := items[i].(map[string]any)
-		if item["id"] != id || len(item) != 5 || item["enabled"] != (i < 10 && id != "context") {
+		if item["id"] != id || len(item) != 5 || item["enabled"] != (i < 10) {
 			t.Errorf("item[%d] = %v", i, item)
 		}
 		if id == "cache" && item["label"] != "cache" {
@@ -82,7 +82,7 @@ func TestSaveWritesCompleteStatusLineDefaults(t *testing.T) {
 	if err := json.Unmarshal(raw, &saved); err != nil {
 		t.Fatal(err)
 	}
-	if got := statusLineJSON(t, &saved); got["cache_format"] != "bar" || got["cache_scope"] != "session" || got["context_format"] != "usage" {
+	if got := statusLineJSON(t, &saved); got["cache_format"] != "ratio" || got["cache_scope"] != "session" || got["context_format"] != "bar" {
 		t.Fatalf("cache defaults not persisted: %v", got)
 	}
 }

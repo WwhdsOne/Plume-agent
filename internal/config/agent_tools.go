@@ -1,6 +1,8 @@
 package config
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -21,6 +23,7 @@ type BudgetConfig struct {
 }
 type AgentConfig struct {
 	Budget BudgetConfig `json:"budget"`
+	Soul   *SoulConfig  `json:"soul"`
 }
 type ToolsConfig struct {
 	Workspace      string   `json:"workspace"`
@@ -36,7 +39,7 @@ func DefaultAgent() *AgentConfig {
 	return &AgentConfig{Budget: BudgetConfig{
 		ModelCalls: 0, ToolCalls: 0, ToolCallsPerStep: 64, RequestBytes: 8 << 20, ArgumentBytes: 1 << 20, ResultBytes: 64 << 10,
 		RunTimeoutSeconds: 0, ModelTimeoutSeconds: 1800, ToolTimeoutSeconds: 180,
-	}}
+	}, Soul: DefaultSoul()}
 }
 func DefaultTools() *ToolsConfig {
 	return &ToolsConfig{Workspace: ".", Enabled: []string{"read", "grep", "glob", "edit", "write", "bash"}, ReadLines: 200, SearchResults: 100, MaxFileBytes: 10 << 20, MaxOutputBytes: 32 << 10, Shell: "bash"}
@@ -44,9 +47,14 @@ func DefaultTools() *ToolsConfig {
 
 func (c *AgentConfig) UnmarshalJSON(data []byte) error {
 	*c = *DefaultAgent()
-	_, err := decodeDisplayFields(data, "agent", map[string]any{"budget": &c.Budget})
+	raw, err := decodeDisplayFields(data, "agent", map[string]any{"budget": &c.Budget})
 	if err != nil {
 		return err
+	}
+	if value, ok := raw["soul"]; ok && !bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+		if err := json.Unmarshal(value, c.Soul); err != nil {
+			return err
+		}
 	}
 	return c.Validate()
 }
@@ -75,6 +83,7 @@ func (c *AgentConfig) Validate() error {
 		return nil
 	}
 	var errs []error
+	errs = append(errs, c.Soul.Validate())
 	b := c.Budget
 	for name, value := range map[string]int{"model_calls": b.ModelCalls, "tool_calls": b.ToolCalls, "run_timeout_seconds": b.RunTimeoutSeconds} {
 		if value < 0 || value > 2147483647 {

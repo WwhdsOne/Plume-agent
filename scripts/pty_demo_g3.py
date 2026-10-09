@@ -72,7 +72,7 @@ def run_case(binary, output, name, prompt, expected, error="", fixture=False, wi
             (home / "credentials").mkdir(mode=0o700)
             (home / "credentials" / "fixture").write_text("fixture-only-g3-not-a-real-key")
             (home / "credentials" / "fixture").chmod(0o600)
-            initial = json.dumps({"schema_version": 1, "default_model": "test", "tools": {"enabled": ["calculate", "current_time"]}, "models": [{"id": "test", "provider": "deepseek", "protocol": "deepseek", "model": "deepseek-flash", "base_url": f"http://127.0.0.1:{server.server_port}", "api_key_ref": "fixture", "context_window_tokens": 1000000}], "tui": {"status_line": {"max_rows": 1, "items": [{"id": "provider", "enabled": True}, {"id": "context", "enabled": True}, {"id": "cache", "enabled": True}]}}})
+            initial = json.dumps({"schema_version": 1, "default_model": "test", "tools": {"enabled": ["calculate", "current_time"]}, "models": [{"id": "test", "provider": "deepseek", "protocol": "deepseek", "model": "deepseek-flash", "base_url": f"http://127.0.0.1:{server.server_port}", "api_key_ref": "fixture", "context_window_tokens": 1000000}], "tui": {"status_line": {"max_rows": 1, "cache_format": "bar", "context_format": "usage", "items": [{"id": "provider", "enabled": True}, {"id": "context", "enabled": True}, {"id": "cache", "enabled": True}]}}})
         (home / "config.json").write_text(initial)
         env = dict(os.environ)
         env.update(PLUME_HOME=str(home), TERM="xterm-256color", COLORTERM="truecolor")

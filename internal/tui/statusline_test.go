@@ -24,8 +24,23 @@ func TestStatusLineDefaultTwoRowsAndSessionClock(t *testing.T) {
 	if strings.Count(text, "\n") != 1 || !strings.Contains(text, "session:1m15s") {
 		t.Fatalf("default status must have two rows and idle session time: %q", text)
 	}
-	if strings.Contains(text, "ctx:") || !strings.Contains(text, "cache") {
-		t.Fatalf("default status must hide context and keep cache: %q", text)
+	if !strings.Contains(text, "ctx:") || !strings.Contains(text, "cache:") {
+		t.Fatalf("default status must show context and cache: %q", text)
+	}
+}
+
+func TestStatusDefaultContextBarAndCachePercentage(t *testing.T) {
+	cfg := config.DefaultStatusLine()
+	cfg.Items = append([]config.StatusItemConfig(nil), cfg.Items[3:5]...)
+	capacity, used, cached := int64(1000000), int64(200000), int64(50000)
+	m := NewWithOptions("p/m", Hooks{}, Options{StatusLine: cfg, ContextWindowTokens: &capacity})
+	m, _ = m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m.status.contextTokens = &used
+	session := app.NewSession()
+	session.ObserveUsage("call", model.Usage{OK: true, PromptTokens: used, CachedPromptTokens: &cached})
+	m.status.stats = session.Statistics()
+	if got, want := ansi.Strip(m.statusBar()), "ctx: [██░░░░░░░░] 200k/1M │ cache: 25%"; got != want {
+		t.Fatalf("status = %q, want %q", got, want)
 	}
 }
 
@@ -94,18 +109,18 @@ func TestContextUnknownExplainsMissingSourceAndEmptySessionStartsAtZero(t *testi
 	capacity := int64(100)
 	m = NewWithOptions("p/m", Hooks{}, Options{ContextWindowTokens: &capacity})
 	text, _ = m.statusValue(item, 10)
-	if got := ansi.Strip(text); got != "ctx: 0.0% 0/100" {
+	if got := ansi.Strip(text); got != "ctx: [░░░░░░░░░░] 0/100" {
 		t.Fatal(got)
 	}
 	m.startRun("r")
 	text, _ = m.statusValue(item, 10)
-	if got := ansi.Strip(text); got != "ctx: 0.0% 0/100" {
+	if got := ansi.Strip(text); got != "ctx: [░░░░░░░░░░] 0/100" {
 		t.Fatal(got)
 	}
 	m.endRun()
 	m.sessionReset()
 	text, _ = m.statusValue(item, 10)
-	if got := ansi.Strip(text); got != "ctx: 0.0% 0/100" {
+	if got := ansi.Strip(text); got != "ctx: [░░░░░░░░░░] 0/100" {
 		t.Fatal(got)
 	}
 }
@@ -128,11 +143,11 @@ func TestStatusUsagePreservesInitialZeroUntilReported(t *testing.T) {
 				}
 			}
 			m.startRun("r")
-			check("ctx: 0.0% 0/100", "cache [░░░░░░░░░░]0.0% 0/0")
+			check("ctx: [░░░░░░░░░░] 0/100", "cache: 0%")
 			s.ObserveUsage("r/model-1", model.Usage{})
 			for _, phase := range []app.Phase{app.PhaseWaiting, app.PhaseThinking, app.PhaseResponding} {
 				m.applyEvent(app.Event{Kind: app.EventRunPhase, RunID: "r", Phase: phase, Stats: s.Statistics()})
-				check("ctx: 0.0% 0/100", "cache [░░░░░░░░░░]0.0% 0/0")
+				check("ctx: [░░░░░░░░░░] 0/100", "cache: 0%")
 			}
 			if m.status.stats.Calls != 1 || m.status.stats.KnownCalls != 0 || m.status.stats.CacheKnownCalls != 0 {
 				t.Fatal("display zero was recorded as actual model usage")
@@ -141,17 +156,17 @@ func TestStatusUsagePreservesInitialZeroUntilReported(t *testing.T) {
 			usage := model.Usage{OK: true, PromptTokens: 20, CachedPromptTokens: &cached}
 			s.ObserveUsage("r/model-1", usage)
 			m.applyEvent(app.Event{Kind: app.EventUsageUpdate, RunID: "r", Usage: usage, Stats: s.Statistics()})
-			check("ctx: 20.0% 20/100", "cache [████░░░░░░]40.0% 8/20")
+			check("ctx: [██░░░░░░░░] 20/100", "cache: 40%")
 			m.applyEvent(app.Event{Kind: app.EventRunCompleted, RunID: "r", Reply: "done", Usage: usage, Stats: s.Statistics()})
-			check("ctx: 20.0% 20/100", "cache [████░░░░░░]40.0% 8/20")
+			check("ctx: [██░░░░░░░░] 20/100", "cache: 40%")
 		})
 	}
 }
 
 func TestStatusUsagePreservesPreviousSnapshotUntilReported(t *testing.T) {
 	for _, tc := range []struct{ scope, want string }{
-		{"session", "cache [███████░░░]70.0% 56/80"},
-		{"last_call", "cache [████████░░]80.0% 48/60"},
+		{"session", "cache: 70%"},
+		{"last_call", "cache: 80%"},
 	} {
 		t.Run(tc.scope, func(t *testing.T) {
 			s := app.NewSession()
@@ -166,20 +181,20 @@ func TestStatusUsagePreservesPreviousSnapshotUntilReported(t *testing.T) {
 			s.ObserveUsage("r2/model-1", model.Usage{})
 			m.applyEvent(app.Event{Kind: app.EventRunPhase, RunID: "r2", Phase: app.PhaseWaiting, Stats: s.Statistics()})
 			item := config.StatusItemConfig{ID: "cache", Label: "cache"}
-			if text, known := m.statusValue(item, 10); !known || ansi.Strip(text) != "cache [████░░░░░░]40.0% 8/20" {
+			if text, known := m.statusValue(item, 10); !known || ansi.Strip(text) != "cache: 40%" {
 				t.Fatalf("pending request changed previous cache: %q known=%v", ansi.Strip(text), known)
 			}
-			if text, known := m.statusValue(config.StatusItemConfig{ID: "context", Label: "ctx"}, 10); !known || ansi.Strip(text) != "ctx: 20.0% 20/100" {
+			if text, known := m.statusValue(config.StatusItemConfig{ID: "context", Label: "ctx"}, 10); !known || ansi.Strip(text) != "ctx: [██░░░░░░░░] 20/100" {
 				t.Fatalf("pending request changed previous context: %q known=%v", ansi.Strip(text), known)
 			}
 			// 输入统计先到、缓存尚未报告时，缓存继续保留上一份快照。
 			next := model.Usage{OK: true, PromptTokens: 60}
 			s.ObserveUsage("r2/model-1", next)
 			m.applyEvent(app.Event{Kind: app.EventUsageUpdate, RunID: "r2", Usage: next, Stats: s.Statistics()})
-			if text, known := m.statusValue(item, 10); !known || ansi.Strip(text) != "cache [████░░░░░░]40.0% 8/20" {
+			if text, known := m.statusValue(item, 10); !known || ansi.Strip(text) != "cache: 40%" {
 				t.Fatalf("missing cache update erased previous snapshot: %q known=%v", ansi.Strip(text), known)
 			}
-			if text, _ := m.statusValue(config.StatusItemConfig{ID: "context", Label: "ctx"}, 10); ansi.Strip(text) != "ctx: 60.0% 60/100" {
+			if text, _ := m.statusValue(config.StatusItemConfig{ID: "context", Label: "ctx"}, 10); ansi.Strip(text) != "ctx: [██████░░░░] 60/100" {
 				t.Fatalf("reported context was not updated: %q", ansi.Strip(text))
 			}
 			next.CachedPromptTokens = &nextCached
@@ -221,16 +236,16 @@ func TestStatusUsageTerminalWithoutStatistics(t *testing.T) {
 					if text, known := m.statusValue(config.StatusItemConfig{ID: "context", Label: "ctx"}, 10); known || ansi.Strip(text) != "ctx: usage unknown" {
 						t.Fatalf("terminal missing usage retained context: %q known=%v", ansi.Strip(text), known)
 					}
-					want, wantKnown := "cache unknown", false
+					want, wantKnown := "cache: unknown", false
 					if scope == "session" && priorCall {
-						want, wantKnown = "cache [████░░░░░░]40.0% 8/20 (partial)", true
+						want, wantKnown = "cache: 40% (partial)", true
 					}
 					if text, known := m.statusValue(config.StatusItemConfig{ID: "cache", Label: "cache"}, 10); known != wantKnown || ansi.Strip(text) != want {
 						t.Fatalf("terminal cache=%q known=%v, want %q known=%v", ansi.Strip(text), known, want, wantKnown)
 					}
 					m.sessionReset()
 					m.startRun("new")
-					if text, known := m.statusValue(config.StatusItemConfig{ID: "context", Label: "ctx"}, 10); !known || ansi.Strip(text) != "ctx: 0.0% 0/100" {
+					if text, known := m.statusValue(config.StatusItemConfig{ID: "context", Label: "ctx"}, 10); !known || ansi.Strip(text) != "ctx: [░░░░░░░░░░] 0/100" {
 						t.Fatalf("new session leaked unknown context: %q", ansi.Strip(text))
 					}
 				})
@@ -248,7 +263,7 @@ func TestStatusUsageCancellationBeforeFirstModelCallKeepsZero(t *testing.T) {
 			m.options.StatusLine.CacheScope = scope
 			m.startRun("r")
 			m.applyEvent(app.Event{Kind: app.EventRunFailed, RunID: "r", Err: context.Canceled, Stats: s.Statistics()})
-			for _, tc := range []struct{ id, label, want string }{{"context", "ctx", "ctx: 0.0% 0/100"}, {"cache", "cache", "cache [░░░░░░░░░░]0.0% 0/0"}} {
+			for _, tc := range []struct{ id, label, want string }{{"context", "ctx", "ctx: [░░░░░░░░░░] 0/100"}, {"cache", "cache", "cache: 0%"}} {
 				if text, known := m.statusValue(config.StatusItemConfig{ID: tc.id, Label: tc.label}, 10); !known || ansi.Strip(text) != tc.want {
 					t.Fatalf("preparation cancellation changed %s: %q known=%v", tc.id, ansi.Strip(text), known)
 				}
@@ -271,12 +286,12 @@ func TestContextProgressUnknownActualLastAndOverflow(t *testing.T) {
 	m.startRun("r")
 	m.applyEvent(app.Event{Kind: app.EventUsageUpdate, RunID: "r", Usage: model.Usage{OK: true, PromptTokens: 20}})
 	text, _ := m.statusValue(item, 10)
-	if got := ansi.Strip(text); got != "ctx: 20.0% 20/100" {
+	if got := ansi.Strip(text); got != "ctx: [██░░░░░░░░] 20/100" {
 		t.Fatal(got)
 	}
 	m.applyEvent(app.Event{Kind: app.EventRunCompleted, RunID: "r", Reply: "done", Usage: model.Usage{OK: true, PromptTokens: 120}})
 	text, _ = m.statusValue(item, 10)
-	if got := ansi.Strip(text); got != "ctx: 120.0% 120/100" {
+	if got := ansi.Strip(text); got != "ctx: [██████████] 120% 120/100" {
 		t.Fatal(got)
 	}
 }
@@ -284,6 +299,7 @@ func TestContextProgressUnknownActualLastAndOverflow(t *testing.T) {
 func TestContextUsagePrecisionAndLegacyLabel(t *testing.T) {
 	capacity := int64(1000000)
 	m := NewWithOptions("p/m", Hooks{}, Options{ContextWindowTokens: &capacity})
+	m.options.StatusLine.ContextFormat = "usage"
 	item := config.StatusItemConfig{ID: "context", Label: "ctx(last)"}
 	for _, tc := range []struct {
 		tokens int64
@@ -327,6 +343,7 @@ func TestProviderDefaultLabelAndCacheBarScopes(t *testing.T) {
 	s.ObserveUsage("first", model.Usage{OK: true, PromptTokens: 10, CachedPromptTokens: &first})
 	s.ObserveUsage("latest", model.Usage{OK: true, PromptTokens: 30, CachedPromptTokens: &latest})
 	m := New("deepseek/deepseek-flash", Hooks{})
+	m.options.StatusLine.CacheFormat = "bar"
 	text, known := m.statusValue(m.options.StatusLine.Items[0], 10)
 	if !known || text != "Provider: deepseek" {
 		t.Fatalf("provider = %q known=%v", text, known)
@@ -352,6 +369,7 @@ func TestCacheBarUsesInputDenominatorAndPartialSubset(t *testing.T) {
 	s.ObserveUsage("unknown", model.Usage{OK: true, PromptTokens: 80})
 	capacity := int64(1000000)
 	m := NewWithOptions("p/m", Hooks{}, Options{ContextWindowTokens: &capacity})
+	m.options.StatusLine.CacheFormat = "bar"
 	m.status.stats = s.Statistics()
 	text, known := m.statusValue(config.StatusItemConfig{ID: "cache", Label: "cache"}, 10)
 	if !known || ansi.Strip(text) != "cache [████░░░░░░]40.0% 8/20 (partial)" {
@@ -366,6 +384,7 @@ func TestCacheBarUsesInputDenominatorAndPartialSubset(t *testing.T) {
 
 func TestCacheBarWidthIndependentAndShrinksBeforeClipping(t *testing.T) {
 	cfg := config.DefaultStatusLine()
+	cfg.CacheFormat = "bar"
 	cfg.ContextBar.Width, cfg.CacheBar.Width = 5, 20
 	cfg.Items = []config.StatusItemConfig{{ID: "cache", Label: "cache", Enabled: true, Row: 1, Priority: 40}}
 	m := NewWithOptions("p/m", Hooks{}, Options{StatusLine: cfg})
@@ -389,8 +408,13 @@ func TestContextBarRemainsConfigurableWithoutLastSuffix(t *testing.T) {
 	m := NewWithOptions("p/m", Hooks{}, Options{StatusLine: cfg, ContextWindowTokens: &capacity})
 	m.status.contextTokens, m.status.contextLast = &used, true
 	text, known := m.statusValue(config.StatusItemConfig{ID: "context", Label: "容量"}, 5)
-	if !known || ansi.Strip(text) != "容量: [#----] 20%" {
+	if !known || ansi.Strip(text) != "容量: [#----] 20/100" {
 		t.Fatalf("configured bar changed: %q", ansi.Strip(text))
+	}
+	m.options.StatusLine.ContextBar.ShowPercent = true
+	text, known = m.statusValue(config.StatusItemConfig{ID: "context", Label: "容量"}, 5)
+	if !known || ansi.Strip(text) != "容量: [#----] 20% 20/100" {
+		t.Fatalf("optional percentage changed: %q", ansi.Strip(text))
 	}
 }
 

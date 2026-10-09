@@ -93,9 +93,9 @@ python3 scripts/pty_demo_g1b3.py
 
 这是 `status_line` 内的片段，保留其余默认项；它不用于替换整个 config.json。`enabled:false` 或 `items:[]` 隐藏整栏并停止相应环境采集。字段顺序、行位置、标签、优先级、数字/时间格式、上下文条宽/ASCII 样式/阈值都可配置，完整字段见 [技术契约](../specs/tui/statusline.md)。关闭状态栏时关键拒绝与错误会作为系统/错误记录滚动到可见位置。
 
-`context` 项默认 `enabled:false`；将其改为 `enabled:true` 可恢复 ctx，隐藏不改变用量采集或缓存计算。恢复后默认 context_format:usage，显示 `ctx: x.x% used/capacity`，固定一位小数、数量按 token_format；context_format:bar 可切回进度条。官方 DeepSeek `deepseek-flash` / `deepseek-v4-pro` 自动落盘 `context_window_tokens:1000000`，手填容量保留，其他模型或自定义端点默认 null。新会话为 `ctx: 0.0% 0/1M`，完成后使用最近实际输入，不显示 `(last)`。容量未知显示 capacity unknown；生成期间保留初始零或请求前统计，收到新输入 usage 才更新，新调用结束仍缺统计才显示 usage unknown。准备阶段取消且没有新调用时保留原值，不使用问号条或字符数猜 token。
+`context` 项默认 `enabled:true`、context_format:bar、context_bar.show_percent:false，显示 `ctx: [██░░░░░░░░] 200k/1M`。条体后固定带当前输入/总容量，token_format 控制 k/M 或完整数量；show_percent:true 可额外显示百分比，context_format:usage 保留百分比加数量格式。官方 DeepSeek 两预设默认容量1M，新会话显示 `ctx: [░░░░░░░░░░] 0/1M`；容量未知/终态缺统计仍明确 unknown，生成期间保留请求前快照，不估算 token，不显示 `(last)`。
 
-最左默认 `Provider: deepseek`，provider item 的 label 为 Provider，可自定义。缓存默认 cache_format:bar、cache_scope:session、cache_bar:{width:10,style:unicode}，显示 `cache [████░░░░░░]40.0% 8/20`；末尾是命中输入/对应总输入，和条体及百分比使用同一分母，不是模型上下文容量。默认 CC 会话累计，改 cache_scope:last_call 即启用 Pi 最近调用，重启生效。初始 Go 零值为 `cache [░░░░░░░░░░]0.0% 0/0`；两种口径在生成期间保留初始零或请求前快照，收到新缓存统计才刷新，终态缺统计仍为 unknown/partial。条宽、unicode/ascii 可配置，窄屏先缩条；tokens/ratio/both 格式仍可选。Ctrl+N 重置统计及会话时长，缓存恢复零值；Ctrl+L 保留。
+最左默认 `Provider: deepseek`，标签可自定义。缓存默认 cache_format:ratio、cache_scope:session，仅显示 `cache: 40%`；初始与 Ctrl+N 后为 `cache: 0%`。默认 CC 会话累计，last_call 为 Pi 最近调用，分母仍为对应总输入。tokens/both/bar 保留可选，partial/unknown 与等待期间快照保留逻辑不变；缓存默认不显示条体或命中量/总输入数字。
 
 隔离验收（需要 Python 的 `pyte`，不加入 Go 运行依赖）：
 

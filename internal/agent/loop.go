@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"plume-agent/internal/model"
+	"plume-agent/internal/soul"
 	"plume-agent/internal/telemetry"
 	"plume-agent/internal/tools"
 )
@@ -33,7 +34,15 @@ func (r *Runtime) runLoop(ctx context.Context, history []model.Message, input st
 	}
 	ctx, cancel := runContext(ctx, r.limits.RunTimeout)
 	defer cancel()
-	builder := newPromptBuilder(r.modelID, r.tools, r.limits.RequestBytes)
+	// preparing：先读取人格，再冻结请求来源；后续工具步骤不会重新读文件。
+	personality, readErr := soul.Read(ctx, r.soulPath, r.soulBytes)
+	if readErr != nil {
+		if ctx.Err() != nil {
+			return result, ctx.Err()
+		}
+		return result, model.NewError(model.ErrInvalidConfig).WithSummary("load soul.md: " + readErr.Error())
+	}
+	builder := newPromptBuilder(r.modelID, r.tools, r.limits.RequestBytes, personality)
 	turn := []model.Message{{Role: model.RoleUser, Content: input}}
 	ids := map[string]bool{}
 	for _, msg := range history {

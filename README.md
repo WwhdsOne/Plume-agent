@@ -19,11 +19,13 @@ plume config show                 # 脱敏查看配置
 
 setup 正常结束后返回终端，并打印开始聊天、再次设置和查看配置的命令提示；输入 `plume setup` 可随时重新配置。缺配置的非交互调用只显示帮助与提示，不启动向导。
 
+setup 默认在配置目录生成 `soul.md`，不增加问题、不会覆盖已有内容。编辑它可调整 Plume 的身份、语气和风格；在线每条输入准备时读取一次，工具循环内保持快照，下一条输入采用新内容。`agent.soul` 的 enabled/path/max_bytes 默认 true/"soul.md"/65536，完整写入 config.json；设 enabled:false 可关闭。旧配置仅补字段，运行 `plume setup` 才生成模板。人格不改变工具许可，详见 [人格契约](docs/specs/agent/soul.md) 与 [G3.2 审核](docs/reviews/G3.2.md)。
+
 聊天键位：`Enter` 发送；`Shift+Enter`、`Alt/Option+Enter` 或行尾 `\`+`Enter` 换行；`PgUp/PgDn` 滚动；`Esc` 取消；`Ctrl+C` 运行中取消、空闲有草稿时清空、空草稿时两次退出；`Ctrl+D` 空输入退出；`Ctrl+L` 清屏；`Ctrl+N` 新会话；`Ctrl+O` 展开/收起思考。
 
 模型级 `reasoning_effort` 省略时默认偏好 `high`，`none` 关闭思考，setup 不增加问题。支持范围由端点和模型能力共同验证，未验证服务不会自动发送 high 参数；`plume config show` 显示来源与实际生效状态。四阶段文案可在 `tui.status_messages` 中自定义，详见 [流式契约](docs/specs/tui/streaming.md)。
 
-底部状态栏支持配置字段顺序、显隐、两行布局与窄屏优先级，默认项完整写入 `tui.status_line`，详见 [状态栏契约](docs/specs/tui/statusline.md)（G1b.4 已通过）。优先单行并使用亮青/浅青配色，最左默认 `Provider: deepseek`。上下文 `ctx` 默认隐藏；将 `items` 中 `context` 项改为 `enabled:true` 可恢复 `ctx: x.x% used/capacity`，context_format:bar 可用进度条。缓存默认 `cache [░░░░░░░░░░]0.0% 0/0`，末尾为命中量/对应总输入；默认会话累计，cache_scope:last_call 可选最近调用，cache_bar 的条宽/样式可配置。隐藏 ctx 不改变用量采集或缓存计算；Git/uv 和会话时长来自实际数据。
+底部状态栏支持配置字段顺序、显隐、两行布局与窄屏优先级，默认项完整写入 `tui.status_line`，详见 [状态栏契约](docs/specs/tui/statusline.md)（G1b.4 已通过）。优先单行，完整字段放不下才分两行。默认显示 `ctx: [██░░░░░░░░] 200k/1M` 与 `cache: 25%`；上下文为进度条及实际输入/容量，缓存只显示命中率，仍默认 CC 会话累计、可选 Pi 最近调用。两者格式、显隐、条宽及主题配色均可配置。
 
 模型传输用 [OpenAI 官方 Go SDK](https://github.com/openai/openai-go)（自动重试/重定向已显式禁用），DeepSeek 与自定义 OpenAI 兼容服务同走 Chat Completions 适配器；Anthropic/Gemini 等协议未来以新增适配器接入同一接口。配置里永不出现密钥值——`config.json` 只存引用，密钥在 `~/.plume/credentials/`（0700/0600）。
 
@@ -46,6 +48,7 @@ TUI → app（会话/run）→ agent（循环/预算）→ 模型接口 / 受控
 | `internal/app/` | 会话与 run 生命周期、用量快照去重累计、Git/uv 异步环境采集 |
 | `internal/agent/` | 统一请求拼装、模型—工具循环与预算 |
 | `internal/tools/` | 工作区文件读写/搜索、本地命令、参数校验与许可注册表 |
+| `internal/soul/` | 默认人格模板、无覆盖初始化与有界 UTF-8 读取 |
 | `internal/telemetry/` | 脱敏 JSON Lines trace（setup/模型/run/UI 首答案） |
 | `internal/eval/` | 离线种子数据集与运行器 |
 
