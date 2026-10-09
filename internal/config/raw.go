@@ -13,6 +13,11 @@ type rawShape struct {
 
 var configShape = &rawShape{fields: map[string]*rawShape{
 	"schema_version": nil, "default_model": nil,
+	"agent": {fields: map[string]*rawShape{"budget": {fields: map[string]*rawShape{
+		"model_calls": nil, "tool_calls": nil, "tool_calls_per_step": nil, "request_bytes": nil, "argument_bytes": nil, "result_bytes": nil,
+		"run_timeout_seconds": nil, "model_timeout_seconds": nil, "tool_timeout_seconds": nil,
+	}}}},
+	"tools": {fields: map[string]*rawShape{"workspace": nil, "enabled": nil, "read_lines": nil, "search_results": nil, "max_file_bytes": nil, "max_output_bytes": nil, "shell": nil}},
 	"models": {element: &rawShape{fields: map[string]*rawShape{
 		"id": nil, "provider": nil, "protocol": nil, "base_url": nil, "model": nil,
 		"api_key_ref": nil, "reasoning_effort": nil, "context_window_tokens": nil,

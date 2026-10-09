@@ -13,6 +13,7 @@ import (
 
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/option"
+	"github.com/openai/openai-go/shared"
 
 	"plume-agent/internal/model"
 	"plume-agent/internal/model/endpoint"
@@ -49,14 +50,22 @@ func NewDeepSeekAdapter(baseURL, apiKey string) (*Adapter, error) {
 
 // requestOptions 验证控制偏好，并把供应商差异保留在协议适配器中。
 func (a *Adapter) requestOptions(req model.ChatRequest) ([]option.RequestOption, error) {
+	var replay []option.RequestOption
+	if a.deepseek && len(req.Tools) > 0 {
+		for i, msg := range req.Messages {
+			if msg.Role == model.RoleAssistant {
+				replay = append(replay, option.WithJSONSet(fmt.Sprintf("messages.%d.reasoning_content", i), msg.Reasoning))
+			}
+		}
+	}
 	if req.ReasoningEffort == "" {
-		return nil, nil
+		return replay, nil
 	}
 	if !a.deepseek {
 		return nil, model.NewError(model.ErrUnsupported).WithSummary("reasoning control is unverified for this adapter")
 	}
 	if req.ReasoningEffort == model.ReasoningNone {
-		return []option.RequestOption{option.WithJSONSet("thinking.type", "disabled")}, nil
+		return append(replay, option.WithJSONSet("thinking.type", "disabled")), nil
 	}
 	effort := req.ReasoningEffort
 	if effort == model.ReasoningMedium {
@@ -64,7 +73,7 @@ func (a *Adapter) requestOptions(req model.ChatRequest) ([]option.RequestOption,
 	}
 	switch effort {
 	case model.ReasoningLow, model.ReasoningHigh, model.ReasoningMax:
-		return []option.RequestOption{option.WithJSONSet("thinking.type", "enabled"), option.WithJSONSet("reasoning_effort", string(effort))}, nil
+		return append(replay, option.WithJSONSet("thinking.type", "enabled"), option.WithJSONSet("reasoning_effort", string(effort))), nil
 	default:
 		return nil, model.NewError(model.ErrUnsupported).WithSummary("unsupported reasoning effort")
 	}
@@ -121,8 +130,7 @@ func (a *Adapter) Generate(ctx context.Context, req model.ChatRequest) (*model.C
 	return resp, nil
 }
 
-// encodeRequest 把规范化请求编码为 SDK 参数。G1b.1 不发送工具声明
-// （工具执行在 G3），出现即明确拒绝，不静默忽略（0003 §3）。
+// encodeRequest 把规范化消息与结构化工具声明编码为 SDK 参数。
 func encodeRequest(req model.ChatRequest) (openai.ChatCompletionNewParams, error) {
 	var params openai.ChatCompletionNewParams
 	if req.Model == "" {
@@ -131,8 +139,14 @@ func encodeRequest(req model.ChatRequest) (openai.ChatCompletionNewParams, error
 	if len(req.Messages) == 0 {
 		return params, model.NewError(model.ErrInvalidConfig).WithSummary("messages must not be empty")
 	}
-	if len(req.Tools) > 0 {
-		return params, model.NewError(model.ErrUnsupported).WithSummary("tool declarations are not supported until G3")
+	seen := make(map[string]bool)
+	for _, tool := range req.Tools {
+		var schema map[string]any
+		if tool.Name == "" || seen[tool.Name] || json.Unmarshal([]byte(tool.Parameters), &schema) != nil || schema == nil || schema["type"] != "object" {
+			return params, model.NewError(model.ErrInvalidConfig).WithSummary("invalid tool declaration")
+		}
+		seen[tool.Name] = true
+		params.Tools = append(params.Tools, openai.ChatCompletionToolParam{Function: shared.FunctionDefinitionParam{Name: tool.Name, Description: openai.String(tool.Description), Parameters: shared.FunctionParameters(schema)}})
 	}
 
 	params.Model = req.Model
@@ -368,7 +382,7 @@ func firstNonEmpty(values ...string) string {
 // Capabilities 表示适配器已实现的协议读取能力；控制参数的端点/模型
 // 验证仍由 provider 完成，不能从品牌或任意 Base URL 推断支持。
 func (a *Adapter) Capabilities() model.CapabilitySet {
-	caps := model.NewCapabilitySet().Set(model.CapText, model.CapSupported).Set(model.CapStream, model.CapSupported).Set(model.CapUsage, model.CapSupported).Set(model.CapTools, model.CapUnsupported)
+	caps := model.NewCapabilitySet().Set(model.CapText, model.CapSupported).Set(model.CapStream, model.CapSupported).Set(model.CapUsage, model.CapSupported).Set(model.CapTools, model.CapSupported)
 	if a.deepseek {
 		caps = caps.Set(model.CapReasoningOutput, model.CapSupported)
 	}

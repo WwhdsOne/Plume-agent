@@ -70,7 +70,12 @@ func startChat(out io.Writer, modelFlag string, offline bool) error {
 	providerID := "fake"
 	label := "fake/offline"
 	if offline {
-		runtime = agent.New(model.NewLoopFake(model.FakeScript{Response: &model.ChatResponse{}}), "offline")
+		runtime = agent.New(model.NewToolDemo(), "offline")
+		defaults := config.DefaultTools()
+		defaults.Enabled = append(defaults.Enabled, "calculate", "current_time")
+		if err := configureRuntimeTools(runtime, &config.Config{Tools: defaults, Agent: config.DefaultAgent()}); err != nil {
+			return err
+		}
 	} else {
 		cfg, err := config.Load()
 		if err != nil {
@@ -95,6 +100,7 @@ func startChat(out io.Writer, modelFlag string, offline bool) error {
 			}
 		}
 	}
+	defer runtime.Close()
 
 	trace, err := openChatTrace()
 	if err != nil {
@@ -225,7 +231,11 @@ func buildRuntime(cfg *config.Config, modelFlag string) (*agent.Runtime, string,
 	if err != nil {
 		return nil, "", fmt.Errorf("build model client: %w", err)
 	}
-	return agent.New(client, selected.Model), fmt.Sprintf("%s/%s", selected.Provider, selected.Model), nil
+	runtime := agent.New(client, selected.Model)
+	if err := configureRuntimeTools(runtime, cfg); err != nil {
+		return nil, "", fmt.Errorf("configure tools: %w", err)
+	}
+	return runtime, fmt.Sprintf("%s/%s", selected.Provider, selected.Model), nil
 }
 
 // selectModelConfig 解析要用的模型配置：显式 --model 只接受已保存的 ID，

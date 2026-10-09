@@ -18,6 +18,7 @@ docs/
 ├── specs/              现行契约——"现在怎么工作"
 │   ├── config.md       配置 schema v1、目录解析、凭据与原子写入
 │   ├── metrics.md      指标与比较协议（全阶段共用）
+│   ├── agent/tools.md  G3 受控工具循环契约
 │   └── tui/            TUI 契约
 │       ├── keys.md        键位与平台适配（G1b.2.1）
 │       ├── splash.md      开屏与主题色（G1b.2.2）
@@ -36,7 +37,7 @@ docs/
 ├── daily/              每日变更流水
 └── archive/            历史沉淀，不作为现行依据
     ├── project-audit-2026-10-06.md
-    └── plans/          已完成的单元实施计划
+    └── plans/          已完成的单元实施计划（含 G3/G3.1）
 ```
 
 ## 2. 按意图找文档
@@ -54,7 +55,7 @@ docs/
 ## 3. 状态速览（2026-10-09）
 
 已通过：G0、G1a、G1b.1、G1b.2（.1/.2.1/.2.2）、G1b.3、G1b.4。
-**当前无进行中单元**；下一单元 G3（自研工具循环与受控工具）需另行授权。
+**G3/G3.1 于 2026-10-09 审核通过**，见 [循环审核](reviews/G3.md) 与 [开发工具审核](reviews/G3.1.md)。已完成计划归档为 [G3 初始计划](archive/plans/2026-10-09-g3-tools.md)、[G3.1 开发工具计划](archive/plans/2026-10-09-g3-workspace-tools.md)，现行契约为 `specs/agent/tools.md`；状态栏默认隐藏 ctx、保留 cache。审核窗口证据已按 runbook 删除，重跑方法保留在审核记录。后续阶段仍待另行授权。
 
 单一事实来源：单元状态只在 `reviews/Gx.md` 的 frontmatter 维护；`roadmap.html` 是可读快照，两者冲突时以 reviews 为准。`plans/` 与 `specs/` 不再重复记录单元状态。
 

@@ -37,8 +37,7 @@ type Message struct {
 	ToolCallID string     `json:"tool_call_id,omitempty"` // 仅 tool：本条结果对应的调用 ID
 }
 
-// ToolDeclaration 是发给模型的工具声明。G1b.1 的非流式路径不支持发送
-// 工具声明（工具执行在 G3），请求中出现时适配器明确返回 unsupported。
+// ToolDeclaration 是发给模型的结构化工具声明；实际执行由 Agent 注册表许可。
 type ToolDeclaration struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
@@ -66,7 +65,7 @@ type ChatRequest struct {
 	Messages []Message `json:"messages"`
 	// Temperature 为 nil 表示不发送该参数（由服务端取默认值）。
 	Temperature *float64 `json:"temperature,omitempty"`
-	// Tools 是可选的工具声明。G1b.1 非流式路径必须为空。
+	// Tools 是可选的结构化工具声明，不拼进用户正文。
 	Tools []ToolDeclaration `json:"tools,omitempty"`
 }
 

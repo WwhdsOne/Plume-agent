@@ -128,6 +128,13 @@ func printConfig(w io.Writer, cfg *config.Config, channels *channel.Registry) {
 	}
 	statusJSON, _ := json.MarshalIndent(statusCfg, "  ", "  ")
 	fmt.Fprintln(w, "  "+string(statusJSON))
+	for _, section := range []struct {
+		name  string
+		value any
+	}{{"agent", cfg.Agent}, {"tools", cfg.Tools}} {
+		encoded, _ := json.MarshalIndent(section.value, "  ", "  ")
+		fmt.Fprintf(w, "\n%s:\n  %s\n", section.name, encoded)
+	}
 
 	fmt.Fprintln(w, "\nchannels:")
 	if len(cfg.Channels) == 0 {

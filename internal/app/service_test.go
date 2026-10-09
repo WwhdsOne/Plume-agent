@@ -108,8 +108,8 @@ func TestServiceHappyPathCommitsHistory(t *testing.T) {
 	if len(calls) != 2 {
 		t.Fatalf("call count = %d", len(calls))
 	}
-	if len(calls[1].Messages) != 3 { // user+assistant+user("again")
-		t.Errorf("second call messages = %d, want 3 (history carried over)", len(calls[1].Messages))
+	if len(calls[1].Messages) != 4 { // system+user+assistant+user("again")
+		t.Errorf("second call messages = %d, want 4 (history carried over)", len(calls[1].Messages))
 	}
 	if svc.Session().Turns() != 2 {
 		t.Errorf("turns = %d, want 2", svc.Session().Turns())
@@ -208,7 +208,7 @@ func TestServiceResetSessionClearsContext(t *testing.T) {
 	drainEvents(t, svc)
 	calls := fake.Calls()
 	// 重置后第二轮只有新输入，不串上下文。
-	if len(calls[1].Messages) != 1 {
-		t.Errorf("after reset messages = %d, want 1 (no context carry-over)", len(calls[1].Messages))
+	if len(calls[1].Messages) != 2 {
+		t.Errorf("after reset messages = %d, want 2 (base rules and current input)", len(calls[1].Messages))
 	}
 }

@@ -24,8 +24,8 @@ func TestStatusLineDefaultTwoRowsAndSessionClock(t *testing.T) {
 	if strings.Count(text, "\n") != 1 || !strings.Contains(text, "session:1m15s") {
 		t.Fatalf("default status must have two rows and idle session time: %q", text)
 	}
-	if strings.Contains(text, "ctx:0%") {
-		t.Fatal("unknown context must not look empty")
+	if strings.Contains(text, "ctx:") || !strings.Contains(text, "cache") {
+		t.Fatalf("default status must hide context and keep cache: %q", text)
 	}
 }
 

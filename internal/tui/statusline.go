@@ -470,6 +470,10 @@ func (m *Model) initializeEmptyContext() {
 }
 
 func (m *Model) updateStatus(event app.Event) {
+	if event.Kind == app.EventRunPhase && event.Phase == app.PhaseWaiting && event.Stats.Calls > m.status.stats.Calls && m.status.cacheBeforeRun == nil {
+		// 工具后的下一次模型调用仍属于同一 run；收到新缓存统计前保留上一步展示。
+		m.status.cacheBeforeRun = &cacheSnapshot{stats: m.status.stats, usage: m.status.usage}
+	}
 	if !event.Stats.StartedAt.IsZero() {
 		m.status.stats = event.Stats
 	}

@@ -139,3 +139,9 @@ PTY 依赖仅为临时验收用 pyte 0.8.2 / wcwidth 0.9.2，不属于 plume 运
 PTY fixture 在正文已经发送后阻塞 usage，先检查生成帧再放行统计；12 个场景通过，包含取消、断流、未知字段、颜色、窄屏及 CC/Pi 两次调用。两种口径第一轮生成均为 0，第二轮生成均保留 40.0% 8/20，统计到达后分别更新为 70.0% 56/80 与 80.0% 48/60。见 [完整结果](evidence/G1b.4/usage-retain-2026-10-09/pty/results.json)、[1M 生成帧](evidence/G1b.4/usage-retain-2026-10-09/pty/context-1m-80x24-call-1-before-usage.txt)。
 
 已从原目录重新安装 `/Users/go/bin/plume`：built 2026-10-09T01:42:21Z，24,773,378 bytes。安装版 [CC](evidence/G1b.4/usage-retain-2026-10-09/installed/cc/cache-session-80x24-result.json)、[Pi](evidence/G1b.4/usage-retain-2026-10-09/installed/pi/cache-last-call-80x24-result.json)、[1M](evidence/G1b.4/usage-retain-2026-10-09/installed/context-1m/context-1m-80x24-result.json) 三个场景各 1/1 通过。配置结构及真实配置不变，验收均为临时 PLUME_HOME 和本地 fixture；审核状态保持待审核。
+
+## 2026-10-09 按用户要求默认隐藏 ctx
+
+用户要求状态栏删除 ctx、保留 cache。默认配置的 context 项改为 enabled:false，真实配置同步关闭该项，其余配置字段语义不变；用户可显式设 true 恢复。缓存格式、CC/Pi 口径、用量采集和布局算法沿用原行为。现行默认示例见[状态栏契约](../specs/tui/statusline.md)。
+
+config/TUI/CLI 竞态 343 项通过，定向 vet、gofmt、diff 检查通过；原目录重新安装 /Users/go/bin/plume，built 2026-10-09T12:58:05Z。安装版状态栏 PTY 12/12 通过，覆盖默认隐藏、缓存配色、显式恢复 ctx、1M/窄屏、取消/断流和两种缓存口径。隔离报告 /tmp/plume-ctx-hidden-pty.u6QPxl/results.json，仅本地 fixture，无付费请求。复现运行 scripts/pty_demo_g1b4.py --binary /Users/go/bin/plume --output <临时目录>；按证据治理规则不把本次临时帧纳入已通过单元的仓库证据。既有审核状态保持 passed，本次未提交或推送。

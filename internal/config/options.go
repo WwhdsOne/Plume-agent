@@ -20,6 +20,15 @@ type TUIConfig struct {
 func (c *Config) UnmarshalJSON(data []byte) error {
 	type plain Config
 	var parsed plain
+	var root map[string]json.RawMessage
+	if err := json.Unmarshal(data, &root); err != nil {
+		return err
+	}
+	for _, name := range []string{"agent", "tools"} {
+		if value, ok := root[name]; ok && bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+			return fmt.Errorf("%s: expected object", name)
+		}
+	}
 	var raw struct {
 		Models []map[string]json.RawMessage `json:"models"`
 	}

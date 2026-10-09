@@ -29,18 +29,29 @@ func NewSession() *Session {
 // Append 提交一轮完整对话（用户输入 + assistant 回复）。只有成功结束的
 // run 才应调用；历史追加是原子的，失败轮次不会留下半截上下文。
 func (s *Session) Append(user, assistant model.Message) {
+	s.AppendTurn([]model.Message{user, assistant})
+}
+
+// AppendTurn 一次提交完整 user/assistant-tool/tool/final 消息组。
+func (s *Session) AppendTurn(messages []model.Message) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.turnSeq++
-	s.messages = append(s.messages, user, assistant)
+	s.messages = append(s.messages, copyMessages(messages)...)
 }
 
 // History 返回历史的副本，调用方可安全修改。
 func (s *Session) History() []model.Message {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	out := make([]model.Message, len(s.messages))
-	copy(out, s.messages)
+	return copyMessages(s.messages)
+}
+
+func copyMessages(messages []model.Message) []model.Message {
+	out := append([]model.Message(nil), messages...)
+	for i := range out {
+		out[i].ToolCalls = append([]model.ToolCall(nil), out[i].ToolCalls...)
+	}
 	return out
 }
 

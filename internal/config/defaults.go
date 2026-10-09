@@ -15,6 +15,14 @@ func DefaultStatusMessages() map[string][]string {
 // fillDefaults 只补缺失项；用户已有候选、显式强度与手填容量保持原样。
 func (c *Config) fillDefaults() bool {
 	changed := false
+	if c.Agent == nil {
+		c.Agent = DefaultAgent()
+		changed = true
+	}
+	if c.Tools == nil {
+		c.Tools = DefaultTools()
+		changed = true
+	}
 	if c.TUI == nil {
 		c.TUI = &TUIConfig{}
 		changed = true

@@ -23,6 +23,8 @@ type Config struct {
 	Models        []ModelConfig   `json:"models,omitempty"`
 	Channels      []ChannelConfig `json:"channels,omitempty"`
 	TUI           *TUIConfig      `json:"tui,omitempty"`
+	Agent         *AgentConfig    `json:"agent,omitempty"`
+	Tools         *ToolsConfig    `json:"tools,omitempty"`
 	rawJSON       []byte          // 保留解码来源的未知字段，跨目录 Save 时仍可合并。
 }
 
@@ -204,6 +206,7 @@ func (c *Config) Validate(providers ProviderCatalog, channels ChannelCatalog) er
 // validateDisplayOptions 也用于持久化边界，不依赖供应商和渠道注册表。
 func (c *Config) validateDisplayOptions() error {
 	var errs []error
+	errs = append(errs, c.Agent.Validate(), c.Tools.Validate())
 	for i, m := range c.Models {
 		if m.ContextWindowTokens != nil && (*m.ContextWindowTokens < 1 || *m.ContextWindowTokens > 2147483647) {
 			errs = append(errs, fmt.Errorf("models[%d].context_window_tokens: expected null or integer in 1..2147483647", i))

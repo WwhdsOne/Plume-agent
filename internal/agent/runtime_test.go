@@ -33,7 +33,7 @@ func TestRunMergesHistoryAndInput(t *testing.T) {
 	if calls[0].Model != "test-model" {
 		t.Errorf("request model = %q, want test-model", calls[0].Model)
 	}
-	want := len(history) + 1
+	want := len(history) + 2 // 基础规则 + 历史 + 当前输入
 	if len(calls[0].Messages) != want {
 		t.Fatalf("messages = %d, want history+input = %d", len(calls[0].Messages), want)
 	}

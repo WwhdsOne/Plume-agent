@@ -11,6 +11,9 @@ import (
 // 与测试断言；给用户的解释在展示层完成。
 type ErrCode string
 
+// ErrBudgetExceeded 表示调用数或字节预算不足，不当作供应商错误。
+const ErrBudgetExceeded ErrCode = "budget_exceeded"
+
 const (
 	ErrInvalidConfig    ErrCode = "invalid_config"
 	ErrUnsupported      ErrCode = "unsupported"

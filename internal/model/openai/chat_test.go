@@ -375,14 +375,14 @@ func TestCancelClassified(t *testing.T) {
 	assertCode(t, <-errCh, model.ErrCancelled)
 }
 
-func TestToolDeclarationsRejectedWithoutHTTP(t *testing.T) {
+func TestInvalidToolDeclarationsRejectedWithoutHTTP(t *testing.T) {
 	srv, cap := captureServer(t, http.StatusOK, completionBody)
 	adapter := newTestAdapter(t, srv.URL)
 
 	req := simpleRequest("m")
 	req.Tools = []model.ToolDeclaration{{Name: "clock"}}
 	_, err := adapter.Generate(context.Background(), req)
-	assertCode(t, err, model.ErrUnsupported)
+	assertCode(t, err, model.ErrInvalidConfig)
 	if cap.body != nil {
 		t.Errorf("no HTTP request should be sent for unsupported tools")
 	}

@@ -3,7 +3,7 @@
 title: plume-agent 路线图
 status: active
 updated: 2026-10-09
-summary: 数据驱动的树状路线图页面：全部审核单元的状态快照；G0–G1b.4 已通过，G3 待授权
+summary: 数据驱动路线图：G0–G1b.4、G3/G3.1 已通过，后续渠道/记忆/技能仍待另行授权
 -->
 
 <html lang="zh-CN">
@@ -214,8 +214,10 @@ const ROADMAP = [
           desc: "流式协议、Markdown、Thought 三点动画与左对齐、默认 high/none 配置、阶段文案、取消/断流和脱敏 trace；审核期修复 Markdown 围栏回退、IME 光标定位与输入区分隔线，13 个 pty 场景通过", updated: "2026-10-08" },
         { id: "G1b.4", title: "可配置底部状态栏", status: "passed",
           desc: "已通过：默认配置原子落盘、亮色单行优先、上下文用量与可配置缓存命中率条、DeepSeek 1M 容量、Git/uv 与会话计时；716 项竞态与 12 个 PTY 场景通过，不引入发送前估算器", updated: "2026-10-09" },
-        { id: "G3", title: "自研 Agent 循环与受控工具", status: "todo",
-          desc: "模型→工具→模型循环、计算器/时钟工具、预算与 trace（前移至微信之前）", updated: "2026-10-06" },
+        { id: "G3", title: "自研 Agent 循环与受控工具", status: "passed",
+          desc: "已通过：统一 prompt/tools 拼装、流式分片与思考回传、原子历史、工具状态和脱敏 trace；现行开发工具见 G3.1", updated: "2026-10-09" },
+        { id: "G3.1", title: "开发工具与可配置宽松预算", status: "passed",
+          desc: "已通过：read/grep/glob/edit/write/bash、完整默认配置、次数无限预算、原子写入与读取快照、进程取消和真实开发闭环；状态栏默认隐藏 ctx", updated: "2026-10-09" },
       ],
     ],
   },

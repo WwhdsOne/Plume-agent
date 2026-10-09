@@ -74,15 +74,15 @@ python3 scripts/pty_demo_g1b3.py
 
 ## 底部状态栏与配置（G1b.4，已通过）
 
-默认优先一行，完整字段放不下才分两行；亮青标签与浅青数值显示模型/思考/上下文/缓存和 Git/uv/会话/run 计时；小于 60 列或 18 行合并为一行，按配置优先级隐藏字段。`plume config show` 可查看完整生效配置，`plume config path` 给出配置文件路径。首次读取旧文件会原子补齐默认值，保留现有自定义；setup 不新增问题。修改后重启聊天生效。
+默认优先一行，完整字段放不下才分两行；亮青标签与浅青数值显示模型/思考/缓存和 Git/uv/会话/run 计时，ctx 默认隐藏；小于 60 列或 18 行合并为一行，按配置优先级隐藏字段。`plume config show` 可查看完整生效配置，`plume config path` 给出配置文件路径。首次读取旧文件会原子补齐默认值，保留现有自定义；setup 不新增问题。修改后重启聊天生效。
 
-在现有 `tui.status_line` 下可修改 `items`（数组顺序就是显示顺序），例如只显示上下文、模型、会话时长：
+在现有 `tui.status_line` 下可修改 `items`（数组顺序就是显示顺序），例如只显示缓存、模型、会话时长：
 
 ```json
 {
   "max_rows": 1,
   "items": [
-    {"id": "context", "label": "ctx", "enabled": true, "row": 1, "priority": 100},
+    {"id": "cache", "label": "cache", "enabled": true, "row": 1, "priority": 100},
     {"id": "model", "label": "", "enabled": true, "row": 1, "priority": 90},
     {"id": "session_elapsed", "label": "session", "enabled": true, "row": 1, "priority": 60}
   ]
@@ -91,7 +91,7 @@ python3 scripts/pty_demo_g1b3.py
 
 这是 `status_line` 内的片段，保留其余默认项；它不用于替换整个 config.json。`enabled:false` 或 `items:[]` 隐藏整栏并停止相应环境采集。字段顺序、行位置、标签、优先级、数字/时间格式、上下文条宽/ASCII 样式/阈值都可配置，完整字段见 [技术契约](../specs/tui/statusline.md)。关闭状态栏时关键拒绝与错误会作为系统/错误记录滚动到可见位置。
 
-官方 DeepSeek `deepseek-flash` / `deepseek-v4-pro` 自动落盘 `context_window_tokens:1000000`；手填容量保留，其他模型或自定义端点默认 null。上下文默认 context_format:usage，显示 `ctx: x.x% used/capacity`，固定一位小数、数量按 token_format；新会话为 `ctx: 0.0% 0/1M`，完成后使用最近实际输入，不显示 `(last)`。context_format:bar 可切回进度条。容量未知显示 capacity unknown；生成期间保留初始零或请求前统计，收到新输入 usage 才更新，新调用结束仍缺统计才显示 usage unknown。准备阶段取消且没有新调用时保留原值，不使用问号条或字符数猜 token。
+`context` 项默认 `enabled:false`；将其改为 `enabled:true` 可恢复 ctx，隐藏不改变用量采集或缓存计算。恢复后默认 context_format:usage，显示 `ctx: x.x% used/capacity`，固定一位小数、数量按 token_format；context_format:bar 可切回进度条。官方 DeepSeek `deepseek-flash` / `deepseek-v4-pro` 自动落盘 `context_window_tokens:1000000`，手填容量保留，其他模型或自定义端点默认 null。新会话为 `ctx: 0.0% 0/1M`，完成后使用最近实际输入，不显示 `(last)`。容量未知显示 capacity unknown；生成期间保留初始零或请求前统计，收到新输入 usage 才更新，新调用结束仍缺统计才显示 usage unknown。准备阶段取消且没有新调用时保留原值，不使用问号条或字符数猜 token。
 
 最左默认 `Provider: deepseek`，provider item 的 label 为 Provider，可自定义。缓存默认 cache_format:bar、cache_scope:session、cache_bar:{width:10,style:unicode}，显示 `cache [████░░░░░░]40.0% 8/20`；末尾是命中输入/对应总输入，和条体及百分比使用同一分母，不是模型上下文容量。默认 CC 会话累计，改 cache_scope:last_call 即启用 Pi 最近调用，重启生效。初始 Go 零值为 `cache [░░░░░░░░░░]0.0% 0/0`；两种口径在生成期间保留初始零或请求前快照，收到新缓存统计才刷新，终态缺统计仍为 unknown/partial。条宽、unicode/ascii 可配置，窄屏先缩条；tokens/ratio/both 格式仍可选。Ctrl+N 重置统计及会话时长，缓存恢复零值；Ctrl+L 保留。
 
@@ -103,6 +103,34 @@ python3 scripts/pty_demo_g1b4.py --output docs/reviews/evidence/G1b.4/pty
 ```
 
 脚本只使用临时 PLUME_HOME、临时 Git/uv 目录、测试凭据与本地 HTTP fixture。真实容量和真实供应商性能仍需用户核对；`chat --offline` 不加载配置，继续使用默认布局。
+
+## 受控工具循环（G3/G3.1，已通过）
+
+在线默认声明 `read/grep/glob/edit/write/bash`，许可列表来自 tools.enabled；计算器/时间可以显式启用。TUI 亮青 `◇` 行原位显示状态与数量/退出码，正文回传模型。根目录默认启动目录，文件修改要求先读且摘要未变；bash 本地执行，不是沙箱。完整语义见 [工具契约](../specs/agent/tools.md)。
+
+离线输入以下指令可演示同一真实工具循环：
+
+```text
+/demo calculate    # 6 × 7 = 42
+/demo time         # 当前 UTC 时间
+/demo error        # 除零失败 → 模型脚本纠正 → 0.5
+/demo budget       # 默认不限次数，可完成 12 工具/13 模型步骤
+/demo workspace    # 新建 plume-demo.txt → glob/grep/read/edit → bash 校验
+/demo cancel       # 工具结束后延迟回答，按 Esc 取消
+```
+
+脚本在真实工作目录执行；workspace 演示应从临时目录启动，已有 plume-demo.txt 拒绝覆盖。普通离线输入为固定回复，offline 不读写配置。agent.budget 默认次数与整体时长0（无限），模型1800s/工具180s；默认配置和修改方式见 [配置契约](../specs/config.md)。不自动重试，成功整组提交，失败/取消不提交历史；已发生文件/命令副作用保留。ctx/cache 续调新统计到达前保留上一显示值。
+
+隔离验收：
+
+```bash
+rtk ./scripts/build.sh --install
+rtk go test ./internal/agent ./internal/tools ./internal/app ./internal/eval
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=/tmp/plume-tui-regression-deps python3 scripts/pty_demo_g3.py --binary /Users/go/bin/plume
+# 期望：G3_PTY_OK cases=8；pyte 依赖目录可按本机安装位置替换
+```
+
+trace 增加 prompt_built 与 tool_started/tool_validated/tool_completed/tool_failed，并关联 parent_model_call_id；不落盘 prompt、思考、命令、工具参数或结果。用户于 2026-10-09 审核通过 G3/G3.1，默认隐藏 ctx 的追加状态栏修改一并通过。原 `docs/reviews/evidence/G3/` 与 `docs/reviews/evidence/G3.1/` 已依下述规则删除；这些产物未提交，没有 Git 历史副本，可通过 `scripts/pty_demo_g3.py` 和 `internal/app/workspace_tools_test.go` 重跑当前实现。
 
 ## pty 演示脚本
 

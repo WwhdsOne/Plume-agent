@@ -345,7 +345,31 @@ func (m *Model) applyEvent(event app.Event) {
 	}
 	m.updateStatus(event)
 	switch event.Kind {
+	case app.EventToolUpdate:
+		tool := event.Tool
+		text := sanitize(tool.Name + " · " + tool.Status)
+		if tool.Summary != "" {
+			text += " · " + sanitize(tool.Summary)
+		}
+		if index, ok := m.toolLines[tool.CallID]; ok && index < len(m.lines) {
+			m.lines[index].text = text
+		} else {
+			if m.toolLines == nil {
+				m.toolLines = make(map[string]int)
+			}
+			m.toolLines[tool.CallID] = len(m.lines)
+			m.lines = append(m.lines, chatLine{kind: lineTool, text: text})
+		}
+		m.syncViewport()
 	case app.EventRunPhase:
+		if event.Phase == app.PhaseWaiting && event.ModelCall > 1 && m.activeLine >= 0 {
+			// 每个模型步骤独立展示，保持思考→工具→最终答案的时间顺序。
+			if !m.lines[m.activeLine].manualFold {
+				m.lines[m.activeLine].expanded = false
+			}
+			m.flushStream()
+			m.activeLine = -1
+		}
 		// 首答案之后即使供应商继续发思考，也不退回 thinking。
 		if m.phase == app.PhaseResponding && event.Phase == app.PhaseThinking {
 			return

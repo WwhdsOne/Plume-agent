@@ -69,6 +69,9 @@ func renderLines(lines []chatLine, width int) string {
 			text = renderMarkdown(line.text, max(width-bodyOffset(), 1))
 		}
 		for i, chunk := range wrapText(text, max(width-bodyOffset(), 1)) {
+			if line.kind == lineTool {
+				chunk = styleAssistant.Render(chunk)
+			}
 			if i == 0 {
 				fmt.Fprintf(&b, "%s%s\n", rolePrefix(prefix, style), chunk)
 				continue
@@ -96,6 +99,8 @@ func lineStyle(kind lineKind) (prefix string, style lipgloss.Style) {
 		return "●", styleAssistant
 	case lineError:
 		return "!", styleError
+	case lineTool:
+		return "◇", styleAssistant
 	default:
 		return "·", styleSystem
 	}

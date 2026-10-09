@@ -203,9 +203,10 @@ def footer_colors(terminal, output, name, stage, rows):
     row = terminal.height - rows
     text = terminal.screen.display[row]
     # pyte 将 ANSI 93（亮黄色）命名为 brightbrown，按标准颜色码核对语义。
-    expected = [("Provider:", "5bc8c8", None), ("ctx:", "5bc8c8", None), ("cache", "5bc8c8", None)]
-    expected += [("0.0% 0/100", "7dd3d8", "ctx: "), ("[░░░░░░░░░░]0.0% 0/0", "7dd3d8", "cache ")] if stage == "startup" else [
-        ("20.0% 20/100", "7dd3d8", "ctx: "), ("[████░░░░░░]40.0% 8/20", "7dd3d8", "cache ")]
+    assert "ctx:" not in text, (name, stage, "default context item visible", text)
+    expected = [("Provider:", "5bc8c8", None), ("cache", "5bc8c8", None)]
+    expected += [("[░░░░░░░░░░]0.0% 0/0", "7dd3d8", "cache ")] if stage == "startup" else [
+        ("[████░░░░░░]40.0% 8/20", "7dd3d8", "cache ")]
     samples = []
     for value, color, anchor in expected:
         start = text.index(anchor) + len(anchor) if anchor else text.index(value)
@@ -337,6 +338,9 @@ def run_case(binary, output, case):
                 expected_context = case.get("status_line", {}).get("context_format", "usage")
                 assert persisted["tui"]["status_line"]["context_format"] == expected_context
                 assert persisted["tui"]["status_line"]["cache_bar"] == case.get("status_line", {}).get("cache_bar", {"width": 10, "style": "unicode"})
+                if "items" not in case.get("status_line", {}):
+                    context_items = [entry for entry in persisted["tui"]["status_line"]["items"] if entry["id"] == "context"]
+                    assert len(context_items) == 1 and context_items[0]["enabled"] is False, (name, context_items)
                 assert all("context_window_tokens" in model for model in persisted["models"])
                 (output / f"{name}-config.json").write_text(json.dumps(persisted, ensure_ascii=False, indent=2) + "\n")
             result = {"case": name, "status": "passed", "width": width, "height": height, "status_rows": case["rows"],
@@ -366,8 +370,13 @@ def contains(*values):
 
 
 def default_check(status, frame):
-    contains("Provider: deepseek", "deepseek-flash", "ctx: 20.0% 20/100", "cache [████░░░░░░]40.0% 8/20", "git:fixture-branch*", "env:uv/.venv(active)", "session:", "idle")(status, frame)
-    assert "ctx(last)" not in status, status
+    contains("Provider: deepseek", "deepseek-flash", "cache [████░░░░░░]40.0% 8/20", "git:fixture-branch*", "env:uv/.venv(active)", "session:", "idle")(status, frame)
+    assert "ctx:" not in status and "ctx(last)" not in status, status
+
+
+def default_startup_check(status, frame):
+    contains("Provider: deepseek", "cache [░░░░░░░░░░]0.0% 0/0")(status, frame)
+    assert "ctx:" not in status, status
 
 
 def custom_check(status, frame):
@@ -402,18 +411,20 @@ def main():
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     cases = [
-        {"name": "default-120x24", "width": 120, "height": 24, "rows": 2, "startup_check": contains("Provider: deepseek", "cache [░░░░░░░░░░]0.0% 0/0"), "check": default_check},
+        {"name": "default-120x24", "width": 120, "height": 24, "rows": 2, "startup_check": default_startup_check, "check": default_check},
         {"name": "custom-80x24", "width": 80, "height": 24, "rows": 1, "status_line": {"max_rows": 1, "separator": " / ", "cache_format": "both", "context_format": "bar",
          "context_bar": {"width": 5, "style": "ascii"}, "items": [item("cache", "缓存", row=2), item("context", "容量"), item("model", "模型"), item("session_usage", "累计", enabled=True)]}, "check": custom_check},
         {"name": "narrow-20x8", "width": 20, "height": 8, "rows": 1, "status_line": {"items": [item("context")]}, "check": contains("ctx: 20.0% 20/100")},
         {"name": "unknown-40x16", "width": 40, "height": 16, "rows": 1, "scenario": "unknown", "capacity": None,
          "status_line": {"items": [item("context", "c", priority=80), item("cache", "ca", row=2, priority=70)]}, "check": contains("c: capacity unknown", "ca unknown")},
         {"name": "disabled-120x24", "width": 120, "height": 24, "rows": 0, "status_line": {"enabled": False, "items": []}, "check": disabled_check},
-        {"name": "cancel-80x24", "width": 80, "height": 24, "rows": 2, "scenario": "cancel", "check": cancel_check},
-        {"name": "disconnect-80x24", "width": 80, "height": 24, "rows": 2, "scenario": "disconnect", "check": disconnect_check},
+        {"name": "cancel-80x24", "width": 80, "height": 24, "rows": 1, "scenario": "cancel",
+         "status_line": {"items": [item("context"), item("cache")]}, "check": cancel_check},
+        {"name": "disconnect-80x24", "width": 80, "height": 24, "rows": 1, "scenario": "disconnect",
+         "status_line": {"items": [item("context"), item("cache")]}, "check": disconnect_check},
         {"name": "offline-invalid-80x24", "width": 80, "height": 24, "rows": 2, "scenario": "offline", "check": offline_check},
         {"name": "truecolor-wide-220x24", "width": 220, "height": 24, "rows": 1, "truecolor": True,
-         "startup_check": contains("ctx: 0.0% 0/100", "cache [░░░░░░░░░░]0.0% 0/0"), "check": default_check},
+         "startup_check": default_startup_check, "check": default_check},
         {"name": "cache-session-80x24", "width": 80, "height": 24, "rows": 1, "calls": 2,
          "hold_usage": True, "status_line": {"items": [item("context"), item("cache")]}, "check": contains("ctx: 60.0% 60/100", "cache [███████░░░]70.0% 56/80")},
         {"name": "cache-last-call-80x24", "width": 80, "height": 24, "rows": 1, "calls": 2,

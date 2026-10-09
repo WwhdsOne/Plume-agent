@@ -235,6 +235,17 @@ func (w *Wizard) runModel(existing *config.Config) (*Result, error) {
 		DefaultModel:  model.ID,
 		Models:        []config.ModelConfig{model},
 	}
+	if existing != nil {
+		if existing.Agent != nil {
+			agentOptions := *existing.Agent
+			cfg.Agent = &agentOptions
+		}
+		if existing.Tools != nil {
+			toolOptions := *existing.Tools
+			toolOptions.Enabled = append([]string{}, existing.Tools.Enabled...)
+			cfg.Tools = &toolOptions
+		}
+	}
 	if existing != nil && existing.TUI != nil {
 		cfg.TUI = &config.TUIConfig{StatusMessages: make(map[string][]string)}
 		for phase, messages := range existing.TUI.StatusMessages {

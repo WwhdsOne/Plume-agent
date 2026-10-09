@@ -61,7 +61,7 @@ func TestSaveWritesCompleteStatusLineDefaults(t *testing.T) {
 	}
 	for i, id := range wantIDs {
 		item := items[i].(map[string]any)
-		if item["id"] != id || len(item) != 5 || item["enabled"] != (i < 10) {
+		if item["id"] != id || len(item) != 5 || item["enabled"] != (i < 10 && id != "context") {
 			t.Errorf("item[%d] = %v", i, item)
 		}
 		if id == "cache" && item["label"] != "cache" {

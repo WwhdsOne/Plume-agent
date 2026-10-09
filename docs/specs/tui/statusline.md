@@ -2,7 +2,7 @@
 title: TUI 可配置底部状态栏（G1b.4）
 status: active
 updated: 2026-10-09
-summary: G1b.4 状态栏契约（已通过）：Provider 标签、上下文用量及可配置缓存命中率条
+summary: G1b.4 状态栏契约（已通过）：默认隐藏 ctx，保留 Provider 与可配置缓存命中率条
 ---
 
 # TUI 可配置底部状态栏（G1b.4）
@@ -15,14 +15,14 @@ summary: G1b.4 状态栏契约（已通过）：Provider 标签、上下文用�
 
 底部状态栏固定在输入区下方，提供模型、用量、项目环境和计时信息。采用最多两行的字段组合，不把所有信息塞进一个不可配置的长字符串。
 
-以下仅为样式示例，数值不代表真实调用；默认上下文固定一位小数，同时显示输入量/容量：
+以下仅为样式示例，数值不代表真实调用；按 2026-10-09 用户最新要求，默认隐藏上下文 `ctx`，用量信息保留缓存条：
 
 ```text
-Provider: deepseek │ deepseek-flash │ think:high │ ctx: 20.0% 200k/1M │ cache [████████░░]80.0% 160k/200k
+Provider: deepseek │ deepseek-flash │ think:high │ cache [████████░░]80.0% 160k/200k
 git:main* │ env:uv/.venv(active) │ session:12m30s │ responding 6.8s
 ```
 
-优先把全部字段合并成一行，完整字段放不下时才按 row 分成两行。默认逻辑分组仍为模型/上下文/缓存与 Git/uv/计时。标签使用亮青色，数值使用浅青色，unknown 使用提示黄；上下文保留 warning/critical 语义色。`context_format:usage` 为默认，`bar` 保留原进度条显示。顺序、所在行、标签、显隐、窄屏优先级和进度条样式均由 `config.json` 控制。主题继续使用既有 token，不新增散落的颜色常量。
+优先把全部字段合并成一行，完整字段放不下时才按 row 分成两行。默认逻辑分组为模型/缓存与 Git/uv/计时。标签使用亮青色，数值使用浅青色，unknown 使用提示黄。`context` 项保留在完整配置中，默认 `enabled:false`；设置 `enabled:true` 可恢复显示，使用 `context_format:usage` 默认格式或可选 `bar` 进度条及 warning/critical 语义色。顺序、所在行、标签、显隐、窄屏优先级和进度条样式均由 `config.json` 控制。主题继续使用既有 token，不新增散落的颜色常量。
 
 本单元实现信息采集、结构化状态快照、配置落盘和自适应渲染。它不开始 G3 工具执行、不加载 soul/记忆/skill、不连接 MCP，也不添加任意自定义 Shell 状态脚本。
 
@@ -33,7 +33,7 @@ git:main* │ env:uv/.venv(active) │ session:12m30s │ responding 6.8s
 | `provider` | 所选模型配置的供应商品牌 ID；默认标签 Provider，不把自定义 Base URL 当成品牌名称 | 显示，第 1 行首项 |
 | `model` | 实际发给 API 的模型名，不是配置项 ID | 显示，第 1 行 |
 | `reasoning` | provider 能力解析得到的有效强度；未验证时显示 `unverified`，none 显示 `off`；映射过的 medium 可压缩显示为 `medium→high` | 显示，第 1 行 |
-| `context` | 最近实际请求输入量/已知上下文容量，默认百分比及用量/容量，可选进度条，见 §3 | 显示，第 1 行 |
+| `context` | 最近实际请求输入量/已知上下文容量；启用后为百分比及用量/容量，可选进度条，见 §3 | 可选，默认关闭，第 1 行 |
 | `cache` | 供应商报告的缓存命中输入占比；默认会话累计，可切换最近一次调用，见 §4 | 显示，第 1 行 |
 | `git` | 启动工作目录所在仓库的分支；detached HEAD 显示短 commit；`*` 表示存在工作区修改 | 显示，第 2 行 |
 | `uv_env` | 启动工作目录的 uv 项目标记与可确认的虚拟环境状态，见 §5 | 显示，第 2 行 |
@@ -49,7 +49,7 @@ git:main* │ env:uv/.venv(active) │ session:12m30s │ responding 6.8s
 
 ## 3. 上下文占用的口径
 
-上下文表示一次模型请求的输入规模，包含实际发送的基础规则、历史、当前任务及工具声明等；不是多次请求 `TotalTokens` 的累计。G1b.4 使用供应商实际报告的 `PromptTokens`，当前没有经过验证的发送前估算器；G3 的 PromptBuilder 后续扩展数据入口。
+`context` 默认隐藏；以下为用户将该项 `enabled` 设置为 `true` 后的显示口径。隐藏只影响状态栏，不改变 usage 采集、缓存计量或模型请求。上下文表示一次模型请求的输入规模，包含实际发送的基础规则、历史、当前任务及工具声明等；不是多次请求 `TotalTokens` 的累计。G1b.4 使用供应商实际报告的 `PromptTokens`，当前没有经过验证的发送前估算器；G3 的 PromptBuilder 后续扩展数据入口。
 
 - 默认 `context_format:usage` 显示 `ctx: x.x% used/capacity`，百分比固定一位小数，数量遵循 token_format，默认十进制 k/M，例如 `ctx: 12.3% 123.5k/1M`；不再自动加 `(last)`，旧标签尾部的 `(last)` 也移除。`context_format:bar` 可恢复原进度条，标签同样不带后缀。
 - 供应商给出本次 `PromptTokens` 且容量已知时：使用该次调用的实际输入比例；完成后保留这个快照。它是最近实际请求的输入，不是下一请求的发送前估算。
@@ -128,7 +128,7 @@ uv/虚拟环境仅检查本地元数据：
         {"id": "provider", "label": "Provider", "enabled": true, "row": 1, "priority": 60},
         {"id": "model", "label": "", "enabled": true, "row": 1, "priority": 90},
         {"id": "reasoning", "label": "think", "enabled": true, "row": 1, "priority": 50},
-        {"id": "context", "label": "ctx", "enabled": true, "row": 1, "priority": 80},
+        {"id": "context", "label": "ctx", "enabled": false, "row": 1, "priority": 80},
         {"id": "cache", "label": "cache", "enabled": true, "row": 1, "priority": 40},
         {"id": "git", "label": "git", "enabled": true, "row": 2, "priority": 50},
         {"id": "uv_env", "label": "env", "enabled": true, "row": 2, "priority": 30},
@@ -155,6 +155,7 @@ uv/虚拟环境仅检查本地元数据：
 
 - 保持 schema v1 的增量兼容策略。新 setup/Save 写出所有默认字段；旧配置首次 Load 原子补齐缺失键，同时保留未知扩展字段和用户自定义值。重复读取不改写；setup 不新增状态栏或容量问题。
 - `items` 数组的顺序就是显示顺序；缺省数组补写默认数组。用户提供数组则视为完整选择，未列出的字段不被自动加回；`[]` 表示隐藏全部字段，`enabled:false` 关闭整栏。数组中单项缺失的属性按对应字段默认值补齐并落盘。
+- `context` 默认 `enabled:false`，可在已有该项上设置 `enabled:true` 恢复；不调整缓存条、CC/Pi 分母或用量采集。旧配置已显式设置的 `enabled` 保留，缺失属性才补入新默认。
 - `max_rows` 为 1 或 2；`row` 为 1 或 2；`priority` 为 0–100，数字越大越晚被窄屏隐藏，优先级相同时先隐藏数组靠后的字段。标签为空时只显示值，非空时显示 `label:value`（provider/context 和非 bar 缓存为 `label: value`；bar 缓存为 `label [条体]百分比 命中量/总输入`）。context 不显示 `(last)`，partial/stale 等标记保留；缓存 scope 和自定义标签保持配置原样。
 - `unknown` 为 `show` 或 `hide`，决定未知数据是否占位；已知 0 永不按未知隐藏。非适用数据使用 `—`，也受该策略控制。
 - token 格式为 `compact` / `full`，控制上下文的输入量/容量、缓存和 usage 数量；compact 按十进制 k/M 缩写、最多一位小数。时间为 `compact` / `clock`；cache_format 为 `bar`（默认）/ `tokens` / `ratio` / `both`，cache_scope 为 `session`（默认，CC 口径）/ `last_call`（Pi 口径），两项独立控制；cache_bar.width/style 完整落盘。
@@ -172,7 +173,7 @@ uv/虚拟环境仅检查本地元数据：
 - 终端宽度小于 60 列或高度小于 18 行时，最多占 1 行；用户 `max_rows:1` 同样合并两逻辑行。先按数组顺序合并，再按配置优先级隐藏字段，最后裁剪仍超宽的单字段；不让终端自然折行。
 - 正常两行时按各字段 row 放置；窄屏合并后 `row:2` 也有机会保留。分隔符只出现在实际保留的相邻字段之间；空字段不产生多余分隔符。
 - 上下文条在窄屏优先缩短至至少 3 格，再按字段优先级决定是否隐藏；不退回 K 数值。未知数据使用简短且明确的原因文案，不显示问号条；极窄窗口可移除整个字段。
-- 默认优先保留 phase/run_elapsed、模型、上下文、会话时长，随后减少供应商、Git、思考强度、缓存、uv 等；用户可以改优先级或关闭任意字段。
+- 默认优先保留 phase/run_elapsed、模型、会话时长，随后减少供应商、Git、思考强度、缓存、uv 等；context 默认关闭，用户主动恢复后沿用配置 priority。用户可以改优先级或关闭任意字段。
 - 思考标题在可见区时仍由标题承载动画/文案/本次 run 耗时，状态栏的 phase/run_elapsed 暂时不重复；标题滚出可见区再接续。会话累计时长独立存在，不因思考区可见而隐藏。
 - 输入拒绝、取消提示和错误优先于普通指标，延续现有提示语义；关闭状态栏时追加系统消息并滚动到提示，让关键拒绝立即可见。普通流式更新仍遵守上滚阅读冻结规则。
 - 会话时长以可注入的单调时钟计量，idle 也增长，Ctrl+L 不清零、Ctrl+N 清零；尚无跨重启恢复，本次进程退出后不继续累计。run 耗时含请求前准备，与会话时长及供应商推理耗时分别标识。

@@ -21,7 +21,7 @@ This file provides guidance to CodeBuddy Code when working with code in this rep
 
 `plume-agent`：用 Go 构建的个人 Agent，首版入口是 **TUI 聊天界面**，不是微信登录。模型层传输与协议解析采用 **OpenAI 官方 Go SDK（openai-go）**，其上以协议适配器归一化（为未来 Anthropic/Gemini 协议预留同一接口），Agent 循环自研，不引入 Eino。微信 iLink Bot、飞书、QQ 属于后续渠道扩展。目标是展示完整执行链路与可复现的量化改造收益。
 
-上述是 2026-10-06 更新的目标架构；G0 至 G1b.4 已通过（G1b.4 于 2026-10-09 审核通过）。实际实现与设计差异见「当前进度与禁区」，以 `docs/decisions/0003-model-runtime.md` 为新路线依据。文档索引见 `docs/index.md`。
+上述是 2026-10-06 更新的目标架构；G0 至 G1b.4、G3/G3.1 已通过（G1b.4、G3/G3.1 于 2026-10-09 审核通过）。实际实现与设计差异见「当前进度与禁区」，以 `docs/decisions/0003-model-runtime.md` 为新路线依据。文档索引见 `docs/index.md`。
 
 模块名是 `plume-agent`，CLI 命令名是 `plume`。
 
@@ -106,7 +106,7 @@ codegraph uninit        # 删 .codegraph/
 5. **完成即停下**，等用户回"通过 Gx / 继续下一部分"才推进下一单元。
 6. 单元不可在未获同意时合并；若一个单元过大，拆成更小的可运行子单元逐个审核。
 
-实施顺序：已通过 `G0` / `G1a` / `G1b.1` / `G1b.2`（含 .1/.2.1/.2.2）/ `G1b.3` / `G1b.4`（可配置底部状态栏）。下一单元 `G3`（自研工具循环）需另行授权。每项独立审核，完成这些才是首版里程碑。
+实施顺序：已通过 `G0` / `G1a` / `G1b.1` / `G1b.2`（含 .1/.2.1/.2.2）/ `G1b.3` / `G1b.4` / `G3` / `G3.1`。用户于 2026-10-09 审核通过 G3.1 六种开发工具和可配置宽松预算，包含其基础 G3 工具循环，并授权提交推送；不自动推进渠道/记忆/技能。
 
 之后另行授权第二阶段：`G2a.1`（扫码登录）→ `G2a.2`（真实收发）→ `G2b`（可靠性）。保留原编号含义，G3 前移，不按数字自动推进。`G4a/G4b/G5/G6` 作为后续记忆、压缩、技能与实验路线储备。没有微信配置不得阻塞未来 TUI 启动。
 
@@ -195,7 +195,8 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 | `internal/tui/` | G1b.2 已建、G1b.2.1 迁 v2：Bubble Tea v2 聊天界面（记录/输入/状态栏、控制序列净化、KeyMap 键位抽象、草稿历史）；不发送模型 HTTP、不执行工具，副作用经 Hooks 注入 |
 | `internal/channel/` | 现有渠道注册表；第二阶段才实现消息适配器，不拼装 prompt |
 | `internal/app/` | 会话历史、run 生命周期（串行、取消、有界事件流）；G1b.4 增加调用用量快照去重累计、会话起点与 Git/uv 异步只读采集；后续扩展持久化与渠道调度 |
-| `internal/agent/` | 最小单轮 Generate/RunStream：准备历史、消费流、分别汇总答案与思考；G3 扩展统一请求拼装、工具循环与预算 |
+| `internal/agent/` | G3 统一请求拼装、Generate/Stream 工具循环与预算；规则/声明快照、完整工具组与失败隔离 |
+| `internal/tools/` | 不可变许可注册表、严格参数校验；G3.1 os.Root 工作区读写/搜索与本地 Shell，计算器/时钟可选 |
 | `internal/telemetry/` | setup、模型及 run 生命周期 trace，首思考/首答案/准备计量；不记录正文或展示文案 |
 | `internal/eval/` | G1b.1 已建：12 个离线种子数据集（`eval/datasets/smoke.v1.jsonl`）与运行器；后续评分、统计、比较报告 |
 
@@ -228,7 +229,7 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 - **设置表单**用 huh v2（`charm.land/huh/v2`，G1b.2.1 随终端栈整体迁 v2），只出现在 `cmd/plume/prompter.go`；不能把现有表单称为聊天 TUI。
 - **聊天 TUI（G1b.2.1 起）用 v2 栈**：`charm.land/bubbletea/v2` + `bubbles/v2` + `lipgloss/v2`，huh 同走 v2，不留 v1/v2 双栈。**键位、开屏、流式、状态栏的行为契约分别见 `docs/specs/tui/{keys,splash,streaming,statusline}.md`，本文件不重复细节。** 以下架构边界另行守住：`internal/tui` 的 Model/Update 是纯状态转移，副作用只经 `Hooks` 注入；`TeaModel` 是到 tea.Model 的适配层（指针接收者，`tea.NewProgram(&tui.TeaModel{...})`；v2 的 alt screen 与鼠标模式在 `tea.View` 上声明，没有 `WithAltScreen` 选项）；Update/View 不出现键名硬编码与平台分支（经 `internal/tui/keys.go` 的 KeyMap）；模型输出经 `sanitize` 过滤终端控制序列；普通日志/trace 写文件，不破坏屏幕。
 - **主题与配色**：雾青三色 token（主 `#5BC8C8` / 浅 `#7DD3D8` / 深 `#3A9EA3`）集中在 `internal/tui/theme.go`，**其他文件不得出现裸色值**；错误红/提示黄/中性灰是语义色，不占用主题色。
-- **配置与展示文案**：`tui.status_messages`（四阶段文案）、模型级 `reasoning_effort`（默认偏好 high、`none` 关闭、setup 不询问、未验证端点不盲发显式强度）、`tui.status_line`（状态栏字段与上下文/缓存统计）的字段语义见 [`docs/specs/config.md`](docs/specs/config.md) 与 `docs/specs/tui/{streaming,statusline}.md`；`config show` 显示来源与 requested/effective/capability，不联网探测。
+- **配置与展示文案**：`tui.status_messages`（四阶段文案）、模型级 `reasoning_effort`（默认偏好 high、`none` 关闭、setup 不询问、未验证端点不盲发显式强度）、`tui.status_line`（状态栏字段与上下文/缓存统计）的字段语义见 [`docs/specs/config.md`](docs/specs/config.md) 与 `docs/specs/tui/{streaming,statusline}.md`；状态栏 context 项默认 `enabled:false` 隐藏 ctx，可设 `enabled:true` 恢复，缓存口径与用量采集不变。`config show` 显示来源与 requested/effective/capability，不联网探测。
 - 裸 `plume` 配置就绪+TTY 直接进入聊天，缺配置提示 setup；`plume chat --offline` 不需要配置/Key。setup 支持「暂不接入渠道」，不伪造账号或要求扫码。以上入口行为已随 G1b.2 通过。
 - **向导流程与终端库分离**：`internal/setup` 只依赖 `Prompter` 接口，新增一步交互时先加接口方法，再在 `prompter.go` 实现，不要把 huh 的类型渗进 `internal/setup`。
 - **Base URL 不再逐次询问**（2026-10-06）：有预填默认值的预设直接跳过；只有无默认值的预设才问。已有配置里的地址与默认值不同时**原样保留**，不要"顺手"重置——`TestWizardPreservesExistingNonDefaultBaseURL` 守住这条。
@@ -242,18 +243,20 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 
 ## 当前进度与禁区
 
-已完成：G0、G1a、G1b.1、G1b.2（.1/.2.1/.2.2）、G1b.3、G1b.4（2026-10-09 通过）。**当前无进行中单元**；下一单元 G3（自研工具循环与受控工具）需另行授权。
+已通过：G0、G1a、G1b.1、G1b.2（.1/.2.1/.2.2）、G1b.3、G1b.4。**G3/G3.1 于 2026-10-09 审核通过**：流式工具循环、read/grep/glob/edit/write/bash、完整默认配置、宽松预算、原子历史与脱敏状态，以及状态栏默认隐藏 ctx。契约见 `docs/specs/agent/tools.md`，审核见 `docs/reviews/G3.1.md`；不自动推进后续单元。已完成的 G3/G3.1 实施计划归档在 `docs/archive/plans/`，现行行为以契约为准。
+
+**开发工具配置（schema v1 兼容扩展）**：`agent.budget`、`tools` 全部默认字段由 Save/Load 实际落盘；零次数/整体期限表示无限，单模型 1800s、单工具 180s、单响应最多 64 项、请求/参数/结果 8MiB/1MiB/64KiB。tools 默认工作目录 .、许可六工具、read200行/search100项/file10MiB/output32KiB、shell bash，空数组禁用；用户值/未知字段保持，setup不增加问题且保留配置。文件修改必须先读并验证摘要，原子发布、新建0644/既有权限保留。bash 在宿主执行而非沙箱；Unix清理同进程组，脱离组/非Unix局限见契约；取消保留既有副作用，不提交成功历史、不自动重试。offline不读配置，显式 `/demo workspace` 在当前目录创建并修改 plume-demo.txt，已存在则拒绝覆盖。
 
 各单元的改动范围、实际证据与限制以 `docs/reviews/Gx.md` 为准，本文件不重复——状态只在 review 文档 frontmatter 维护，`roadmap.html` 与 `docs/index.md` 是可读快照，冲突时以 review 为准。
 
 **尚未实现，不要假设存在**：
 
 - **发送前上下文 token 估算与自动压缩**：目前仅使用供应商实际 usage 与用户配置的展示容量；没有估算器时保留 last/unknown，不猜模型容量或输入 token。
-- **工具循环与工具声明**（请求携带 tools 返回 unsupported，G3）、cmd/eval 比较命令。
-- **上下文扩展仅规划**：按 `docs/plans/agent-context.md` 预留 `soul.md` 人格、长期记忆、MCP tools 和 skill；G3 仅实现基础规则、会话与计算器/时间工具的统一请求拼装。不提前创建加载器、空包或配置字段，当前没有上述扩展能力。
+- `cmd/eval` 比较命令、工具自动重试与并行工具。
+- **人格/记忆/MCP/skill 仅规划**：按 `docs/plans/agent-context.md` 预留来源；G3.1 当前只拼装基础规则、实际工作目录、会话和已许可本地工具。不提前创建上述加载器、空包或配置字段。
 - Shift+Enter 在真实 kitty 终端（WezTerm/iTerm2）的**人工**验证与 Windows 实测（G-win 单元）——G1b.2.1 只在 pty 里用 CSI u 编码验证过解析路径。
 - 模型独立就绪探测（启动只校验配置与凭据，不发付费探测请求）。
-- `internal/tools/`、`internal/store/`。
+- `internal/store/`。
 - 微信扫码登录与收发；网关命令 `plume gateway …`（第二阶段 G2a）。向导里微信只记录为"待登录"。
 - 根目录 `README.md` 已于 G1b.2 建立；`.claude/` 下**没有**规则文件。
 

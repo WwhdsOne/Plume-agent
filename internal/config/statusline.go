@@ -67,7 +67,7 @@ func DefaultStatusLine() *StatusLineConfig {
 			{ID: "provider", Label: "Provider", Enabled: true, Row: 1, Priority: 60},
 			{ID: "model", Enabled: true, Row: 1, Priority: 90},
 			{ID: "reasoning", Label: "think", Enabled: true, Row: 1, Priority: 50},
-			{ID: "context", Label: "ctx", Enabled: true, Row: 1, Priority: 80},
+			{ID: "context", Label: "ctx", Enabled: false, Row: 1, Priority: 80},
 			{ID: "cache", Label: "cache", Enabled: true, Row: 1, Priority: 40},
 			{ID: "git", Label: "git", Enabled: true, Row: 2, Priority: 50},
 			{ID: "uv_env", Label: "env", Enabled: true, Row: 2, Priority: 30},

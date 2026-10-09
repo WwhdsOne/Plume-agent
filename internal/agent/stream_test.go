@@ -23,8 +23,8 @@ func TestRunStreamSeparatesReasoningAndRequiresAnswer(t *testing.T) {
 		if answer != "" && (text != answer || reasoning != "private thought" || result.Message.Content != answer) {
 			t.Fatalf("text=%q reasoning=%q result=%+v", text, reasoning, result)
 		}
-		if fake.Calls()[0].Messages[0].Reasoning != "" {
-			t.Fatal("reasoning leaked into next request")
+		if fake.Calls()[0].Messages[1].Reasoning != "old thought" {
+			t.Fatal("reasoning lost from structured tool-capable history")
 		}
 	}
 }

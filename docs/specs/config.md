@@ -54,7 +54,46 @@ PLUME_HOME=$(mktemp -d) go run ./cmd/plume config show
 | `tui.status_messages` | 四阶段（preparing/waiting/thinking/responding）文案 |
 | `tui.status_line` | 底部状态栏：`items[]`、`row`、`priority`、`max_rows`、`separator`、`token_format`、`time_format`、`context_format`、`context_bar`、`cache_format`、`cache_scope`、`cache_bar`、`clock_refresh_ms`、`environment_refresh_ms`、`git_timeout_ms` |
 | `channels[]` | 渠道记录：`type`、`enabled`、`credential_ref`、`settings` |
+| `agent.budget` | 模型/工具次数、单响应工具数、请求/参数/结果字节与整体/单步超时；完整默认落盘，零次数/整体时长表示不限 |
+| `tools` | workspace、enabled、read_lines、search_results、max_file_bytes、max_output_bytes、shell；允许空许可列表关闭工具 |
 
 易混点：`provider` 是品牌、`protocol` 是适配选择器、`model` 是发给供应商的 API 模型名——三者在 `internal/provider` 工厂里映射，配置 ID（`id`）不参与请求。
 
 字段语义的现行契约：模型与协议见 [模型运行时决策](../decisions/0003-model-runtime.md)；状态栏与上下文/缓存统计见 [状态栏契约](tui/statusline.md)；文案与思考强度见 [流式契约](tui/streaming.md)。
+
+状态栏完整默认配置保留 `context` 项并写入 `enabled:false`，默认仅缓存条展示用量信息；用户可将该项改为 `enabled:true` 恢复 ctx。旧配置已有显隐选择仍保留，隐藏不改变 usage 采集或缓存命中率的 CC/Pi 口径。
+
+## 5. 开发工具与预算默认值（G3.1）
+
+以下内容由 Save 或旧配置首次 Load 实际写入 config.json；不是只存在于 Go 结构默认值。setup 不新增问题，重跑保留用户设置。已存在的零、空数组及未知字段保持不变，null 与类型错误拒绝。
+
+```json
+{
+  "agent": {
+    "budget": {
+      "model_calls": 0,
+      "tool_calls": 0,
+      "tool_calls_per_step": 64,
+      "request_bytes": 8388608,
+      "argument_bytes": 1048576,
+      "result_bytes": 65536,
+      "run_timeout_seconds": 0,
+      "model_timeout_seconds": 1800,
+      "tool_timeout_seconds": 180
+    }
+  },
+  "tools": {
+    "workspace": ".",
+    "enabled": ["read", "grep", "glob", "edit", "write", "bash"],
+    "read_lines": 200,
+    "search_results": 100,
+    "max_file_bytes": 10485760,
+    "max_output_bytes": 32768,
+    "shell": "bash"
+  }
+}
+```
+
+model_calls/tool_calls/run_timeout_seconds 的 0 表示无限；其他数值为正，result_bytes 最小 256，所有整数最多 2147483647。没有自动重试。bash 默认超时来自 tool_timeout_seconds，请求参数可缩短但不能绕过外层期限。workspace 相对路径从启动目录解析；shell 可为 PATH 内可执行文件名或绝对路径；实际命令不是文件工具的根目录沙箱。enabled 可加 calculate/current_time，也可显式设置 []。
+
+工具参数、截断、先读后改及宿主执行局限见 [工具契约](agent/tools.md)。

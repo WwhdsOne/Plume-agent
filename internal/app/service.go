@@ -23,6 +23,7 @@ const (
 	EventTextDelta      EventKind = "text_delta"
 	EventReasoningDelta EventKind = "reasoning_delta"
 	EventUsageUpdate    EventKind = "usage_update"
+	EventToolUpdate     EventKind = "tool_update"
 )
 
 type Phase string
@@ -53,6 +54,8 @@ type Event struct {
 	FirstAnswer    time.Duration
 	AcceptedAt     time.Time
 	Stats          SessionStats
+	Tool           agent.ToolEvent
+	ModelCall      int
 }
 
 // ErrBusy 表示当前已有 run 在执行。首版同会话串行：再次发送被明确拒绝，
@@ -130,6 +133,10 @@ func (s *Service) Submit(ctx context.Context, input string) (string, error) {
 	s.runSeq++
 	runID := fmt.Sprintf("run-%06d", s.runSeq)
 	runCtx, cancel := context.WithCancel(ctx)
+	if timeout := s.runtime.RunTimeout(); timeout != 0 {
+		cancel()
+		runCtx, cancel = context.WithTimeout(ctx, timeout)
+	}
 	runCtx = telemetry.WithRunID(runCtx, runID)
 	s.busy = true
 	s.cancel = cancel
@@ -148,21 +155,26 @@ func (s *Service) Submit(ctx context.Context, input string) (string, error) {
 		phase := PhasePreparing
 		var callingAt time.Time
 		var preparation, firstReasoning, firstAnswer time.Duration
-		result, err := s.runtime.RunStream(runCtx, s.session.History(), input, func() {
+		modelCall := 0
+		callID := func() string { return fmt.Sprintf("%s/model-%d", runID, modelCall) }
+		result, err := s.runtime.RunStreamWithTools(runCtx, s.session.History(), input, func(stepCtx context.Context) {
+			modelCall++
 			callingAt = time.Now()
-			preparation = callingAt.Sub(accepted)
+			if modelCall == 1 {
+				preparation = callingAt.Sub(accepted)
+			}
 			phase = PhaseWaiting
-			s.session.ObserveUsage(runID+"/model-1", model.Usage{})
-			s.emit(Event{Kind: EventRunPhase, RunID: runID, Phase: phase, Stats: s.session.Statistics()}, runCtx)
-		}, func(e model.Event) error {
+			s.session.ObserveUsage(callID(), model.Usage{})
+			s.emit(Event{Kind: EventRunPhase, RunID: runID, Phase: phase, ModelCall: modelCall, Stats: s.session.Statistics()}, stepCtx)
+		}, func(stepCtx context.Context, e model.Event) error {
 			next := phase
 			ev := Event{RunID: runID}
 			switch e.Kind {
 			case model.EventUsageUpdate:
-				s.session.ObserveUsage(runID+"/model-1", e.Usage)
-				returnStatus := s.emit(Event{Kind: EventUsageUpdate, RunID: runID, Usage: e.Usage, Stats: s.session.Statistics()}, runCtx)
+				s.session.ObserveUsage(callID(), e.Usage)
+				returnStatus := s.emit(Event{Kind: EventUsageUpdate, RunID: runID, Usage: e.Usage, Stats: s.session.Statistics()}, stepCtx)
 				if !returnStatus {
-					return runCtx.Err()
+					return stepCtx.Err()
 				}
 				return nil
 			case model.EventReasoningDelta:
@@ -190,12 +202,17 @@ func (s *Service) Submit(ctx context.Context, input string) (string, error) {
 			}
 			if next != phase {
 				phase = next
-				if !s.emit(Event{Kind: EventRunPhase, RunID: runID, Phase: phase}, runCtx) {
-					return runCtx.Err()
+				if !s.emit(Event{Kind: EventRunPhase, RunID: runID, Phase: phase}, stepCtx) {
+					return stepCtx.Err()
 				}
 			}
-			if !s.emit(ev, runCtx) {
-				return runCtx.Err()
+			if !s.emit(ev, stepCtx) {
+				return stepCtx.Err()
+			}
+			return nil
+		}, func(stepCtx context.Context, e agent.ToolEvent) error {
+			if !s.emit(Event{Kind: EventToolUpdate, RunID: runID, Tool: e}, stepCtx) {
+				return stepCtx.Err()
 			}
 			return nil
 		})
@@ -215,28 +232,33 @@ func (s *Service) finish(ctx context.Context, runID string, result *agent.RunRes
 	if err == nil {
 		err = ctx.Err()
 	}
-	input := s.pending
 	ev := Event{
 		Kind:  EventRunCompleted,
 		RunID: runID,
 		Err:   err, Duration: total, Preparation: preparation, FirstReasoning: firstReasoning, FirstAnswer: firstAnswer,
 	}
 	if result != nil {
-		ev.Reply = result.Message.Content
-		ev.Reasoning = result.Message.Reasoning
+		ev.Reply = result.LastMessage.Content
+		ev.Reasoning = result.LastMessage.Reasoning
 		ev.FinishReason = result.FinishReason
 		ev.Usage = result.Usage
 		// finish 与 usage_update 是同一个模型调用，按 ID 替换而不累加。
-		s.session.observeUsage(runID+"/model-1", result.Usage, true)
+		if result.ModelCalls > 0 {
+			s.session.observeUsage(fmt.Sprintf("%s/model-%d", runID, result.ModelCalls), result.Usage, true)
+		}
 	}
 	ev.Stats = s.session.Statistics()
 	if s.recorder != nil {
-		s.recorder.RunEnd(runID, telemetry.RunMetrics{Duration: total, Preparation: preparation, FirstReasoning: firstReasoning, FirstAnswer: firstAnswer, ReasoningBytes: len(ev.Reasoning), AnswerBytes: len(ev.Reply)}, err)
+		reasoningBytes, answerBytes := len(ev.Reasoning), len(ev.Reply)
+		if result != nil {
+			reasoningBytes, answerBytes = len(result.Message.Reasoning), len(result.Message.Content)
+		}
+		s.recorder.RunEnd(runID, telemetry.RunMetrics{Duration: total, Preparation: preparation, FirstReasoning: firstReasoning, FirstAnswer: firstAnswer, ReasoningBytes: reasoningBytes, AnswerBytes: answerBytes}, err)
 	}
 	if err != nil {
 		ev.Kind = EventRunFailed
 	} else {
-		s.session.Append(model.Message{Role: model.RoleUser, Content: input}, result.Message)
+		s.session.AppendTurn(result.Messages)
 	}
 	// 非终态最多占八格，最后一格保留给当前终态；取消不依赖消费者继续读取。
 	s.emit(ev, context.Background())
