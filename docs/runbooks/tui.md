@@ -159,7 +159,7 @@ pty 与终端验收的产物（`.ansi`/`.txt`/`-frame-N.txt`/`.jsonl`）**只在
 复现任意一个已删场景：
 
 ```bash
-# 1) 重跑脚本（推荐，会按当前代码重新生成到 docs/reviews/evidence/<单元>/）
+# 1) 重跑脚本（单元待审时按当前代码重新生成到 docs/reviews/evidence/<单元>/）
 PLUME_HOME=$(mktemp -d) python3 scripts/pty_demo_g1b3.py     # 流式/思考/Markdown
 PLUME_HOME=$(mktemp -d) python3 scripts/pty_demo_g1b4.py     # 状态栏
 python3 scripts/preview_splash.py                            # 开屏帧
@@ -167,7 +167,35 @@ python3 scripts/preview_splash.py                            # 开屏帧
 git show 9860902:docs/reviews/evidence/G1b.4/pty/results.json
 ```
 
+**只是做回归检查时**（当前单元不待审），把输出指到临时目录，避免在仓库里留下产物：
+
+```bash
+PLUME_HOME=$(mktemp -d) python3 scripts/pty_demo_g1b3.py --output /tmp/pty-check
+```
+
 `.gitattributes` 对 `docs/reviews/evidence/**` 的规则只在审核窗口内生效。
+
+## 运行时 profile（pprof）
+
+要看内存、协程或 CPU 的实际占用时，用显式 flag 打开本机调试端点。**默认关闭**，且**只接受回环地址**——profile 会暴露堆内容、协程栈和命令行参数，因此不接受网络暴露：
+
+```bash
+plume chat --pprof=127.0.0.1:6060            # 需要 / 不需要 Key 都可用
+plume chat --offline --pprof=127.0.0.1:6060  # 纯离线排查
+```
+
+裸 `plume` 不带这个 flag（入口没有该开关），要抓 profile 就用 `plume chat --pprof=…`。启动时会在 TUI 接管屏幕前打印一行 `pprof listening on http://127.0.0.1:6060`；写 `:0` 时端口由内核分配，以该行为准。然后在另一个终端：
+
+```bash
+go tool pprof -top http://127.0.0.1:6060/debug/pprof/heap        # 内存占用排名
+go tool pprof -top http://127.0.0.1:6060/debug/pprof/goroutine   # 协程堆积
+go tool pprof -top http://127.0.0.1:6060/debug/pprof/profile     # CPU（默认采样 30s）
+curl -s http://127.0.0.1:6060/debug/pprof/                        # 列出全部可用 profile
+```
+
+非回环地址（`0.0.0.0:6060`、`:6060`、内网 IP、域名）会启动失败并说明原因，不会降级监听。退出聊天即关闭端点。
+
+这是**开发者按需抓取**的入口，不是常驻指标接口；日常盯内存用 `ps -o rss=` 或活动监视器即可（见本文件末尾的排查命令）。
 
 ## 常见问题复现
 

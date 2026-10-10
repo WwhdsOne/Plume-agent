@@ -29,19 +29,25 @@ func newChatCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			offline, _ := cmd.Flags().GetBool("offline")
 			modelFlag, _ := cmd.Flags().GetString("model")
+			pprofAddr, _ := cmd.Flags().GetString("pprof")
 			if offline && modelFlag != "" {
 				return errors.New("--offline and --model are mutually exclusive")
 			}
-			out := cmd.OutOrStdout()
-			if offline {
-				return startChat(out, "", true)
-			}
-			return startChat(out, modelFlag, false)
+			opts := chatOptions{model: modelFlag, offline: offline, pprof: pprofAddr}
+			return startChat(cmd.OutOrStdout(), opts)
 		},
 	}
 	chat.Flags().Bool("offline", false, "run against the scripted fake model (no config, key, or network)")
 	chat.Flags().String("model", "", "model configuration ID from config.json (not an API model name)")
+	chat.Flags().String("pprof", "", "start a loopback-only pprof debug endpoint (e.g. 127.0.0.1:6060; default off)")
 	return chat
+}
+
+// chatOptions 聚合 chat 启动参数，避免 startChat 变成一串位置布尔/字符串。
+type chatOptions struct {
+	model   string // 配置里的模型配置 ID；空表示用 default_model
+	offline bool   // 脚本化 fake：不读配置、不需要 Key、不联网
+	pprof   string // pprof 监听地址；空表示关闭
 }
 
 // credentialSource 把 config 的凭据文件适配为工厂的 Credentials 接口。
@@ -57,8 +63,10 @@ func (credentialSource) Key(ref string) (string, error) {
 }
 
 // startChat 装配模型客户端、app 服务与 TUI 并运行。
-// offline=true 时使用脚本化 fake，不读配置、不需要 Key、不联网。
-func startChat(out io.Writer, modelFlag string, offline bool) error {
+// opts.offline=true 时使用脚本化 fake，不读配置、不需要 Key、不联网。
+func startChat(out io.Writer, opts chatOptions) error {
+	modelFlag := opts.model
+	offline := opts.offline
 	if f, ok := out.(*os.File); ok && !isatty.IsTerminal(f.Fd()) && !isatty.IsCygwinTerminal(f.Fd()) {
 		// 判定用 go-isatty，不用 os.ModeCharDevice（/dev/null 也是字符设备）。
 		return errors.New("chat needs an interactive terminal (run it inside a TTY; try `plume chat --offline` for scripted output)")
@@ -112,6 +120,22 @@ func startChat(out io.Writer, modelFlag string, offline bool) error {
 	runtime.SetRecorder(recorder, providerID, info)
 	service := app.NewService(runtime, recorder)
 	defer service.Close()
+
+	// 本机调试端点：默认关闭，只有显式 --pprof 才监听，且只接受回环地址。
+	// 在 TUI 接管屏幕前打印一次，便于确认实际端口（写 :0 时由内核分配）。
+	pprofServer, err := telemetry.StartPprof(opts.pprof)
+	if err != nil {
+		return err
+	}
+	if pprofServer != nil {
+		defer func() {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			_ = pprofServer.Close(shutdownCtx)
+		}()
+		_, _ = fmt.Fprintf(out, "pprof listening on %s\n", pprofServer.URL())
+	}
+
 	ctx := context.Background()
 	dir, _ := os.Getwd()
 	options.Dir = dir
