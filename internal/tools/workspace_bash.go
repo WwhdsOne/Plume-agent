@@ -42,6 +42,8 @@ func (b *boundedOutput) String() string {
 	return text
 }
 
+// filteredEnvironment 去掉常见敏感键与 Shell 启动注入变量；命名过滤不保证识别任意凭据。
+// 保留 PATH 等正常执行环境，也不限制命令主动读取宿主文件，因此不能作为安全沙箱边界。
 func filteredEnvironment() []string {
 	var env []string
 	for _, entry := range os.Environ() {
@@ -55,6 +57,8 @@ func filteredEnvironment() []string {
 	return env
 }
 
+// bash 执行前台命令并返回有界合并输出；子期限受调用方 context 的更早期限限制。
+// 超时/取消只终止进程，已经发生的文件或网络副作用不会回滚。
 func (w *workspace) bash(ctx context.Context, raw string) Result {
 	var args struct {
 		Command string `json:"command"`
@@ -107,6 +111,7 @@ func (w *workspace) bash(ctx context.Context, raw string) Result {
 	cmd.Stderr = output
 	started := time.Now()
 	err = cmd.Run()
+	// 正常退出也清理同组后台子进程；WaitDelay 限制遗留输出管道使退出迟迟不能完成。
 	_ = killProcessGroup(cmd)
 	text, cut := clipText(output.String(), w.textLimit())
 	truncated := output.truncated || cut

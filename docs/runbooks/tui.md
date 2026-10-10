@@ -1,7 +1,7 @@
 ---
 title: TUI 聊天 runbook
 status: active
-updated: 2026-10-09
+updated: 2026-10-10
 summary: plume chat 的启动、流式思考和状态栏配置、键位、隔离演示与 trace 排查
 ---
 
@@ -76,7 +76,7 @@ python3 scripts/pty_demo_g1b3.py
 
 ## 底部状态栏与配置（G1b.4，已通过）
 
-默认优先一行，完整字段放不下才分两行；亮青标签与浅青数值显示模型/思考/缓存和 Git/uv/会话/run 计时，ctx 默认隐藏；小于 60 列或 18 行合并为一行，按配置优先级隐藏字段。`plume config show` 可查看完整生效配置，`plume config path` 给出配置文件路径。首次读取旧文件会原子补齐默认值，保留现有自定义；setup 不新增问题。修改后重启聊天生效。
+默认优先一行，完整字段放不下才分两行；亮青标签与浅青数值显示模型/思考/上下文/缓存和 Git/uv/会话/run 计时，ctx 默认启用；小于 60 列或 18 行合并为一行，按配置优先级隐藏字段。`plume config show` 可查看完整生效配置，`plume config path` 给出配置文件路径。首次读取旧文件会原子补齐默认值，保留现有自定义；setup 不新增问题。修改后重启聊天生效。
 
 在现有 `tui.status_line` 下可修改 `items`（数组顺序就是显示顺序），例如只显示缓存、模型、会话时长：
 

@@ -13,6 +13,8 @@ import (
 	"unicode/utf8"
 )
 
+// checkedExisting 要求调用者持有 w.mu，核对最后一次 read 的全文摘要且拒绝直接写入符号链接。
+// 摘要只验证内容，不锁住外部进程；发布前仍须再次核对，原文件权限用于新临时文件。
 func (w *workspace) checkedExisting(ctx context.Context, path string) ([]byte, os.FileMode, Result) {
 	info, err := w.root.Lstat(path)
 	if err != nil {
@@ -115,7 +117,9 @@ func (w *workspace) edit(ctx context.Context, raw string) Result {
 	return Result{OK: true, Value: map[string]any{"path": filepath.ToSlash(path), "replacements": count, "bytes": len(text)}, Summary: fmt.Sprintf("edited %d matches", count)}
 }
 
-// atomicWrite 在同目录落盘后发布；新建用原子硬链接避免覆盖竞态，覆盖用 Rename。
+// atomicWrite 要求调用者持有 w.mu；同目录临时文件完整同步后再发布，早期失败由 defer 清理。
+// 新建用原子 Link 防止覆盖竞争文件；覆盖用 Rename，最后摘要检查与发布间仍有外部修改窗口。
+// 目录 fsync 在发布后执行，因此 durability_error 必须携带 applied:true，不能声称没有副作用。
 func (w *workspace) atomicWrite(ctx context.Context, path string, data []byte, mode os.FileMode, replace bool) Result {
 	if ctx.Err() != nil {
 		return Result{Code: "cancelled"}

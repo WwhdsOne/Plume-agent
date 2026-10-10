@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"regexp/syntax"
 	"slices"
 	"sort"
 	"strconv"
@@ -69,9 +70,37 @@ func globPattern(pattern string) (*regexp.Regexp, error) {
 			if strings.HasPrefix(part, "!") {
 				part = "^" + part[1:]
 			}
-			b.WriteByte('[')
-			b.WriteString(part)
-			b.WriteByte(']')
+			class, err := syntax.Parse("["+part+"]", syntax.Perl)
+			if err != nil {
+				return nil, errors.New("invalid glob")
+			}
+			// syntax 会将单字符类和全范围类简化；先恢复为区间，保留既有匹配语义。
+			switch class.Op {
+			case syntax.OpLiteral:
+				class.Rune = []rune{class.Rune[0], class.Rune[0]}
+			case syntax.OpAnyChar:
+				class.Rune = []rune{0, utf8.MaxRune}
+			case syntax.OpAnyCharNotNL:
+				class.Rune = []rune{0, '\n' - 1, '\n' + 1, utf8.MaxRune}
+			}
+			// 否定类和 [.-0] 之类的范围都可能隐含 /；统一从字符区间移除它。
+			// 字符类与 *、? 一样只匹配一个路径段，不扩展现有 glob 语法。
+			var runes []rune
+			for j := 0; j < len(class.Rune); j += 2 {
+				lo, hi := class.Rune[j], class.Rune[j+1]
+				if hi < '/' || lo > '/' {
+					runes = append(runes, lo, hi)
+					continue
+				}
+				if lo < '/' {
+					runes = append(runes, lo, '/'-1)
+				}
+				if hi > '/' {
+					runes = append(runes, '/'+1, hi)
+				}
+			}
+			class.Op, class.Rune = syntax.OpCharClass, runes
+			b.WriteString(class.String())
 			i += end + 1
 		default:
 			_, size := utf8.DecodeRuneInString(pattern[i:])
@@ -184,6 +213,59 @@ type searchMatch struct {
 	After   []searchLine `json:"after,omitempty"`
 }
 
+// fitSearchMatch 优先保留匹配路径、行号和正文，再移除最远上下文、剪裁正文。
+// 完整结果含 JSON 转义和固定元数据；极小文本限额仍允许结果预算内的纯定位信息。
+func (w *workspace) fitSearchMatch(matches []searchMatch, match searchMatch, skipped *int, engine string) (searchMatch, bool, bool) {
+	fits := func(candidate searchMatch) bool {
+		all := append(matches, candidate)
+		encoded, _ := json.Marshal(all)
+		if len(encoded) > w.textLimit() && (candidate.Content != "" || len(candidate.Before) > 0 || len(candidate.After) > 0) {
+			return false
+		}
+		result := grepResult(all, skipped, engine, true)
+		return len(result.JSON()) <= w.options.ResultBytes
+	}
+	if fits(match) {
+		return match, false, true
+	}
+	for len(match.Before)+len(match.After) > 0 {
+		if len(match.Before) >= len(match.After) {
+			match.Before = match.Before[1:]
+		} else {
+			match.After = match.After[:len(match.After)-1]
+		}
+		if fits(match) {
+			return match, true, true
+		}
+	}
+	text := match.Content
+	match.Content = ""
+	if !fits(match) {
+		return match, true, false
+	}
+	encoded, _ := json.Marshal(text)
+	lo, hi := 0, len(encoded)
+	for lo < hi {
+		mid := lo + (hi-lo+1)/2
+		match.Content, _ = clipText(text, mid)
+		if fits(match) {
+			lo = mid
+		} else {
+			hi = mid - 1
+		}
+	}
+	match.Content, _ = clipText(text, lo)
+	return match, true, true
+}
+
+func grepResult(matches []searchMatch, skipped *int, engine string, truncated bool) Result {
+	value := map[string]any{"matches": matches, "count": len(matches), "engine": engine}
+	if skipped != nil {
+		value["skipped_files"] = *skipped
+	}
+	return Result{OK: true, Value: value, Truncated: truncated, Summary: fmt.Sprintf("matched %d lines", len(matches))}
+}
+
 func (w *workspace) grep(ctx context.Context, raw string) Result {
 	var args struct {
 		Pattern *string `json:"pattern"`
@@ -232,6 +314,7 @@ func (w *workspace) grep(ctx context.Context, raw string) Result {
 	matches := []searchMatch{}
 	truncated := false
 	skipped := 0
+	statistics := &skipped
 	engine := "go"
 	rg, _ := exec.LookPath("rg")
 	err = w.walkFiles(ctx, path, func(file string) error {
@@ -299,20 +382,43 @@ func (w *workspace) grep(ctx context.Context, raw string) Result {
 				truncated = truncated || cut
 				match.After = append(match.After, searchLine{Line: j + 1, Content: text})
 			}
-			candidate := append(matches, match)
-			b, _ := json.Marshal(candidate)
-			if len(b) > w.textLimit() {
+			match, cut, fits := w.fitSearchMatch(matches, match, statistics, engine)
+			truncated = truncated || cut
+			if !fits && statistics != nil {
+				// 纯定位信息能容纳但统计字段挤占预算时，省略统计而不谎报零匹配。
+				statistics = nil
+				match, _, fits = w.fitSearchMatch(matches, match, statistics, engine)
+			}
+			if !fits {
 				truncated = true
 				return stopSearch
 			}
-			matches = candidate
+			matches = append(matches, match)
 		}
 		return nil
 	})
 	if err != nil && !errors.Is(err, stopSearch) {
 		return fileFailure(err)
 	}
-	return Result{OK: true, Value: map[string]any{"matches": matches, "count": len(matches), "skipped_files": skipped, "engine": engine}, Truncated: truncated, Summary: fmt.Sprintf("matched %d lines", len(matches))}
+	result := grepResult(matches, statistics, engine, truncated)
+	if len(result.JSON()) <= w.options.ResultBytes {
+		return result
+	}
+	// 遍历后 skipped_files 的位数可能增加，必须用最终统计再核对完整 JSON。
+	// 先裁上下文和正文；极小预算允许省略非核心跳过统计，缺失不能解读为 0。
+	kept := []searchMatch{}
+	for _, match := range matches {
+		match, _, fits := w.fitSearchMatch(kept, match, statistics, engine)
+		if !fits && statistics != nil {
+			statistics = nil
+			match, _, fits = w.fitSearchMatch(kept, match, statistics, engine)
+		}
+		if !fits {
+			break // 纯定位信息本身超限时，也不能突破结果预算。
+		}
+		kept = append(kept, match)
+	}
+	return grepResult(kept, statistics, engine, true)
 }
 
 // rg 只接收经 os.Root 安全读取的 stdin，不接收文件路径；不可用或输出过大时回退 Go。

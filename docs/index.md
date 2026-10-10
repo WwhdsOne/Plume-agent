@@ -50,6 +50,7 @@ docs/
 | 知道下一步做什么 | `plans/phase-01-tui.md` + `roadmap.html` |
 | 知道某个决定的理由 | `decisions/` |
 | 知道某单元做了什么、限制是什么 | `reviews/Gx.md` |
+| 检查工具实现与注释的自审结论 | [tools 自审](reviews/tools-audit-2026-10-10.md) |
 | 复现/排查本地问题 | `runbooks/` |
 | 修改人格或关闭 soul.md | [人格契约](specs/agent/soul.md) + [setup 手册](runbooks/setup.md) |
 | 回看某天发生了什么 | `daily/` |

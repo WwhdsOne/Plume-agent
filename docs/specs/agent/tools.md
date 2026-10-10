@@ -1,7 +1,7 @@
 ---
 title: G3 受控工具循环契约
 status: active
-updated: 2026-10-09
+updated: 2026-10-10
 summary: 六种开发工具、完整默认配置、宽松预算、协议关联、历史提交与脱敏展示契约
 ---
 
@@ -24,7 +24,7 @@ summary: 六种开发工具、完整默认配置、宽松预算、协议关联�
 | write | path/content/overwrite；新建不覆盖竞争写入；覆盖必须 overwrite=true、先 read 且摘要未变 |
 | bash | command/workdir/timeout_seconds；默认本地非交互 shell、工作区 cwd 和 180 秒，外层工具期限不可被参数延长；返回合并有界输出、exit_code、elapsed_ms，非零为 command_failed |
 
-显式 null、未知字段、重复键、非法类型和尾随数据拒绝。read 的极长单行可能只返回前缀（partial_line=true），next_offset 进入下一行，不提供省略片段的字节续读。成功但截断的结果保留正文前缀和结构化标记，不当作工具执行失败。
+显式 null、未知字段、重复键、非法类型和尾随数据拒绝。read 的极长单行可能只返回前缀（partial_line=true），next_offset 进入下一行，不提供省略片段的字节续读。成功但截断的结果保留正文前缀和结构化标记，不当作工具执行失败。grep 优先保留匹配路径/行号，先缩减上下文，再按完整 JSON 预算裁剪正文；极小预算可能省略非核心 skipped_files 字段，缺失不表示 0。纯定位与固定字段本身超过结果预算时仍可能省略。glob 的字符类（含否定类和范围）不匹配目录分隔符。只有许可 bash 时，工作区工具装配才要求 shell 可执行。
 
 write/edit 使用同目录临时文件、Chmod、Write、Sync、Close，再发布与目录 fsync；覆盖用 Rename，新建用原子 Link 防并发覆盖。新文件 0644，保留既有权限。覆盖前再次检查摘要，但最后检查与 Rename 之间的外部并发修改仍有极短竞态窗口；目录 fsync 失败返回 durability_error 与 applied:true，不谎称文件完全未变。
 

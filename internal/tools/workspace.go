@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -17,8 +18,10 @@ import (
 )
 
 // WorkspaceOptions 是开发工具的工作目录、许可与输出边界。
+// 字节限制作用于文件/工具结果，并不代表模型 token 容量；零值由 NewWorkspace 补默认。
 type WorkspaceOptions struct {
-	Root                                                   string
+	Root string
+	// Enabled 为 nil 时用默认六工具；显式空切片关闭全部工具，不依赖 Shell 可执行文件。
 	Enabled                                                []string
 	ReadLines, SearchResults, MaxFileBytes, MaxOutputBytes int
 	ResultBytes, BashTimeoutSeconds                        int
@@ -29,15 +32,21 @@ type workspace struct {
 	root    *os.Root
 	path    string
 	options WorkspaceOptions
-	mu      sync.Mutex
-	seen    map[string][32]byte
-	closed  bool
+	// mu 串行保护先读后改检查、文件发布与关闭；搜索和 Shell 不持有此锁。
+	mu sync.Mutex
+	// seen 保存本注册表内 read 取得的全文摘要，分页/截断也按全文计算；写入成功后失效。
+	// 它不随 run 自动清空，因此每次覆盖仍须核对当前内容，不能把旧摘要当作文件锁。
+	seen   map[string][32]byte
+	closed bool
 }
 
+// DefaultWorkspaceOptions 返回独立的默认许可切片与有限文件/输出边界；Shell 默认超时为秒。
 func DefaultWorkspaceOptions() WorkspaceOptions {
 	return WorkspaceOptions{Root: ".", Enabled: []string{"read", "grep", "glob", "edit", "write", "bash"}, ReadLines: 200, SearchResults: 100, MaxFileBytes: 10 << 20, MaxOutputBytes: 32 << 10, ResultBytes: 64 << 10, BashTimeoutSeconds: 180, Shell: "bash"}
 }
 
+// NewWorkspace 固定工作区根句柄与许可名单；仅启用 bash 时要求 Shell 可执行。
+// 文件路径经 os.Root 阻止越界，Shell 执行仍拥有宿主权限；调用者结束使用后须 Close。
 func NewWorkspace(options WorkspaceOptions) (*Registry, error) {
 	defaults := DefaultWorkspaceOptions()
 	if options.Root == "" {
@@ -70,8 +79,10 @@ func NewWorkspace(options WorkspaceOptions) (*Registry, error) {
 	if options.ReadLines < 1 || options.SearchResults < 1 || options.MaxFileBytes < 1 || options.MaxOutputBytes < 1 || options.ResultBytes < 256 || options.BashTimeoutSeconds < 1 || int64(options.BashTimeoutSeconds) > int64((1<<63-1)/int64(time.Second)) {
 		return nil, errors.New("invalid workspace options")
 	}
-	if _, err := exec.LookPath(options.Shell); err != nil {
-		return nil, errors.New("workspace shell is not executable")
+	if slices.Contains(options.Enabled, "bash") {
+		if _, err := exec.LookPath(options.Shell); err != nil {
+			return nil, errors.New("workspace shell is not executable")
+		}
 	}
 	abs, err := filepath.Abs(options.Root)
 	if err != nil {
@@ -119,7 +130,8 @@ func NewWorkspace(options WorkspaceOptions) (*Registry, error) {
 	return r, nil
 }
 
-// boundResult 最后核对完整 JSON（含路径与统计），保留预算内的可用前缀。
+// boundResult 最后核对完整 JSON（含路径与统计），不能只按正文原始字节计算预算。
+// 优先保留正文前缀或搜索子集；连元数据也放不下时以 output_omitted 标识，并保留截断状态。
 func (w *workspace) boundResult(result Result) Result {
 	budget := w.options.ResultBytes
 	if len(result.JSON()) <= budget {
@@ -179,6 +191,8 @@ func (r *Registry) Close() error {
 	w.closed = true
 	return w.root.Close()
 }
+
+// Workspace 返回实际解析后的绝对工作目录；无工作区的注册表返回空字符串。
 func (r *Registry) Workspace() string {
 	if r == nil || r.workspace == nil {
 		return ""
@@ -186,6 +200,7 @@ func (r *Registry) Workspace() string {
 	return r.workspace.path
 }
 
+// workspacePath 拒绝绝对/卷标/上级路径；真正的链接与目录越界防护仍由 os.Root 执行。
 func workspacePath(path string) (string, error) {
 	if path == "" || strings.ContainsRune(path, 0) || filepath.IsAbs(path) || filepath.VolumeName(path) != "" {
 		return "", errors.New("invalid path")
@@ -197,6 +212,7 @@ func workspacePath(path string) (string, error) {
 	return clean, nil
 }
 
+// resolvedWorkspaceDir 给 exec.Cmd 提供实际目录并再次检查链接范围，不能据此宣称 Shell 沙箱化。
 func resolvedWorkspaceDir(root, path string) (string, error) {
 	resolved, err := filepath.EvalSymlinks(filepath.Join(root, path))
 	if err != nil {
@@ -361,6 +377,7 @@ func (w *workspace) read(ctx context.Context, raw string) Result {
 				clipped, _ := clipText(piece, w.textLimit())
 				b.WriteString(clipped)
 				next = i + 2
+				// 极长首行只能返回前缀，next_offset 跳到下一行；没有字节级续读，须明确标记。
 				partialLine = true
 			}
 			break
