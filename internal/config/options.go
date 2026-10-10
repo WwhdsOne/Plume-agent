@@ -57,6 +57,8 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// UnmarshalJSON 逐层校验 tui 段：未知阶段名、非字符串条目均报错；
+// status_line 缺省为 nil（由调用方决定是否补默认）。
 func (c *TUIConfig) UnmarshalJSON(data []byte) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {

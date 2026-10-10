@@ -6,6 +6,8 @@ import (
 	"testing"
 )
 
+// TestDisplayAndReasoningSettingsSurviveRoundTrip 守住往返不丢字段：TUI 自定义文案与显式
+// reasoning_effort:"none"（关闭推理）在编码后必须原样保留。
 func TestDisplayAndReasoningSettingsSurviveRoundTrip(t *testing.T) {
 	raw := `{"schema_version":1,"models":[{"id":"main","provider":"deepseek","protocol":"deepseek","model":"deepseek-flash","base_url":"https://api.deepseek.com","reasoning_effort":"none"}],"tui":{"status_messages":{"waiting":["brewing"],"thinking":["Thought"]}}}`
 	var cfg Config
@@ -28,6 +30,7 @@ func TestDisplayAndReasoningSettingsSurviveRoundTrip(t *testing.T) {
 	}
 }
 
+// TestInvalidOptionalSettingsAreRejected 守住展示文案边界：未知阶段名、含换行/控制序列的候选文案及非法 reasoning_effort 一律拒绝。
 func TestInvalidOptionalSettingsAreRejected(t *testing.T) {
 	for _, field := range []string{
 		`"tui":{"status_messages":{"waitng":["hello"]}}`,

@@ -42,6 +42,8 @@ func toolCall(t *testing.T, r *Registry, name string, args any) Result {
 	return r.Execute(context.Background(), name, string(b))
 }
 
+// TestWorkspaceDefinitionsAndSelection 守住工具集装配契约：默认工作区注册
+// 全部六工具并绑定根目录，Enabled 只保留指定工具，未知工具名在构造时即报错。
 func TestWorkspaceDefinitionsAndSelection(t *testing.T) {
 	r, root := workspaceFixture(t)
 	if r.Workspace() != root || len(r.Declarations()) != 6 {
@@ -70,6 +72,9 @@ func TestWorkspaceDefinitionsAndSelection(t *testing.T) {
 	}
 }
 
+// TestWorkspaceReadPaginationAndBounds 守住 read 的分页与安全边界：
+// offset/limit 精确翻页（next_offset 指向未读行）、二进制按 not_text 拒绝、
+// 越界路径与指向外部的符号链接一律失败，摘要不得携带正文。
 func TestWorkspaceReadPaginationAndBounds(t *testing.T) {
 	r, root := workspaceFixture(t)
 	if err := os.WriteFile(filepath.Join(root, "a.txt"), []byte("alpha\nbeta\ngamma\n"), 0600); err != nil {
@@ -105,6 +110,9 @@ func TestWorkspaceReadPaginationAndBounds(t *testing.T) {
 	}
 }
 
+// TestWorkspaceWriteEditReadAndStaleGuard 守住"先读后改"守卫链：新建文件
+// 默认 0644、改写既有文件必须先 read、外部改动后按 stale_read 拒绝覆盖；
+// edit 的歧义与缺失分别报 multiple_matches/no_match，改写保留既有权限位。
 func TestWorkspaceWriteEditReadAndStaleGuard(t *testing.T) {
 	r, root := workspaceFixture(t)
 	got := toolCall(t, r, "write", map[string]any{"path": "nested/a.txt", "content": "hello hello\n"})
@@ -165,6 +173,9 @@ func TestWorkspaceWriteEditReadAndStaleGuard(t *testing.T) {
 	}
 }
 
+// TestWorkspaceSearchGlobAndIgnore 守住搜索过滤契约：glob 过滤与
+// ignore_case/fixed_strings 生效，.git 与 node_modules 默认不入结果，
+// 非法正则报 invalid_pattern，limit 触发截断必须如实标记。
 func TestWorkspaceSearchGlobAndIgnore(t *testing.T) {
 	r, root := workspaceFixture(t)
 	for path, text := range map[string]string{"a.go": "before\nNeedle.one\nafter\nneedle two\n", "src/b.go": "needle three\n", "src/b.txt": "needle four\n", ".git/hidden.go": "needle hidden\n", "node_modules/x.go": "needle hidden\n"} {
@@ -192,6 +203,9 @@ func TestWorkspaceSearchGlobAndIgnore(t *testing.T) {
 	}
 }
 
+// TestWorkspaceBashOutputExitEnvironmentAndTimeout 守住 bash 的执行边界：
+// 非零退出码如实上报、工作目录是根目录、stderr 被捕获，密钥类环境变量脱敏而
+// 白名单变量可见；输出超预算截断，超时与取消必须及时返回（含后台子进程）。
 func TestWorkspaceBashOutputExitEnvironmentAndTimeout(t *testing.T) {
 	r, root := workspaceFixture(t)
 	t.Setenv("EXAMPLE_API_KEY", "secret-marker")
@@ -218,6 +232,9 @@ func TestWorkspaceBashOutputExitEnvironmentAndTimeout(t *testing.T) {
 	}
 }
 
+// TestRegistryCancellationKeepsCompletedOutput 守住取消语义的部分结果保留：
+// 执行中发现上下文已取消时结果改标 cancelled，但工具已产出的输出与摘要
+// 必须原样保留给上层。
 func TestRegistryCancellationKeepsCompletedOutput(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	r, err := New(Definition{Name: "partial", Parameters: `{"type":"object"}`, Execute: func(context.Context, string) Result {
@@ -233,6 +250,9 @@ func TestRegistryCancellationKeepsCompletedOutput(t *testing.T) {
 	}
 }
 
+// TestWorkspaceStrictArgumentsAndOutputBudget 守住工作区工具的严格校验：
+// 多余字段、越界取值（负 limit、逃出根目录的 glob、timeout_seconds=0 等）与
+// 缺失必填一律 invalid_arguments；read 超预算文件仍要在结果预算内截断返回。
 func TestWorkspaceStrictArgumentsAndOutputBudget(t *testing.T) {
 	r, root := workspaceFixture(t)
 	for name, args := range map[string]string{"read": `{"path":"x","extra":1}`, "grep": `{"pattern":"x","limit":-1}`, "glob": `{"pattern":"../*"}`, "edit": `{"path":"x","old_string":"","new_string":"x"}`, "write": `{"path":"x"}`, "bash": `{"command":"true","timeout_seconds":0}`} {
@@ -249,6 +269,9 @@ func TestWorkspaceStrictArgumentsAndOutputBudget(t *testing.T) {
 	}
 }
 
+// TestWorkspaceReadEscapingPaginationAndLongLineProgress 守住分页推进：
+// 控制字符转义后 next_offset 与已交付行数严格一致（不跳行不丢行），
+// 超长单行被截也必须能推进到下一行而非原地卡死。
 func TestWorkspaceReadEscapingPaginationAndLongLineProgress(t *testing.T) {
 	r, root := workspaceFixture(t)
 	text := strings.Repeat(strings.Repeat("\x01", 500)+"\n", 100)
@@ -280,6 +303,9 @@ func TestWorkspaceReadEscapingPaginationAndLongLineProgress(t *testing.T) {
 	}
 }
 
+// TestWorkspaceConfigurableLimitsAndAbsoluteShell 守住自定义配置的可用性：
+// 放宽的各限额与绝对路径 Shell 照常生效，bash 输出仍受 JSON 总预算约束截断，
+// 显式 timeout_seconds 可覆盖默认值。
 func TestWorkspaceConfigurableLimitsAndAbsoluteShell(t *testing.T) {
 	root := t.TempDir()
 	options := DefaultWorkspaceOptions()
@@ -303,6 +329,9 @@ func TestWorkspaceConfigurableLimitsAndAbsoluteShell(t *testing.T) {
 	}
 }
 
+// TestWorkspaceNullArgumentsAndCancelledMutation 守住 null 参数与取消副作用：
+// 参数显式传 null 与省略不同，一律按 invalid_arguments 拒绝；已取消的上下文
+// 让写操作短路返回 cancelled，不留任何文件。
 func TestWorkspaceNullArgumentsAndCancelledMutation(t *testing.T) {
 	r, root := workspaceFixture(t)
 	for name, args := range map[string]string{"read": `{"path":"x","offset":null}`, "grep": `{"pattern":"x","ignore_case":null}`, "glob": `{"pattern":"*","limit":null}`, "edit": `{"path":"x","old_string":"a","new_string":"b","replace_all":null}`, "write": `{"path":"x","content":"a","overwrite":null}`, "bash": `{"command":"true","timeout_seconds":null}`} {
@@ -320,6 +349,9 @@ func TestWorkspaceNullArgumentsAndCancelledMutation(t *testing.T) {
 	}
 }
 
+// TestWorkspaceSearchFallbackAndFileLimits 守住引擎回退与文件限额：
+// PATH 里没有 rg 时 grep 回退 Go 引擎且结果不缩水，MaxFileBytes 同时约束
+// 读与写，NUL 字节按 not_text 拒绝。
 func TestWorkspaceSearchFallbackAndFileLimits(t *testing.T) {
 	r, root := workspaceFixture(t)
 	if err := os.WriteFile(filepath.Join(root, "a.txt"), []byte("first\nneedle\nlast\n"), 0600); err != nil {
@@ -365,6 +397,9 @@ func TestWorkspaceSearchFallbackAndFileLimits(t *testing.T) {
 	}
 }
 
+// TestWorkspaceFailedWritesLeaveNoTemporaryFiles 守住失败写的零残留：
+// 写失败不得留下临时文件或部分产物，越界路径与经符号链接的逃逸
+// （含 bash workdir）一律拒绝，工作区外零改动。
 func TestWorkspaceFailedWritesLeaveNoTemporaryFiles(t *testing.T) {
 	r, root := workspaceFixture(t)
 	if err := os.WriteFile(filepath.Join(root, "parent"), []byte("obstruction"), 0600); err != nil {
@@ -401,6 +436,9 @@ func TestWorkspaceFailedWritesLeaveNoTemporaryFiles(t *testing.T) {
 	}
 }
 
+// TestWorkspaceResultBudgetIncludesLongPathMetadata 守住预算口径：结果预算
+// 按最终 JSON 字节数计算，长路径等元数据同样计入——极小预算下 read/glob/grep
+// 都必须截断且不得超标。
 func TestWorkspaceResultBudgetIncludesLongPathMetadata(t *testing.T) {
 	root := t.TempDir()
 	options := DefaultWorkspaceOptions()
@@ -433,6 +471,8 @@ func TestWorkspaceResultBudgetIncludesLongPathMetadata(t *testing.T) {
 	}
 }
 
+// TestWorkspaceUnicodeGlobAndSearchFilter 守住 Unicode 路径的匹配：中文目录下
+// glob 模式（通配、字符类、** 递归）与 grep 的 glob 过滤都能正确命中。
 func TestWorkspaceUnicodeGlobAndSearchFilter(t *testing.T) {
 	r, root := workspaceFixture(t)
 	if err := os.MkdirAll(filepath.Join(root, "文档"), 0700); err != nil {
@@ -457,6 +497,9 @@ func TestWorkspaceUnicodeGlobAndSearchFilter(t *testing.T) {
 	}
 }
 
+// TestWorkspaceRegexUsesGoSemanticsWithAndWithoutRG 守住正则语义的权威来源：
+// 一律以 Go 正则为准（\b 认 Unicode 字母边界、\d 只认 ASCII 数字），
+// rg 与 Go 回退引擎的结果必须一致。
 func TestWorkspaceRegexUsesGoSemanticsWithAndWithoutRG(t *testing.T) {
 	r, root := workspaceFixture(t)
 	if err := os.WriteFile(filepath.Join(root, "unicode.txt"), []byte("文a文\n١\n"), 0600); err != nil {
@@ -488,6 +531,8 @@ func TestWorkspaceRegexUsesGoSemanticsWithAndWithoutRG(t *testing.T) {
 	}
 }
 
+// TestToolArgumentsRejectCaseAliases 守住参数键的大小写敏感：首字母大写等
+// 别名写法必须当作未知字段拒绝，不得与规范键混淆或静默生效。
 func TestToolArgumentsRejectCaseAliases(t *testing.T) {
 	r, root := workspaceFixture(t)
 	if err := os.WriteFile(filepath.Join(root, "a.txt"), []byte("needle"), 0600); err != nil {

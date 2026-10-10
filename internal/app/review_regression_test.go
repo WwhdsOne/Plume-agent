@@ -38,6 +38,8 @@ func (s *reviewTrackedStream) Close() error {
 	return err
 }
 
+// TestReviewCancelFullQueueTerminatesProducer 守住满队列下的取消：producer 不依赖 UI
+// 消费即可退出并关闭模型流，终态占用预留槽位、已入队事件不丢失，取消的 run 不提交历史。
 func TestReviewCancelFullQueueTerminatesProducer(t *testing.T) {
 	fake := model.NewFake(model.FakeScript{Response: &model.ChatResponse{
 		Message: model.Message{Content: strings.Repeat("a", 10000)}, FinishReason: model.FinishStop,
@@ -111,6 +113,8 @@ func TestReviewCancelFullQueueTerminatesProducer(t *testing.T) {
 	}
 }
 
+// TestReviewCancelledBeforeCallReportsPreparation 守住模型调用前的取消：不发起模型请求，
+// 终态仍报告 preparing 阶段耗时，且不出现首思考/首答案等模型内容延迟。
 func TestReviewCancelledBeforeCallReportsPreparation(t *testing.T) {
 	fake := model.NewFake(model.FakeScript{Response: &model.ChatResponse{
 		Message: model.Message{Content: "answer"}, FinishReason: model.FinishStop,

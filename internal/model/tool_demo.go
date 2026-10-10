@@ -17,8 +17,11 @@ type ToolDemo struct {
 	seq int
 }
 
+// NewToolDemo 返回离线演示客户端；工具调用 ID 由内部自增序号生成。
 func NewToolDemo() *ToolDemo { return &ToolDemo{} }
 
+// Generate 按 /demo 指令脚本作答：首回合发起对应工具调用，收到工具结果后
+// 给出最终离线答案（/demo error 演示失败后再调用一次的修正路径）。
 func (d *ToolDemo) Generate(ctx context.Context, req ChatRequest) (*ChatResponse, error) {
 	if ctx.Err() != nil {
 		return nil, NewError(ClassifyContext(ctx.Err()))
@@ -105,6 +108,8 @@ func (d *ToolDemo) Generate(ctx context.Context, req ChatRequest) (*ChatResponse
 	return response, nil
 }
 
+// Stream 复用 Generate 的结果：/demo cancel 特意为首帧加 30s 延迟，
+// 供测试验证取消打断；其余指令直接按事件序列回放。
 func (d *ToolDemo) Stream(ctx context.Context, req ChatRequest) (EventStream, error) {
 	response, err := d.Generate(ctx, req)
 	if err != nil {

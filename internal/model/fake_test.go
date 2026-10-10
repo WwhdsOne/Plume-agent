@@ -6,6 +6,8 @@ import (
 	"testing"
 )
 
+// 守住 Fake 的脚本语义：按序弹出、脚本错误上抛、耗尽报 ErrFakeExhausted；
+// 响应补全协议标识，请求全量记录供 Calls 断言。
 func TestFakePlaysScriptsInOrder(t *testing.T) {
 	fake := NewFake(
 		FakeScript{Response: &ChatResponse{Message: Message{Role: RoleAssistant, Content: "first"}}},
@@ -37,6 +39,8 @@ func TestFakePlaysScriptsInOrder(t *testing.T) {
 	}
 }
 
+// 守住 Fake 的流式合成契约：完整响应自动拆成思考与答案增量，
+// EventStreamEnded 恰好一次，正常结束无错误。
 func TestFakeStreamPlaysDeltasAndFailure(t *testing.T) {
 	fake := NewFake(FakeScript{Response: &ChatResponse{Message: Message{Content: "答案", Reasoning: "思考"}, FinishReason: FinishStop, Usage: Usage{OK: true, TotalTokens: 2}}})
 	stream, err := fake.Stream(context.Background(), ChatRequest{})
@@ -59,6 +63,8 @@ func TestFakeStreamPlaysDeltasAndFailure(t *testing.T) {
 	}
 }
 
+// 守住 fake 流的中断语义：等待中的事件可被取消打断并归类为 cancelled；
+// 脚本 StreamErr 在放完既有事件后上抛；Close 可重复调用。
 func TestFakeStreamCancellationAndPartialFailure(t *testing.T) {
 	gate := make(chan struct{})
 	fake := NewFake(FakeScript{Stream: []FakeStep{{Event: Event{Kind: EventTextDelta, TextDelta: "partial"}}, {Wait: gate, Event: Event{Kind: EventTextDelta, TextDelta: "late"}}}})
@@ -94,6 +100,8 @@ func TestFakeStreamCancellationAndPartialFailure(t *testing.T) {
 	_ = stream.Close()
 }
 
+// 守住 Fake 的线程安全契约：Generate 执行期间并发调用 Calls 不得产生
+// 数据竞争。
 func TestFakeConcurrentGenerate(t *testing.T) {
 	// Generate 与 Calls 的并发访问必须安全（-race 验收覆盖）。
 	fake := NewFake(FakeScript{Response: &ChatResponse{}})
@@ -106,6 +114,8 @@ func TestFakeConcurrentGenerate(t *testing.T) {
 	<-done
 }
 
+// 守住 LoopFake 的空响应降级：脚本响应无内容时，Stream 输出 OfflineReply
+// 固定回复，离线模式始终有答案。
 func TestLoopFakeEmptyResponseUsesOfflineAnswer(t *testing.T) {
 	f := NewLoopFake(FakeScript{Response: &ChatResponse{}})
 	s, err := f.Stream(context.Background(), ChatRequest{})

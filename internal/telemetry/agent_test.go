@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+// TestG3TraceMetadataOnly 守住 G3 工具循环 trace 的"只落元数据"契约：
+// 事件名、schema 版本与耗时不缺位，schema 描述与参数等正文绝不进 trace。
 func TestG3TraceMetadataOnly(t *testing.T) {
 	var out bytes.Buffer
 	r := NewModelRecorder(&out)

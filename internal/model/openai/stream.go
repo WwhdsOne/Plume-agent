@@ -50,6 +50,8 @@ type limitedStreamBody struct {
 	remaining int64
 }
 
+// Read 在限额内透传；耗尽后仍尝试多读一字节，用于区分"恰好用尽"（返回
+// 底层 EOF）与"确实超限"（返回 ErrResponseTooLarge）。
 func (b *limitedStreamBody) Read(p []byte) (int, error) {
 	if b.remaining <= 0 {
 		var extra [1]byte
@@ -74,6 +76,8 @@ type observedDecoder struct {
 	err  error
 }
 
+// Next 只放行 message 帧：error 帧与未知类型转为模型错误；观察到
+// DONE 置 done，伪 DONE 前缀直接拒绝（见上方说明）。
 func (d *observedDecoder) Next() bool {
 	if d.done || d.err != nil {
 		return false
@@ -268,7 +272,11 @@ func (s *eventStream) fail(err error) {
 	_ = s.Close()
 }
 func (s *eventStream) Event() model.Event { return s.current }
-func (s *eventStream) Err() error         { s.mu.Lock(); defer s.mu.Unlock(); return s.err }
+
+// Err 返回终态错误；与 Close/fail 并发安全。
+func (s *eventStream) Err() error { s.mu.Lock(); defer s.mu.Unlock(); return s.err }
+
+// Close 幂等：取消 HTTP 请求并关闭 SDK 流，可从任意 goroutine 调用。
 func (s *eventStream) Close() error {
 	s.closeOnce.Do(func() { s.cancel(); s.closeErr = s.sdk.Close() })
 	return s.closeErr

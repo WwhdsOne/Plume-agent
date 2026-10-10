@@ -6,6 +6,8 @@ import (
 	"testing"
 )
 
+// TestWizardPreservesWorkspaceToolsAndBudget 守住向导不碰工具与预算定制：
+// 显式空 enabled（禁用全部工具）等用户值原样保留，且返回配置不与传入共享底层。
 func TestWizardPreservesWorkspaceToolsAndBudget(t *testing.T) {
 	fake := defaultFake()
 	fake.skipChannel = true

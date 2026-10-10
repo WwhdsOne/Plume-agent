@@ -10,6 +10,8 @@ import (
 	"time"
 )
 
+// TestSaveContextWindowDefaults 守住容量推断的保守边界：仅官方 DeepSeek 端点（含 /v1 与
+// 尾斜杠变体）的已知模型预填 1000000，显式配置优先，其余一律保持 unknown 不猜。
 func TestSaveContextWindowDefaults(t *testing.T) {
 	cases := []struct {
 		name, provider, protocol, baseURL, model string
@@ -69,6 +71,8 @@ func TestSaveContextWindowDefaults(t *testing.T) {
 	}
 }
 
+// TestLoadContextWindowDefaults 守住读取侧迁移：缺失/null 的容量按同一推断规则补默认并落盘，
+// 迁移保留未知字段与状态栏选中项，第二次 Load 不重写文件、不改 mtime（幂等）。
 func TestLoadContextWindowDefaults(t *testing.T) {
 	cases := []struct {
 		name, baseURL, model, capacity string
@@ -153,6 +157,7 @@ func TestLoadContextWindowDefaults(t *testing.T) {
 	}
 }
 
+// TestLoadContextWindowMigrationFailureKeepsFile 守住迁移失败语义：容量迁移写回失败时 Load 报错，既有文件保持原样。
 func TestLoadContextWindowMigrationFailureKeepsFile(t *testing.T) {
 	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
 		t.Skip("requires enforced POSIX directory permissions")

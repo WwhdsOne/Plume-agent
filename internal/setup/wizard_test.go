@@ -135,6 +135,8 @@ func defaultFake() *fakePrompter {
 	}
 }
 
+// TestWizardPreservesStatusLineAndSameModelCapacity 守住向导不重置状态栏自定义（含显式空 items），
+// 且容量口径正确：同模型保留已有 context_window_tokens，换模型才写入预设容量。
 func TestWizardPreservesStatusLineAndSameModelCapacity(t *testing.T) {
 	for _, changedModel := range []bool{false, true} {
 		t.Run(map[bool]string{false: "same_model", true: "new_model"}[changedModel], func(t *testing.T) {
@@ -180,6 +182,8 @@ func TestWizardPreservesStatusLineAndSameModelCapacity(t *testing.T) {
 	}
 }
 
+// TestWizardWritesContextWindowDefaults 守住容量默认值落盘：预设模型写入预设容量，
+// 未验证的模型 ID 不伪造容量（保持缺省）。
 func TestWizardWritesContextWindowDefaults(t *testing.T) {
 	for _, model := range []string{"deepseek-flash", "deepseek-v4-pro", "unknown"} {
 		t.Run(model, func(t *testing.T) {
@@ -213,6 +217,8 @@ func TestWizardWritesContextWindowDefaults(t *testing.T) {
 	}
 }
 
+// TestWizardHappyPath 端到端走通完整向导：模型与渠道正确落盘、凭据只写进 credentials/，
+// 且配置文件与 setup trace 都不泄漏密钥值。
 func TestWizardHappyPath(t *testing.T) {
 	fake := defaultFake()
 	h := newHarness(t, fake)
@@ -274,6 +280,8 @@ func TestWizardHappyPath(t *testing.T) {
 	}
 }
 
+// TestWizardCancelledDuringModelWritesNothing 守住模型配置完成前的取消是全有或全无：
+// 任一步取消都不写配置、不写凭据，并在 trace 记录取消事件。
 func TestWizardCancelledDuringModelWritesNothing(t *testing.T) {
 	cases := []struct {
 		step     string
@@ -317,6 +325,8 @@ func TestWizardCancelledDuringModelWritesNothing(t *testing.T) {
 	}
 }
 
+// TestWizardCancelledAtChannelKeepsModelConfig 守住渠道阶段取消只撤销渠道：
+// 返回 ErrChannelSkipped，已保存的模型配置不回滚。
 func TestWizardCancelledAtChannelKeepsModelConfig(t *testing.T) {
 	fake := defaultFake()
 	fake.failAt = "channel"
@@ -342,6 +352,8 @@ func TestWizardCancelledAtChannelKeepsModelConfig(t *testing.T) {
 	}
 }
 
+// TestWizardPrefillsFromExistingConfig 守住重进向导的回填契约：供应商/模型用已有值预选、
+// 已有凭据可保留不重输，且 TUI 展示与 reasoning_effort 设置不被丢弃。
 func TestWizardPrefillsFromExistingConfig(t *testing.T) {
 	fake := defaultFake()
 	h := newHarness(t, fake)
@@ -397,6 +409,8 @@ func TestWizardPrefillsFromExistingConfig(t *testing.T) {
 	}
 }
 
+// TestWizardCustomOpenAICanDeclineAPIKey 守住 custom-openai 可不配 Key（如本地推理服务）：
+// 用户拒绝输入时 api_key_ref 留空也能完成保存。
 func TestWizardCustomOpenAICanDeclineAPIKey(t *testing.T) {
 	fake := defaultFake()
 	presets := provider.NewRegistry()
@@ -426,6 +440,8 @@ func TestWizardCustomOpenAICanDeclineAPIKey(t *testing.T) {
 	}
 }
 
+// TestWizardCustomOpenAIRequiresBaseURL 守住 custom-openai 必填 Base URL：
+// 地址为空时校验拒绝，且不落盘任何配置。
 func TestWizardCustomOpenAIRequiresBaseURL(t *testing.T) {
 	fake := defaultFake()
 	presets := provider.NewRegistry()
@@ -444,6 +460,8 @@ func TestWizardCustomOpenAIRequiresBaseURL(t *testing.T) {
 	}
 }
 
+// TestWizardRejectsUnavailableChannel 守住未实现渠道必须显式报错，
+// 不默默接受一个当前不可用的渠道配置。
 func TestWizardRejectsUnavailableChannel(t *testing.T) {
 	fake := defaultFake()
 	channels := channel.NewRegistry()
@@ -456,6 +474,8 @@ func TestWizardRejectsUnavailableChannel(t *testing.T) {
 	}
 }
 
+// TestWizardSaveFailureRemovesNewCredential 守住"配置保存失败不留孤儿凭据"：
+// 写盘失败时本次新写的凭据必须被清理。
 func TestWizardSaveFailureRemovesNewCredential(t *testing.T) {
 	fake := defaultFake()
 	h := newHarness(t, fake)
@@ -474,6 +494,8 @@ func TestWizardSaveFailureRemovesNewCredential(t *testing.T) {
 	}
 }
 
+// TestWizardWeixinNoteIsShown 守住选择微信渠道时展示且仅展示一条"微信"说明
+// （登录属后续阶段，向导只记录待登录状态）。
 func TestWizardWeixinNoteIsShown(t *testing.T) {
 	fake := defaultFake()
 	h := newHarness(t, fake)
@@ -485,6 +507,8 @@ func TestWizardWeixinNoteIsShown(t *testing.T) {
 	}
 }
 
+// TestWizardSwitchingProviderDoesNotReusePreviousKey 守住凭据按供应商隔离：
+// 换供应商后不把上一家的 Key 当作已有凭据，新引用按新供应商命名，旧凭据原样保留。
 func TestWizardSwitchingProviderDoesNotReusePreviousKey(t *testing.T) {
 	fake := defaultFake()
 	presets := provider.NewRegistry()
@@ -537,6 +561,8 @@ func TestWizardSwitchingProviderDoesNotReusePreviousKey(t *testing.T) {
 	}
 }
 
+// TestWizardKeepsExistingChannelAndRepointsModelRef 守住重跑向导保留已有渠道，
+// 并把渠道 model_ref 重新指向本次保存的模型。
 func TestWizardKeepsExistingChannelAndRepointsModelRef(t *testing.T) {
 	fake := defaultFake()
 	h := newHarness(t, fake)
@@ -614,6 +640,8 @@ func mustPath(t *testing.T) string {
 	return path
 }
 
+// TestWizardSkipsChannelExplicitly 守住显式跳过渠道的完整契约：模型照常保存、渠道不写入、
+// 不计为错误，trace 记 channel_skipped_explicitly 以便与取消区分。
 func TestWizardSkipsChannelExplicitly(t *testing.T) {
 	// "暂不接入渠道"是显式选择：模型保留、不写渠道、不算取消、不算失败。
 	fake := defaultFake()

@@ -1,4 +1,8 @@
-// Package agent 请求拼装蓝图：先看这里，再维护下面的模板和组装逻辑。
+// Package agent 实现受控模型—工具循环与请求拼装。Runtime 只依赖模型和
+// 工具契约，不依赖 TUI/渠道；run 编排（ID、串行、取消、事件）属于
+// internal/app。
+//
+// 请求拼装蓝图：先看这里，再维护下面的模板和组装逻辑。
 //
 //	ChatRequest
 //	├─ Messages

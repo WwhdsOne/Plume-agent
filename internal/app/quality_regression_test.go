@@ -31,6 +31,9 @@ func (s *reviewCloseGateStream) Close() error {
 	<-s.release
 	return s.EventStream.Close()
 }
+
+// TestQualityCancelDuringStreamClose 守住取消与提交的临界窗口：模型输出收完、
+// 流正在 Close 时取消仍必须生效，run 以失败终态收尾且不提交历史。
 func TestQualityCancelDuringStreamClose(t *testing.T) {
 	entered, release := make(chan struct{}), make(chan struct{})
 	fake := model.NewFake(model.FakeScript{Response: &model.ChatResponse{Message: model.Message{Content: "answer"}, FinishReason: model.FinishStop}})

@@ -7,6 +7,8 @@ import (
 	"plume-agent/internal/model"
 )
 
+// TestRunMergesHistoryAndInput 守住基础拼装契约：
+// 请求按"基础规则 + 历史 + 当前输入"合并，模型名原样传递。
 func TestRunMergesHistoryAndInput(t *testing.T) {
 	history := []model.Message{
 		{Role: model.RoleUser, Content: "first"},
@@ -43,6 +45,7 @@ func TestRunMergesHistoryAndInput(t *testing.T) {
 	}
 }
 
+// TestRunRejectsEmptyInput 守住空输入必须直接报错拒绝。
 func TestRunRejectsEmptyInput(t *testing.T) {
 	runtime := New(model.NewFake(), "m")
 	if _, err := runtime.Run(context.Background(), nil, ""); err == nil {

@@ -13,6 +13,9 @@ import (
 	"testing"
 )
 
+// 守住流式与非流式的一致性：同一请求下 Stream 与 Generate 的答案、思考、
+// 用量与 finish 必须一致；流式尾帧 usage 是完整快照，重复尾帧不得把缓存
+// 用量漏计或翻倍。
 func TestGenerateStreamReasoningAnswerUsageAgree(t *testing.T) {
 	for _, effort := range []model.ReasoningEffort{model.ReasoningHigh, model.ReasoningNone} {
 		t.Run(string(effort), func(t *testing.T) {
@@ -76,6 +79,8 @@ func TestGenerateStreamReasoningAnswerUsageAgree(t *testing.T) {
 	}
 }
 
+// 守住流式 reasoning_content 的解析边界：字段缺失与 null 等价于无思考；
+// 只有思考没有答案、关闭思考后仍返回思考、字段类型错误必须显式报错。
 func TestStreamReasoningVariants(t *testing.T) {
 	cases := []struct {
 		name, delta     string

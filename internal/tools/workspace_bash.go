@@ -21,6 +21,8 @@ type boundedOutput struct {
 	truncated bool
 }
 
+// Write 按入参长度全额确认写入（io.Writer 契约），但只保留限额内前缀；
+// 超出部分丢弃并置 truncated。
 func (b *boundedOutput) Write(p []byte) (int, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -32,6 +34,9 @@ func (b *boundedOutput) Write(p []byte) (int, error) {
 	}
 	return count, nil
 }
+
+// String 返回保留的前缀，并把非法 UTF-8 字节替换为 U+FFFD，
+// 防止二进制输出破坏终端与 JSON trace。
 func (b *boundedOutput) String() string {
 	b.mu.Lock()
 	defer b.mu.Unlock()

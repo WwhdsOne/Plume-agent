@@ -12,6 +12,8 @@ import (
 	"plume-agent/internal/soul"
 )
 
+// TestWizardInitializesSoulAfterModelAndPreservesRerun 守住初始化时序与无覆盖语义：
+// 模型配置保存成功后才写默认模板（trace 只记事件不含正文），重跑遇到已有人格不覆盖。
 func TestWizardInitializesSoulAfterModelAndPreservesRerun(t *testing.T) {
 	fake := defaultFake()
 	fake.skipChannel = true
@@ -45,6 +47,8 @@ func TestWizardInitializesSoulAfterModelAndPreservesRerun(t *testing.T) {
 	}
 }
 
+// TestWizardSoulDisableAndCustomPath 守住 soul 配置语义：禁用不初始化任何文件、自定义路径相对配置目录解析，
+// 用户定制原样保留，且返回的配置不与传入的共享底层。
 func TestWizardSoulDisableAndCustomPath(t *testing.T) {
 	for _, enabled := range []bool{false, true} {
 		t.Run(map[bool]string{false: "disabled", true: "custom"}[enabled], func(t *testing.T) {
@@ -76,6 +80,8 @@ func TestWizardSoulDisableAndCustomPath(t *testing.T) {
 	}
 }
 
+// TestWizardSoulCancellationAndInitializationFailure 守住取消与失败的边界：模型阶段取消不写 soul，
+// 渠道取消不丢已初始化的 soul；初始化失败时已保存的模型配置保留，且失败记入 trace。
 func TestWizardSoulCancellationAndInitializationFailure(t *testing.T) {
 	for _, stage := range []string{"model", "channel"} {
 		t.Run(stage, func(t *testing.T) {
@@ -113,6 +119,8 @@ func TestWizardSoulCancellationAndInitializationFailure(t *testing.T) {
 	}
 }
 
+// TestWizardPreservesExistingEmptySoul 守住"已有空文件也算已存在"：
+// 空 soul.md 不被覆盖、不误报创建，soul 配置仍完整落盘。
 func TestWizardPreservesExistingEmptySoul(t *testing.T) {
 	fake := defaultFake()
 	fake.skipChannel = true

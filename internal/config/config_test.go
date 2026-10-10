@@ -27,6 +27,7 @@ func validConfig() *Config {
 	}
 }
 
+// TestValidateAcceptsFirstReleaseConfig 守住基线：首版完整配置（一个模型挂一个已启用渠道）必须整体通过 Validate。
 func TestValidateAcceptsFirstReleaseConfig(t *testing.T) {
 	providers, channels := catalogs()
 	if err := validConfig().Validate(providers, channels); err != nil {
@@ -34,6 +35,7 @@ func TestValidateAcceptsFirstReleaseConfig(t *testing.T) {
 	}
 }
 
+// TestValidateAcceptsEmptyConfig 守住全新安装路径：没有任何模型与渠道的空配置也合法。
 func TestValidateAcceptsEmptyConfig(t *testing.T) {
 	providers, channels := catalogs()
 	// 全新安装还没有任何模型和渠道。
@@ -42,6 +44,7 @@ func TestValidateAcceptsEmptyConfig(t *testing.T) {
 	}
 }
 
+// TestValidateFillsBaseURLFromPresetDefault 守住预设兜底：模型未填 BaseURL 时由 DeepSeek 预设默认值补上，不算校验失败。
 func TestValidateFillsBaseURLFromPresetDefault(t *testing.T) {
 	providers, channels := catalogs()
 	cfg := validConfig()
@@ -51,6 +54,8 @@ func TestValidateFillsBaseURLFromPresetDefault(t *testing.T) {
 	}
 }
 
+// TestValidateRejects 表驱动守住逐条校验规则：schema 版本、协议匹配、引用安全、明文 HTTP
+// 限制与启用渠道唯一性等非法配置都必须给出含关键字的错误。
 func TestValidateRejects(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -154,6 +159,7 @@ func TestValidateRejects(t *testing.T) {
 	}
 }
 
+// TestValidateAllowsLoopbackHTTP 守住回环例外：明文 http 仅在指向回环地址（本地推理服务）时放行。
 func TestValidateAllowsLoopbackHTTP(t *testing.T) {
 	providers, channels := catalogs()
 	cfg := validConfig()
@@ -163,6 +169,7 @@ func TestValidateAllowsLoopbackHTTP(t *testing.T) {
 	}
 }
 
+// TestValidateReportsEveryProblemAtOnce 守住聚合报错：多处问题在一次 Validate 里全部指出，用户不必修一个再见一个。
 func TestValidateReportsEveryProblemAtOnce(t *testing.T) {
 	providers, channels := catalogs()
 	cfg := validConfig()
@@ -207,6 +214,7 @@ func TestValidateAcceptsNewlyRegisteredEntries(t *testing.T) {
 	}
 }
 
+// TestResolveBaseURLPrefersConfiguredValue 守住 URL 优先级：显式配置的 BaseURL 优先于预设默认值。
 func TestResolveBaseURLPrefersConfiguredValue(t *testing.T) {
 	providers, _ := catalogs()
 	m := ModelConfig{Provider: "deepseek", BaseURL: "https://proxy.internal/v1"}

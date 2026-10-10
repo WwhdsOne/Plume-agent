@@ -15,6 +15,7 @@ import (
 	"plume-agent/internal/model"
 )
 
+// 守住：默认状态栏两行布局，空闲时 session 计时照走，ctx/cache 字段齐全。
 func TestStatusLineDefaultTwoRowsAndSessionClock(t *testing.T) {
 	now := time.Date(2026, 10, 8, 1, 0, 0, 0, time.UTC)
 	m := NewWithOptions("deepseek/deepseek-flash", Hooks{}, Options{Clock: func() time.Time { return now }})
@@ -29,6 +30,7 @@ func TestStatusLineDefaultTwoRowsAndSessionClock(t *testing.T) {
 	}
 }
 
+// 守住：默认配置下 context 显示进度条 + 当前/总计，cache 只显示百分比。
 func TestStatusDefaultContextBarAndCachePercentage(t *testing.T) {
 	cfg := config.DefaultStatusLine()
 	cfg.Items = append([]config.StatusItemConfig(nil), cfg.Items[3:5]...)
@@ -44,6 +46,7 @@ func TestStatusDefaultContextBarAndCachePercentage(t *testing.T) {
 	}
 }
 
+// 守住：宽终端放得下全部字段时状态栏并成一行，放不下自动换两行。
 func TestStatusLineUsesOneRowWhenAllFieldsFit(t *testing.T) {
 	m := New("deepseek/deepseek-flash", Hooks{})
 	m, _ = m.Update(tea.WindowSizeMsg{Width: 220, Height: 24})
@@ -56,6 +59,7 @@ func TestStatusLineUsesOneRowWhenAllFieldsFit(t *testing.T) {
 	}
 }
 
+// 守住：git 字段长短变化引起状态栏行数切换时，总帧高与输入光标位置不被扰动。
 func TestAdaptiveRowsKeepFrameAndInputCursorAligned(t *testing.T) {
 	cfg := config.DefaultStatusLine()
 	cfg.Items = []config.StatusItemConfig{{ID: "model", Enabled: true, Row: 1}, {ID: "git", Label: "git", Enabled: true, Row: 2}}
@@ -69,6 +73,7 @@ func TestAdaptiveRowsKeepFrameAndInputCursorAligned(t *testing.T) {
 	}
 }
 
+// 守住：思考边界处状态栏收成一行、输入又逐行增高时，帧高与输入光标仍保持对齐。
 func TestAdaptiveRowsAfterInputGrowAtThoughtBoundary(t *testing.T) {
 	cfg := config.DefaultStatusLine()
 	cfg.Items = []config.StatusItemConfig{{ID: "model", Enabled: true, Row: 1, Priority: 90}, {ID: "phase", Enabled: true, Row: 2, Priority: 100}, {ID: "run_elapsed", Enabled: true, Row: 2, Priority: 100}}
@@ -99,6 +104,7 @@ func TestAdaptiveRowsAfterInputGrowAtThoughtBoundary(t *testing.T) {
 	}
 }
 
+// 守住：容量未知时解释 capacity unknown 而非假 0%；空会话与 run 起止都从 0/容量起步。
 func TestContextUnknownExplainsMissingSourceAndEmptySessionStartsAtZero(t *testing.T) {
 	m := New("p/m", Hooks{})
 	item := config.StatusItemConfig{ID: "context", Label: "ctx"}
@@ -125,6 +131,7 @@ func TestContextUnknownExplainsMissingSourceAndEmptySessionStartsAtZero(t *testi
 	}
 }
 
+// 守住：会话零值只用于展示，真实用量上报前不得被记成实际模型调用。
 func TestStatusUsagePreservesInitialZeroUntilReported(t *testing.T) {
 	for _, scope := range []string{"session", "last_call"} {
 		t.Run(scope, func(t *testing.T) {
@@ -163,6 +170,7 @@ func TestStatusUsagePreservesInitialZeroUntilReported(t *testing.T) {
 	}
 }
 
+// 守住：新一轮尚未上报时保留上一份快照；输入统计先到、缓存字段缺失时旧缓存值不丢。
 func TestStatusUsagePreservesPreviousSnapshotUntilReported(t *testing.T) {
 	for _, tc := range []struct{ scope, want string }{
 		{"session", "cache: 70%"},
@@ -207,6 +215,7 @@ func TestStatusUsagePreservesPreviousSnapshotUntilReported(t *testing.T) {
 	}
 }
 
+// 守住：终态事件缺输入统计时 context 转 unknown；仅 session 作用域保留历史 partial 缓存；新会话归零。
 func TestStatusUsageTerminalWithoutStatistics(t *testing.T) {
 	for _, scope := range []string{"session", "last_call"} {
 		for _, priorCall := range []bool{false, true} {
@@ -254,6 +263,7 @@ func TestStatusUsageTerminalWithoutStatistics(t *testing.T) {
 	}
 }
 
+// 守住：首次模型调用前就取消 run，context/cache 保持 0 而非转 unknown。
 func TestStatusUsageCancellationBeforeFirstModelCallKeepsZero(t *testing.T) {
 	for _, scope := range []string{"session", "last_call"} {
 		t.Run(scope, func(t *testing.T) {
@@ -272,6 +282,7 @@ func TestStatusUsageCancellationBeforeFirstModelCallKeepsZero(t *testing.T) {
 	}
 }
 
+// 守住：无容量时说明来源缺失；按实际报告值展示；超容量时进度条满格并显示 120%。
 func TestContextProgressUnknownActualLastAndOverflow(t *testing.T) {
 	cap := int64(100)
 	m := New("p/m", Hooks{})
@@ -296,6 +307,7 @@ func TestContextProgressUnknownActualLastAndOverflow(t *testing.T) {
 	}
 }
 
+// 守住：usage 格式的百分比与 token 数保留一位小数；label 里的 (last) 旧后缀不再展示。
 func TestContextUsagePrecisionAndLegacyLabel(t *testing.T) {
 	capacity := int64(1000000)
 	m := NewWithOptions("p/m", Hooks{}, Options{ContextWindowTokens: &capacity})
@@ -318,6 +330,7 @@ func TestContextUsagePrecisionAndLegacyLabel(t *testing.T) {
 	}
 }
 
+// 守住：两种作用域、四种格式的缓存初始值都显示 0 而非 unknown。
 func TestCacheInitialZeroForBothScopesAndFormats(t *testing.T) {
 	for _, scope := range []string{"session", "last_call"} {
 		for _, tc := range []struct{ format, want string }{
@@ -337,6 +350,7 @@ func TestCacheInitialZeroForBothScopesAndFormats(t *testing.T) {
 	}
 }
 
+// 守住：provider 项默认标签取品牌；cache bar 按 session 累计与 last_call 单次两种口径取数。
 func TestProviderDefaultLabelAndCacheBarScopes(t *testing.T) {
 	s := app.NewSession()
 	first, latest := int64(8), int64(6)
@@ -362,6 +376,7 @@ func TestProviderDefaultLabelAndCacheBarScopes(t *testing.T) {
 	}
 }
 
+// 守住：缓存比例分母只用带缓存字段的输入 token，部分已知时标注 (partial)；自定义条宽/样式生效。
 func TestCacheBarUsesInputDenominatorAndPartialSubset(t *testing.T) {
 	s := app.NewSession()
 	cached := int64(8)
@@ -382,6 +397,7 @@ func TestCacheBarUsesInputDenominatorAndPartialSubset(t *testing.T) {
 	}
 }
 
+// 守住：cache bar 宽度独立于 context bar；空间不足先收缩条宽再裁剪整行。
 func TestCacheBarWidthIndependentAndShrinksBeforeClipping(t *testing.T) {
 	cfg := config.DefaultStatusLine()
 	cfg.CacheFormat = "bar"
@@ -400,6 +416,7 @@ func TestCacheBarWidthIndependentAndShrinksBeforeClipping(t *testing.T) {
 	}
 }
 
+// 守住：context bar 的样式/宽度/show_percent 配置照常生效，不附加 last 后缀。
 func TestContextBarRemainsConfigurableWithoutLastSuffix(t *testing.T) {
 	cfg := config.DefaultStatusLine()
 	cfg.ContextFormat = "bar"
@@ -418,6 +435,7 @@ func TestContextBarRemainsConfigurableWithoutLastSuffix(t *testing.T) {
 	}
 }
 
+// 守住：同行字段按优先级排列；状态栏禁用时关键通知仍显示且帧高不变。
 func TestStatusItemsOrderDisabledAndCriticalNotice(t *testing.T) {
 	cfg := config.DefaultStatusLine()
 	cfg.MaxRows = 1
@@ -439,6 +457,7 @@ func TestStatusItemsOrderDisabledAndCriticalNotice(t *testing.T) {
 	}
 }
 
+// 守住：同优先级字段挤不下时保留配置靠前者、隐藏靠后者。
 func TestEqualPriorityHidesLaterField(t *testing.T) {
 	now := time.Now()
 	cfg := config.DefaultStatusLine()
@@ -455,6 +474,7 @@ func TestEqualPriorityHidesLaterField(t *testing.T) {
 	}
 }
 
+// 守住：状态栏禁用且阅读历史（视口冻结）时，关键通知仍必须可见。
 func TestDisabledStatusShowsCriticalNoticeWhileReadingHistory(t *testing.T) {
 	cfg := config.DefaultStatusLine()
 	cfg.Enabled = false
@@ -471,6 +491,7 @@ func TestDisabledStatusShowsCriticalNoticeWhileReadingHistory(t *testing.T) {
 	}
 }
 
+// 守住：状态栏隐藏（禁用或空 items）时，提交失败/运行失败/取消会解除阅读冻结并显示错误行。
 func TestHiddenStatusShowsSubmissionAndRunFailureWhileReadingHistory(t *testing.T) {
 	for _, emptyItems := range []bool{false, true} {
 		for _, failure := range []string{"submit", "cancel", "failure"} {
@@ -510,6 +531,7 @@ func TestHiddenStatusShowsSubmissionAndRunFailureWhileReadingHistory(t *testing.
 	}
 }
 
+// 守住：缓存比例只按输入 token 计算（不含 completion），session/last_call 两口径与缺省值正确。
 func TestCacheScopeUsesWeightedInputTotals(t *testing.T) {
 	s := app.NewSession()
 	first, latest := int64(8), int64(6)
@@ -540,6 +562,7 @@ func TestCacheScopeUsesWeightedInputTotals(t *testing.T) {
 	}
 }
 
+// 守住：session 缓存部分已知时标注 (partial)；Ctrl+L 清屏不清统计，Ctrl+N 新会话归零。
 func TestSessionCachePartialAndReset(t *testing.T) {
 	s := app.NewSession()
 	cached := int64(8)
@@ -563,6 +586,7 @@ func TestSessionCachePartialAndReset(t *testing.T) {
 	}
 }
 
+// 守住：两种作用域下缓存零值/字段缺失/无分母的 known 语义与各格式展示；unknown 可配置隐藏。
 func TestCacheScopesZeroUnknownAndFormats(t *testing.T) {
 	zero, hit := int64(0), int64(8)
 	for _, scope := range []string{"session", "last_call"} {
@@ -573,6 +597,7 @@ func TestCacheScopesZeroUnknownAndFormats(t *testing.T) {
 		}{
 			{"zero", "ratio", "cache: 0%", model.Usage{OK: true, PromptTokens: 20, CachedPromptTokens: &zero}, true},
 			{"missing", "ratio", "cache: unknown", model.Usage{OK: true, PromptTokens: 20}, false},
+			// case: 输入为 0 时比例无分母，即使缓存字段已知也按 unknown 处理
 			{"zero-input", "ratio", "cache: unknown", model.Usage{OK: true, CachedPromptTokens: &zero}, false},
 			{"tokens", "tokens", "cache: 8", model.Usage{OK: true, PromptTokens: 20, CachedPromptTokens: &hit}, true},
 			{"both", "both", "cache: 8 (40%)", model.Usage{OK: true, PromptTokens: 20, CachedPromptTokens: &hit}, true},
@@ -599,6 +624,7 @@ func TestCacheScopesZeroUnknownAndFormats(t *testing.T) {
 	}
 }
 
+// 守住：last_call 下已知零缓存在 tokens/both 格式如实显示 0；有调用但 usage 未知时转 unknown。
 func TestCacheZeroUnknownAndRatio(t *testing.T) {
 	m := New("p/m", Hooks{})
 	m.options.StatusLine.CacheScope = "last_call"
@@ -625,8 +651,12 @@ func TestCacheZeroUnknownAndRatio(t *testing.T) {
 	}
 }
 
+// 守住：both 格式在比例无分母时仍保留已知的缓存数量，不退成隐藏。
 func TestCacheBothKeepsKnownQuantityWithoutRatio(t *testing.T) {
-	for _, u := range []model.Usage{{OK: true, PromptTokens: 0}, {OK: false}} {
+	for _, u := range []model.Usage{
+		{OK: true, PromptTokens: 0}, // case: 成功调用但输入为 0，比例无分母
+		{OK: false},                 // case: 失败调用拿不到比例，数量仍算已知
+	} {
 		m := New("p/m", Hooks{})
 		zero := int64(0)
 		u.CachedPromptTokens = &zero
@@ -641,6 +671,7 @@ func TestCacheBothKeepsKnownQuantityWithoutRatio(t *testing.T) {
 	}
 }
 
+// 守住：last_call 口径以真实最后一次模型调用为准——准备阶段取消保留上次值，新调用未报缓存则转 unknown。
 func TestTerminalCacheUsesActualLastModelCall(t *testing.T) {
 	for _, newCall := range []bool{false, true} {
 		t.Run(map[bool]string{false: "cancel-before-call", true: "call-with-unknown-usage"}[newCall], func(t *testing.T) {
@@ -669,6 +700,7 @@ func TestTerminalCacheUsesActualLastModelCall(t *testing.T) {
 	}
 }
 
+// 守住：会话重置后旧时钟 tick 不得重启计时；run_elapsed 冻结在 run 完成时刻。
 func TestStatusClockResetRejectsOldTickAndFreezesRunTime(t *testing.T) {
 	now := time.Now()
 	m := NewWithOptions("p/m", Hooks{}, Options{Clock: func() time.Time { return now }})
@@ -694,6 +726,7 @@ func TestStatusClockResetRejectsOldTickAndFreezesRunTime(t *testing.T) {
 	}
 }
 
+// 守住：各窗口尺寸下状态栏帧高精确等于窗口高度，行宽不溢出。
 func TestStatusLineHeightFitsWindow(t *testing.T) {
 	for _, size := range [][2]int{{120, 24}, {80, 24}, {40, 16}, {20, 8}} {
 		m := New("fake/offline", Hooks{})

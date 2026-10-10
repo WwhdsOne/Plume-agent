@@ -12,6 +12,7 @@ import (
 	"time"
 )
 
+// FIFO 不是常规人格文件：Read/Ensure 必须在不打开它的前提下拒绝，避免无 writer 时永久阻塞。
 func TestReadAndEnsureRejectFIFOWithoutOpeningIt(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "soul.md")
 	if err := syscall.Mkfifo(path, 0o600); err != nil {

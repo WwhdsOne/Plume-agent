@@ -8,6 +8,8 @@ import (
 	"testing"
 )
 
+// TestWorkspaceDoesNotRequireDisabledShell 守住 Shell 可执行文件的校验边界：
+// 缺失只阻塞显式启用 bash 的配置；禁用 shell 时其余工具照常注册并可用。
 func TestWorkspaceDoesNotRequireDisabledShell(t *testing.T) {
 	for _, tc := range []struct {
 		name    string

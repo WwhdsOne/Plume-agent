@@ -4,6 +4,7 @@ package model
 // 供应商品牌推断；HTTP 200 不代表全部能力可用。
 type Capability string
 
+// 能力维度值。语义由各适配器的验证逻辑定义；HTTP 200 不代表任一能力可用。
 const (
 	CapText             Capability = "text"
 	CapStream           Capability = "stream"
@@ -17,6 +18,7 @@ const (
 // CapabilityState 把能力分为支持、不支持与未验证，三者不混用。
 type CapabilityState string
 
+// 能力三态值：只有经端点验证才记 supported，未验证不冒充支持。
 const (
 	CapSupported   CapabilityState = "supported"
 	CapUnsupported CapabilityState = "unsupported"

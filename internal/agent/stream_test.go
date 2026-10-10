@@ -7,6 +7,8 @@ import (
 	"plume-agent/internal/model"
 )
 
+// TestRunStreamSeparatesReasoningAndRequiresAnswer 守住流式的两条底线：
+// 推理与正文增量分开回调、空最终回答必须报错；历史里的 reasoning 在请求中不丢失。
 func TestRunStreamSeparatesReasoningAndRequiresAnswer(t *testing.T) {
 	for _, answer := range []string{"answer", ""} {
 		fake := model.NewFake(model.FakeScript{Response: &model.ChatResponse{Message: model.Message{Reasoning: "private thought", Content: answer}, FinishReason: model.FinishStop}})

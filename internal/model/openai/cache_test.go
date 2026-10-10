@@ -62,6 +62,8 @@ func exerciseCacheFixture(t *testing.T, usage string, deepseek bool) (model.Usag
 	return response.Usage, streamed
 }
 
+// 守住：缓存命中 token 在 Generate 与 Stream 两条路径解析一致——
+// OpenAI 标准字段与 DeepSeek 扩展字段归一到同一值，通用适配器不启用供应商扩展，缺失保持 unknown。
 func TestCachedPromptTokensGenerateAndStream(t *testing.T) {
 	for _, tc := range []struct {
 		name, usage string
@@ -74,6 +76,7 @@ func TestCachedPromptTokensGenerateAndStream(t *testing.T) {
 		{"openai-missing", `{"prompt_tokens":10,"completion_tokens":2,"total_tokens":12}`, false, true, nil},
 		{"openai-details-missing-count", `{"prompt_tokens":10,"completion_tokens":2,"total_tokens":12,"prompt_tokens_details":{"audio_tokens":0}}`, false, true, nil},
 		{"openai-details-null", `{"prompt_tokens":10,"completion_tokens":2,"total_tokens":12,"prompt_tokens_details":null}`, false, true, nil},
+		// case: 部分 usage（缺 completion/total）不升级为已知，缓存字段仍单独解析
 		{"openai-partial-usage", `{"prompt_tokens":10,"prompt_tokens_details":{"cached_tokens":6}}`, false, false, new(int64(6))},
 		{"openai-unknown-prompt", `{"prompt_tokens_details":{"cached_tokens":6}}`, false, false, new(int64(6))},
 		{"deepseek-hit", `{"prompt_tokens":10,"completion_tokens":2,"total_tokens":12,"prompt_cache_hit_tokens":6}`, true, true, new(int64(6))},
@@ -99,6 +102,8 @@ func TestCachedPromptTokensGenerateAndStream(t *testing.T) {
 	}
 }
 
+// 守住：非法缓存 token 字段（类型错误、负数、超 prompt_tokens、溢出、重复键、双来源冲突）
+// 在 Generate 与 Stream 一律按 ErrInvalidResponse 拒绝，不静默吞掉。
 func TestCachedPromptTokensRejectInvalidFields(t *testing.T) {
 	for _, tc := range []struct {
 		name, extra string
@@ -151,6 +156,7 @@ func TestCachedPromptTokensRejectInvalidFields(t *testing.T) {
 	}
 }
 
+// 守住：流式 usage 事件是逐帧快照而非累计——cached_tokens 跟随当帧值（缺失回落 nil），total 不被历史帧叠加。
 func TestCachedPromptTokensStreamUsageSnapshots(t *testing.T) {
 	body := answerFrame + `data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":1,"total_tokens":11,"prompt_tokens_details":{"cached_tokens":6}}}` + "\n\n" +
 		`data: {"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":2,"total_tokens":12,"prompt_tokens_details":{"cached_tokens":8}}}` + "\n\n" +

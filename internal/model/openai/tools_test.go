@@ -9,6 +9,7 @@ import (
 	"testing"
 )
 
+// 守住：G3 工具声明原样下发，工具历史回放不丢 assistant 的 reasoning_content 与 tool 结果的 tool_call_id。
 func TestG3ToolDeclarationsAndReasoningReplay(t *testing.T) {
 	var body map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

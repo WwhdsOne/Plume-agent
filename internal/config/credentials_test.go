@@ -9,6 +9,7 @@ import (
 	"testing"
 )
 
+// TestCredentialRoundTrip 守住凭据存取契约：Set 后 Get 原样读回，CredentialExists 如实报告存在。
 func TestCredentialRoundTrip(t *testing.T) {
 	withTempDir(t)
 	const secret = "sk-test-value"
@@ -33,6 +34,7 @@ func TestCredentialRoundTrip(t *testing.T) {
 	}
 }
 
+// TestCredentialPermissions 守住凭据权限位：credentials 目录 0700、凭据文件 0600。
 func TestCredentialPermissions(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("no POSIX permission bits on windows")
@@ -63,6 +65,8 @@ func TestCredentialPermissions(t *testing.T) {
 	}
 }
 
+// TestEnsureCredentialsDirWarnsButDoesNotTighten 守住"只警告不代改"：目录权限过宽时
+// EnsureCredentialsDir 必须警告，但不得擅自收紧用户设置的权限。
 func TestEnsureCredentialsDirWarnsButDoesNotTighten(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("no POSIX permission bits on windows")
@@ -98,6 +102,7 @@ func TestEnsureCredentialsDirWarnsButDoesNotTighten(t *testing.T) {
 	}
 }
 
+// TestCredentialRefRejectsUnsafeNames 守住 ref 名安全边界：路径穿越、子目录、隐藏文件、前导横杠等名称在 Set/Get 两侧一律 ErrInvalidRef。
 func TestCredentialRefRejectsUnsafeNames(t *testing.T) {
 	withTempDir(t)
 	unsafe := []string{"", ".", "..", "../escape", "sub/escape", `sub\escape`, ".hidden", "-leading-dash"}
@@ -111,6 +116,7 @@ func TestCredentialRefRejectsUnsafeNames(t *testing.T) {
 	}
 }
 
+// TestSetCredentialRejectsEmptySecret 守住非空约束：空密钥拒绝写入。
 func TestSetCredentialRejectsEmptySecret(t *testing.T) {
 	withTempDir(t)
 	if err := SetCredential("ref", nil); err == nil {
@@ -118,6 +124,7 @@ func TestSetCredentialRejectsEmptySecret(t *testing.T) {
 	}
 }
 
+// TestSetCredentialReplacesAtomically 守住覆盖语义：同名 ref 再次 Set 后读回新值。
 func TestSetCredentialReplacesAtomically(t *testing.T) {
 	withTempDir(t)
 	if err := SetCredential("ref", []byte("first")); err != nil {
@@ -135,6 +142,7 @@ func TestSetCredentialReplacesAtomically(t *testing.T) {
 	}
 }
 
+// TestDeleteCredentialIsIdempotent 守住删除幂等：删不存在的 ref 不报错，删除后 Exists 如实为 false。
 func TestDeleteCredentialIsIdempotent(t *testing.T) {
 	withTempDir(t)
 	if err := SetCredential("ref", []byte("x")); err != nil {

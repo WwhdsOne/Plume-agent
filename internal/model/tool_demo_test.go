@@ -6,6 +6,8 @@ import (
 	"testing"
 )
 
+// 守住 ToolDemo 的协议边界：自然语言输入不触发工具调用，只有显式
+// /demo 指令才返回 ToolCalls。
 func TestG3DemoUsesProtocolNotNaturalLanguage(t *testing.T) {
 	demo := NewToolDemo()
 	for _, input := range []string{"time please", "/demo time"} {
@@ -19,6 +21,8 @@ func TestG3DemoUsesProtocolNotNaturalLanguage(t *testing.T) {
 	}
 }
 
+// 守住 /demo workspace 的完整工作流：六步工具（write、glob、grep、
+// read、edit、bash）按固定顺序声明，全部回放后以 FinishStop 收尾。
 func TestWorkspaceDemoDeclaresCompleteWorkflow(t *testing.T) {
 	demo := NewToolDemo()
 	messages := []Message{{Role: RoleUser, Content: "/demo workspace"}}
@@ -39,6 +43,8 @@ func TestWorkspaceDemoDeclaresCompleteWorkflow(t *testing.T) {
 	}
 }
 
+// 守住 /demo budget 的终止边界：默认无限预算下恰好 12 次工具调用后以
+// FinishStop 收尾，不会无限循环。
 func TestWorkspaceBudgetDemoTerminatesWithUnlimitedDefaults(t *testing.T) {
 	demo := NewToolDemo()
 	messages := []Message{{Role: RoleUser, Content: "/demo budget"}}

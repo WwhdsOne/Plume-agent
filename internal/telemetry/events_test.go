@@ -25,6 +25,8 @@ func lines(t *testing.T, raw string) []map[string]any {
 	return out
 }
 
+// TestSetupRecorderWritesJSONLinesWithSetupID 守住 setup trace 的关联契约：
+// 每条记录都是合法 JSON 且携带同一个 setup_id，重复 Start 不换 ID。
 func TestSetupRecorderWritesJSONLinesWithSetupID(t *testing.T) {
 	var buf bytes.Buffer
 	rec := NewSetupRecorder(&buf)
@@ -55,6 +57,8 @@ func TestSetupRecorderWritesJSONLinesWithSetupID(t *testing.T) {
 	}
 }
 
+// TestStepRecordsDurationAndStatus 守住步骤终态的完整记录：步骤名、error
+// 状态、错误消息与 duration_ms 四项缺一不可，失败也不例外。
 func TestStepRecordsDurationAndStatus(t *testing.T) {
 	var buf bytes.Buffer
 	rec := NewSetupRecorder(&buf)
@@ -78,6 +82,8 @@ func TestStepRecordsDurationAndStatus(t *testing.T) {
 	}
 }
 
+// TestFinishIsIdempotent 守住 Finish 的幂等性：只允许写一条终态事件，
+// 迟到的第二次 Finish 必须被丢弃。
 func TestFinishIsIdempotent(t *testing.T) {
 	var buf bytes.Buffer
 	rec := NewSetupRecorder(&buf)

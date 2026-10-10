@@ -15,6 +15,7 @@ import (
 // EventKind 是 app 推送给 UI 的事件类别。一次 run 恰好一个终态事件。
 type EventKind string
 
+// 事件类别值；run_completed 与 run_failed 是互斥终态，一次 run 恰好发出其一。
 const (
 	EventRunStarted     EventKind = "run_started"
 	EventRunCompleted   EventKind = "run_completed"
@@ -26,8 +27,12 @@ const (
 	EventToolUpdate     EventKind = "tool_update"
 )
 
+// Phase 是 run 的展示阶段，驱动状态栏文案与首字计时口径（首思考/首答案
+// 相对单次模型调用计时，而非整个 run）。
 type Phase string
 
+// 阶段流转：preparing（拼装请求，含读人格）→ waiting（模型调用已发出）
+// → thinking/responding（首个思考/答案增量到达时切换）。
 const (
 	PhasePreparing  Phase = "preparing"
 	PhaseWaiting    Phase = "waiting"

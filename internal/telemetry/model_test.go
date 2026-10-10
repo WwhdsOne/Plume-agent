@@ -26,6 +26,8 @@ func parseEvents(t *testing.T, buf *bytes.Buffer) []map[string]any {
 	return events
 }
 
+// TestModelSpanSuccessTerminal 守住成功路径的事件契约：恰好产生 start +
+// completed 两条事件，元数据（call/provider/protocol/model）与 usage 字段齐全。
 func TestModelSpanSuccessTerminal(t *testing.T) {
 	buf := &bytes.Buffer{}
 	rec := NewModelRecorder(buf)
@@ -60,6 +62,8 @@ func TestModelSpanSuccessTerminal(t *testing.T) {
 	}
 }
 
+// TestModelSpanFailureClassification 守住失败分类字段：failed 终态必须携带
+// error_code、status_code 与 request_id，供事后归因而非只有错误消息。
 func TestModelSpanFailureClassification(t *testing.T) {
 	buf := &bytes.Buffer{}
 	rec := NewModelRecorder(buf)
@@ -80,6 +84,8 @@ func TestModelSpanFailureClassification(t *testing.T) {
 	}
 }
 
+// TestModelSpanUsageUnknownOmitsTokenCounts 守住"unknown 不是 0"的指标口径：
+// usage 未知时只标 usage_known=false，任何 token 计数字段都不得输出。
 func TestModelSpanUsageUnknownOmitsTokenCounts(t *testing.T) {
 	buf := &bytes.Buffer{}
 	rec := NewModelRecorder(buf)
@@ -99,6 +105,8 @@ func TestModelSpanUsageUnknownOmitsTokenCounts(t *testing.T) {
 	}
 }
 
+// TestModelSpanEndIsIdempotent 守住 End 的幂等与"首个终态获胜"：重复 End
+// 不追加事件，终态取第一次的结果。
 func TestModelSpanEndIsIdempotent(t *testing.T) {
 	buf := &bytes.Buffer{}
 	rec := NewModelRecorder(buf)

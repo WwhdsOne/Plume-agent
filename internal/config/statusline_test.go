@@ -30,6 +30,8 @@ func statusLineJSON(t *testing.T, cfg *Config) map[string]any {
 	return line
 }
 
+// TestSaveWritesCompleteStatusLineDefaults 守住状态栏默认值契约：Save 落盘全部字段与 bar 默认值、
+// 14 个 item 的顺序及前 10 项启用，未验证模型显式写 context_window_tokens:null。
 func TestSaveWritesCompleteStatusLineDefaults(t *testing.T) {
 	withTempDir(t)
 	cfg := &Config{SchemaVersion: SchemaVersion, Models: []ModelConfig{{ID: "main", Provider: "custom-openai", Protocol: "openai-compatible", BaseURL: "https://example.com", Model: "custom"}}}
@@ -87,6 +89,8 @@ func TestSaveWritesCompleteStatusLineDefaults(t *testing.T) {
 	}
 }
 
+// TestCacheScopeLoadPreservesSelectionAndFillsMissing 守住 cache_scope 迁移：缺失补 session、
+// 已选值与自定义 cache_bar/文案保留，迁移幂等，修改后可持久化。
 func TestCacheScopeLoadPreservesSelectionAndFillsMissing(t *testing.T) {
 	for _, scope := range []string{"", "session", "last_call"} {
 		t.Run(scope, func(t *testing.T) {
@@ -160,6 +164,8 @@ func TestCacheScopeLoadPreservesSelectionAndFillsMissing(t *testing.T) {
 	}
 }
 
+// TestLoadStatusLinePartialDefaultsPreservesSelectionAndUnknownFields 守住部分默认值迁移：
+// 只补缺失项，显式零值与用户选中的 items 不被默认覆盖，未知字段保留且第二次 Load 不再重写。
 func TestLoadStatusLinePartialDefaultsPreservesSelectionAndUnknownFields(t *testing.T) {
 	dir := withTempDir(t)
 	path := filepath.Join(dir, "config.json")
@@ -212,6 +218,7 @@ func TestLoadStatusLinePartialDefaultsPreservesSelectionAndUnknownFields(t *test
 	}
 }
 
+// TestStatusLineEmptyItemsRemainEmpty 守住"空数组即全部隐藏"：items:[] 不得回填默认项。
 func TestStatusLineEmptyItemsRemainEmpty(t *testing.T) {
 	withTempDir(t)
 	var cfg Config
@@ -226,6 +233,8 @@ func TestStatusLineEmptyItemsRemainEmpty(t *testing.T) {
 	}
 }
 
+// TestInvalidStatusLineSettingsRejectedWithSafePaths 表驱动守住状态栏取值边界：错误必须给出
+// 精确字段路径，且不回显用户输入值（SENTINEL 不得出现在错误信息里）。
 func TestInvalidStatusLineSettingsRejectedWithSafePaths(t *testing.T) {
 	cases := []struct{ fragment, path string }{
 		{`null`, "tui.status_line"},
@@ -290,6 +299,8 @@ func TestInvalidStatusLineSettingsRejectedWithSafePaths(t *testing.T) {
 	}
 }
 
+// TestModelContextWindowTokensValidation 守住容量字段边界：仅 null 与正 int32 合法，
+// 0/负数/越界/类型错误一律拒绝且错误路径精确、不回显输入值。
 func TestModelContextWindowTokensValidation(t *testing.T) {
 	for _, capacity := range []string{`null`, `1`, `2147483647`, `0`, `-1`, `2147483648`, `1.5`, `"SENTINEL"`, `true`} {
 		t.Run(capacity, func(t *testing.T) {
@@ -309,6 +320,7 @@ func TestModelContextWindowTokensValidation(t *testing.T) {
 	}
 }
 
+// TestLoadInvalidStatusLineDoesNotRewriteConfig 守住失败不动盘：状态栏非法导致 Load 失败时，既有文件保持原样。
 func TestLoadInvalidStatusLineDoesNotRewriteConfig(t *testing.T) {
 	dir := withTempDir(t)
 	path := filepath.Join(dir, "config.json")
@@ -325,6 +337,8 @@ func TestLoadInvalidStatusLineDoesNotRewriteConfig(t *testing.T) {
 	}
 }
 
+// TestSaveRejectsNilStatusItemsWithoutChangingExistingFile 守住程序化写入同样过校验：
+// Items 为 nil 时 Save 拒绝，且失败不改动既有配置文件。
 func TestSaveRejectsNilStatusItemsWithoutChangingExistingFile(t *testing.T) {
 	dir := withTempDir(t)
 	path := filepath.Join(dir, "config.json")
@@ -344,6 +358,7 @@ func TestSaveRejectsNilStatusItemsWithoutChangingExistingFile(t *testing.T) {
 	}
 }
 
+// TestStatusLineRejectsUnicodeLineSeparators 守住分隔符约束：U+2028/U+2029 同样是换行，不得用作状态栏分隔符。
 func TestStatusLineRejectsUnicodeLineSeparators(t *testing.T) {
 	for _, value := range []string{"\u2028", "\u2029"} {
 		line := DefaultStatusLine()
@@ -355,6 +370,7 @@ func TestStatusLineRejectsUnicodeLineSeparators(t *testing.T) {
 	}
 }
 
+// TestSaveRetainsDecodedExtensionsWithoutExistingFile 守住无旧文件时的扩展保留：解码进内存的未知字段在 Save 时同样不丢。
 func TestSaveRetainsDecodedExtensionsWithoutExistingFile(t *testing.T) {
 	withTempDir(t)
 	var cfg Config

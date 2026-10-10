@@ -68,6 +68,7 @@ func loadDataset(t *testing.T) []smokeCase {
 	return cases
 }
 
+// 守住 smoke.v1 数据集形状：固定 12 例、case_id 唯一非空、类别配比与 behavior 枚举不被意外改动。
 func TestDatasetShape(t *testing.T) {
 	cases := loadDataset(t)
 	if len(cases) != 12 {
@@ -166,6 +167,7 @@ type serverState struct {
 	release     chan struct{}
 }
 
+// 逐例回归：适配器的错误码/finish_reason/usage、trace 恰一对起止且终态唯一、密钥不进 trace，全部按数据集断言。
 func TestRunSmokeCases(t *testing.T) {
 	cases := loadDataset(t)
 	for _, c := range cases {

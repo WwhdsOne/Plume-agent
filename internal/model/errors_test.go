@@ -8,6 +8,8 @@ import (
 	"testing"
 )
 
+// 守住错误字符串契约：Error() 输出稳定的单行键值对且字段顺序固定，
+// 不得混入换行，供 trace 与测试断言依赖。
 func TestErrorFormatStableSingleLine(t *testing.T) {
 	err := NewError(ErrRateLimited).
 		WithProvider("deepseek", ProtocolOpenAIChatCompletions).
@@ -25,6 +27,8 @@ func TestErrorFormatStableSingleLine(t *testing.T) {
 	}
 }
 
+// 守住 Truncate 的字符语义：按 rune 截断不破坏 UTF-8，未超长原样返回，
+// 截断以 … 收尾。
 func TestTruncateByRunes(t *testing.T) {
 	if got := Truncate("hello", 10); got != "hello" {
 		t.Errorf("Truncate short string = %q, want unchanged", got)
@@ -39,6 +43,8 @@ func TestTruncateByRunes(t *testing.T) {
 	}
 }
 
+// 守住 context 错误分类：DeadlineExceeded 归 timeout，Canceled（含包装）
+// 归 cancelled，其余错误不强行归类。
 func TestClassifyContext(t *testing.T) {
 	if code := ClassifyContext(context.DeadlineExceeded); code != ErrTimeout {
 		t.Errorf("DeadlineExceeded classified as %q, want timeout", code)

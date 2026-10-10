@@ -11,6 +11,7 @@ import (
 	"testing"
 )
 
+// 守住初始化契约：目标缺失时写出完整默认模板、权限 0600、父目录可嵌套创建且不残留临时文件。
 func TestEnsureCreatesPrivateCompleteTemplate(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "nested", "soul.md")
@@ -32,6 +33,7 @@ func TestEnsureCreatesPrivateCompleteTemplate(t *testing.T) {
 	}
 }
 
+// 无覆盖语义：已存在的人格文件（含空文件）与符号链接原样保留（内容、权限都不动），重复调用幂等。
 func TestEnsurePreservesExistingAndLinkedFiles(t *testing.T) {
 	for _, content := range []string{"", "custom personality sentinel"} {
 		t.Run(map[bool]string{true: "empty", false: "custom"}[content == ""], func(t *testing.T) {
@@ -69,6 +71,7 @@ func TestEnsurePreservesExistingAndLinkedFiles(t *testing.T) {
 	}
 }
 
+// 并发发布恰好一次：20 路并发 Ensure 全部成功且 created 总数为 1，最终文件是完整模板、无临时残留。
 func TestEnsureConcurrentPublishDoesNotOverwrite(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "soul.md")
 	var created atomic.Int32
@@ -100,6 +103,7 @@ func TestEnsureConcurrentPublishDoesNotOverwrite(t *testing.T) {
 	}
 }
 
+// 目录、不可写路径、悬空符号链接、空路径一律拒绝且不得覆盖目标；失败后不留任何中间产物。
 func TestEnsureRejectsInvalidTargetAndCleansFailure(t *testing.T) {
 	dir := t.TempDir()
 	if created, err := Ensure(dir); err == nil || created {
@@ -128,6 +132,7 @@ func TestEnsureRejectsInvalidTargetAndCleansFailure(t *testing.T) {
 	}
 }
 
+// 缺失或纯空白的人格文件按"未配置"静默跳过：返回空串、不报错，不把未配置当成故障。
 func TestReadSkipsAbsentEmptyAndDisabled(t *testing.T) {
 	for _, content := range []string{"", " \n\t"} {
 		path := filepath.Join(t.TempDir(), "soul.md")
@@ -145,6 +150,7 @@ func TestReadSkipsAbsentEmptyAndDisabled(t *testing.T) {
 	}
 }
 
+// Read 边界契约：尊重 max_bytes、拒绝非法 UTF-8 且错误不泄漏正文；已取消的 context 返回 Canceled，目录目标拒绝。
 func TestReadBoundedUTF8SnapshotAndCancellation(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "soul.md")
 	for _, tt := range []struct {

@@ -7,6 +7,9 @@ import (
 	"time"
 )
 
+// TestBuiltinsStrictArguments 守住内置工具的严格参数校验：缺失/多余/重复键/
+// null/未知操作一律 invalid_arguments，除零与溢出报各自错误码；声明列表是不可
+// 变快照，且 builtins 不含 shell。
 func TestBuiltinsStrictArguments(t *testing.T) {
 	r := Builtins(func() time.Time { return time.Date(2026, 10, 9, 12, 0, 0, 0, time.FixedZone("test", 3600)) })
 	for _, tc := range []struct{ name, args, want string }{
@@ -41,6 +44,8 @@ func TestBuiltinsStrictArguments(t *testing.T) {
 	}
 }
 
+// TestRegistryDuplicateAndCancel 守住注册表的两条底线：重名工具定义必须拒绝
+// 注册，已取消的上下文让执行直接返回 cancelled。
 func TestRegistryDuplicateAndCancel(t *testing.T) {
 	d := Definition{Name: "x", Parameters: `{"type":"object"}`, Execute: func(context.Context, string) Result { return Result{OK: true} }}
 	_, err := New(d, d)

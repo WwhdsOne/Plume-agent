@@ -39,6 +39,7 @@ func ctrlKey(code rune) tea.KeyPressMsg {
 	return tea.KeyPressMsg(tea.Key{Code: code, Mod: tea.ModCtrl})
 }
 
+// 守住：Enter 提交去空白后发 Submit 钩子，落用户行、清空输入并进入 running。
 func TestSubmitSendsInputAndShowsUserLine(t *testing.T) {
 	var submitted atomic.Value
 	hooks := Hooks{Submit: func(input string) (string, error) {
@@ -65,6 +66,7 @@ func TestSubmitSendsInputAndShowsUserLine(t *testing.T) {
 	}
 }
 
+// 守住：纯空白输入不产生请求、不落行。
 func TestSubmitEmptyInputDoesNothing(t *testing.T) {
 	var calls atomic.Int64
 	m := newTestModel(t, Hooks{Submit: func(string) (string, error) {
@@ -84,6 +86,7 @@ func TestSubmitEmptyInputDoesNothing(t *testing.T) {
 	}
 }
 
+// 守住：run 进行中再次提交被拒绝，只提示不落行。
 func TestSubmitWhileBusyIsRejected(t *testing.T) {
 	m := newTestModel(t, Hooks{Submit: func(string) (string, error) { return "run-x", nil }})
 	m.startRun("run-000001")
@@ -100,6 +103,7 @@ func TestSubmitWhileBusyIsRejected(t *testing.T) {
 	}
 }
 
+// 守住：完成事件追加助手行、展示用量标签并回到 idle。
 func TestCompletedEventAppendsAssistantAndUsage(t *testing.T) {
 	m := newTestModel(t, Hooks{})
 	m.startRun("run-000001")
@@ -125,6 +129,7 @@ func TestCompletedEventAppendsAssistantAndUsage(t *testing.T) {
 	}
 }
 
+// 守住：失败事件只落一条带分类码的错误行，不追加助手行。
 func TestFailedEventAddsErrorLineOnly(t *testing.T) {
 	m := newTestModel(t, Hooks{})
 	m.startRun("run-000001")
@@ -143,6 +148,7 @@ func TestFailedEventAddsErrorLineOnly(t *testing.T) {
 	}
 }
 
+// 守住：running 时 Esc 产生 cancel cmd 并调用取消钩子。
 func TestCancelRequestedWhileRunning(t *testing.T) {
 	var cancels atomic.Int64
 	m := newTestModel(t, Hooks{Cancel: func() { cancels.Add(1) }})
@@ -159,6 +165,7 @@ func TestCancelRequestedWhileRunning(t *testing.T) {
 	}
 }
 
+// 守住：Ctrl+N 触发重置钩子，清空消息/草稿/历史，只留新会话提示。
 func TestCtrlNResetsSession(t *testing.T) {
 	var resets atomic.Int64
 	m := newTestModel(t, Hooks{ResetSession: func() { resets.Add(1) }})
@@ -182,6 +189,7 @@ func TestCtrlNResetsSession(t *testing.T) {
 	}
 }
 
+// 守住：run 进行中 Ctrl+N 被拒绝并提示，不触发重置。
 func TestCtrlNWhileRunningIsRejected(t *testing.T) {
 	var resets atomic.Int64
 	m := newTestModel(t, Hooks{ResetSession: func() { resets.Add(1) }})
@@ -200,6 +208,7 @@ func TestCtrlNWhileRunningIsRejected(t *testing.T) {
 
 // --- G1b.2.1 键位契约测试 ---
 
+// 守住：三平台键位绑定完整且全部启用；平台差异只允许出现在帮助文本。
 func TestKeyMapTableComplete(t *testing.T) {
 	for _, goos := range []string{"darwin", "linux", "windows"} {
 		km := newKeyMap(goos)
@@ -238,6 +247,7 @@ func TestKeyMapTableComplete(t *testing.T) {
 	}
 }
 
+// 守住：Shift+Enter、Alt+Enter、行尾反斜杠+Enter 三层换行都只插行不发送。
 func TestNewlineThreeLayers(t *testing.T) {
 	m := newTestModel(t, Hooks{})
 	var calls atomic.Int64
@@ -280,6 +290,7 @@ func TestNewlineThreeLayers(t *testing.T) {
 	}
 }
 
+// 守住：Ctrl+C 三段语义——running 取消、有草稿清草稿、空草稿 1s 内双击退出；窗口超时或插入他键则不退出。
 func TestCtrlCThreeStage(t *testing.T) {
 	// 第一段：running 取消 run
 	var cancels atomic.Int64
@@ -339,6 +350,7 @@ func TestCtrlCThreeStage(t *testing.T) {
 	}
 }
 
+// 守住：Ctrl+D 仅在输入为空时退出；有内容时忽略并保留草稿。
 func TestCtrlDQuitOnlyOnEmptyInput(t *testing.T) {
 	m := newTestModel(t, Hooks{})
 	m.input.SetValue("keep me")
@@ -363,6 +375,7 @@ func TestCtrlDQuitOnlyOnEmptyInput(t *testing.T) {
 	}
 }
 
+// 守住：Ctrl+L 触发清屏并把滚动重置回底部。
 func TestCtrlLClearsScreenAndResetsScroll(t *testing.T) {
 	m := newTestModel(t, Hooks{})
 	m.appendLine(lineUser, "hello")
@@ -378,6 +391,7 @@ func TestCtrlLClearsScreenAndResetsScroll(t *testing.T) {
 	}
 }
 
+// 守住：Up 先保存编辑中草稿再翻向更旧、Down 翻回并恢复草稿，无历史时无副作用。
 func TestDraftHistoryNavigation(t *testing.T) {
 	var seq atomic.Int64
 	m := newTestModel(t, Hooks{Submit: func(string) (string, error) {
@@ -498,6 +512,7 @@ func TestHistoryNavigationIsEdgeOnly(t *testing.T) {
 	}
 }
 
+// 守住：输入框动态高度钳制在 1..4 行，清空后回落单行。
 func TestInputHeightGrowsToFourLinesMax(t *testing.T) {
 	m := newTestModel(t, Hooks{})
 	if m.input.Height() != 1 {
@@ -521,6 +536,7 @@ func TestInputHeightGrowsToFourLinesMax(t *testing.T) {
 	}
 }
 
+// 守住：模型输出中的 OSC 超链接、CSI 与 C0 控制序列被剥除，换行保留。
 func TestSanitizeStripsTerminalSequences(t *testing.T) {
 	cases := map[string]string{
 		"\x1b]8;;http://evil\x07click\x1b]8;;\x07": "click",             // OSC 超链接

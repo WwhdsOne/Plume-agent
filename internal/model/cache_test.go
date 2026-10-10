@@ -6,6 +6,9 @@ import (
 	"testing"
 )
 
+// 守住 fake 的用量快照透传契约：用量完整（OK）与否、有限脚本还是循环
+// 脚本，Generate 与 Stream 的 usage update 都必须原样透传脚本快照，
+// CachedPromptTokens 不得丢失或重算。
 func TestFakePreservesCachedPromptUsage(t *testing.T) {
 	for _, known := range []bool{true, false} {
 		for _, loop := range []bool{true, false} {
@@ -56,6 +59,8 @@ func fmtCacheCase(known, loop bool) string {
 	return name + "-finite"
 }
 
+// 守住 LoopFake 的降级边界：空脚本响应被替换成离线默认回复时，脚本里的
+// 缓存用量（指向 0 也算已知）仍须作为 usage update 原样发出。
 func TestLoopFakeDefaultAnswerPreservesCachedPromptUsage(t *testing.T) {
 	cached := int64(0)
 	usage := Usage{CachedPromptTokens: &cached}

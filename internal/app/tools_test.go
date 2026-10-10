@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+// TestG3CommitsFullTurnAndCountsCalls 守住工具轮次的原子提交：整轮消息（含工具调用与结果）
+// 进入历史、用量按调用去重累计，且 History 返回副本、外部改动不污染会话。
 func TestG3CommitsFullTurnAndCountsCalls(t *testing.T) {
 	cached := int64(4)
 	fake := model.NewFake(
@@ -50,6 +52,8 @@ func TestG3CommitsFullTurnAndCountsCalls(t *testing.T) {
 	}
 }
 
+// TestG3RunDeadlineUnblocksBackpressure 守住 run 期限：到期必须能突破被填满的事件队列自行
+// 终结，恰好产生一个超时失败终态且不提交历史。
 func TestG3RunDeadlineUnblocksBackpressure(t *testing.T) {
 	runtime := agent.New(model.NewFake(model.FakeScript{Response: &model.ChatResponse{Message: model.Message{Content: strings.Repeat("long answer ", 100)}, FinishReason: model.FinishStop}}), "m")
 	limits := agent.DefaultLimits()
@@ -84,6 +88,8 @@ func TestG3RunDeadlineUnblocksBackpressure(t *testing.T) {
 	}
 }
 
+// TestG3DeadlineStartsBeforeStartedEventDelivery 守住期限起点：计时从 run 启动开始、早于
+// 事件投递，队列阻塞不推迟期限，过期的准备阶段不再调用模型。
 func TestG3DeadlineStartsBeforeStartedEventDelivery(t *testing.T) {
 	runtime := agent.New(model.NewFake(), "m")
 	limits := agent.DefaultLimits()

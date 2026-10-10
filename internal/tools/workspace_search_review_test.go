@@ -11,6 +11,9 @@ import (
 	"unicode/utf8"
 )
 
+// TestWorkspaceGrepRetainsOversizedContextMatch 守住截断不丢命中：上下文超
+// 预算被裁时，命中文件、行号与匹配前缀必须保留，最终 JSON 不超结果预算且仍是
+// 合法 UTF-8。
 func TestWorkspaceGrepRetainsOversizedContextMatch(t *testing.T) {
 	for _, test := range []struct {
 		name, text               string
@@ -62,6 +65,8 @@ func TestWorkspaceGrepRetainsOversizedContextMatch(t *testing.T) {
 	}
 }
 
+// TestWorkspaceGrepNoMatchIsNotTruncated 守住零命中的口径：无匹配是正常结果
+// （ok=true、count=0），不得与预算截断混淆而误标 truncated。
 func TestWorkspaceGrepNoMatchIsNotTruncated(t *testing.T) {
 	r, root := workspaceFixture(t)
 	if err := os.WriteFile(filepath.Join(root, "no-match.txt"), []byte(strings.Repeat("x", 100000)), 0600); err != nil {
@@ -73,8 +78,12 @@ func TestWorkspaceGrepNoMatchIsNotTruncated(t *testing.T) {
 	}
 }
 
+// TestWorkspaceGrepFinalStatisticsPreserveCoreMatch 守住极小预算下的取舍
+// 优先级：核心命中（count、路径、行号）必须保住，skipped_files 若保留必须如实，
+// 缺失不得解读为 0。
 func TestWorkspaceGrepFinalStatisticsPreserveCoreMatch(t *testing.T) {
 	for _, pathLength := range []int{129, 130} {
+		// case: 129/130 跨越极小结果预算的临界路径长度，两侧核心命中都必须完整保留。
 		t.Run("path_length="+strconv.Itoa(pathLength), func(t *testing.T) {
 			testWorkspaceGrepFinalStatisticsPreserveCoreMatch(t, pathLength)
 		})
@@ -119,6 +128,9 @@ func testWorkspaceGrepFinalStatisticsPreserveCoreMatch(t *testing.T, pathLength 
 	}
 }
 
+// TestWorkspaceGlobClassDoesNotCrossSeparator 守住 glob 字符类的分隔符边界：
+// 类定义无论否定、范围还是"任意字符"写法，都不得跨路径分隔符 /，也不得误伤
+// 同层的合法文件。
 func TestWorkspaceGlobClassDoesNotCrossSeparator(t *testing.T) {
 	r, root := workspaceFixture(t)
 	if err := os.Mkdir(filepath.Join(root, "a"), 0700); err != nil {
@@ -135,7 +147,8 @@ func TestWorkspaceGlobClassDoesNotCrossSeparator(t *testing.T) {
 	}{
 		{"a[!x]b", []string{"a.b", "a0b", "a_b"}},
 		{"a[^x]b", []string{"a.b", "a0b", "a_b"}},
-		{"a[.-0]b", []string{"a.b", "a0b"}},
+		{"a[.-0]b", []string{"a.b", "a0b"}}, // case: 范围类涵盖 / 也不跨分隔符。
+		// case: [\s\S]/[^\n] 这类"任意字符"写法同样不跨分隔符，但不误伤同层文件。
 		{`a[\s\S]b`, []string{"a.b", "a0b", "a_b", "axb"}},
 		{`a[^\n]b`, []string{"a.b", "a0b", "a_b", "axb"}},
 	} {

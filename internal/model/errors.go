@@ -14,6 +14,7 @@ type ErrCode string
 // ErrBudgetExceeded 表示调用数或字节预算不足，不当作供应商错误。
 const ErrBudgetExceeded ErrCode = "budget_exceeded"
 
+// 错误分类值：驱动重试决策与展示层文案，本身不携带错误正文。
 const (
 	ErrInvalidConfig    ErrCode = "invalid_config"
 	ErrUnsupported      ErrCode = "unsupported"

@@ -29,6 +29,7 @@ const answerFrame = `data: {"id":"c","choices":[{"index":0,"delta":{"content":"�
 const finishFrame = `data: {"id":"c","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}` + "\n\n"
 const doneFrame = "data: [DONE]\n\n"
 
+// 守住：完整流归一化出文本、usage、ModelDone 与 StreamEnded 事件各恰好一次，且 Close 可重复调用。
 func TestStreamReadsAnswerUsageAndEnd(t *testing.T) {
 	s := streamServer(t, answerFrame+finishFrame+`data: {"choices":[],"usage":{"prompt_tokens":2,"completion_tokens":3,"total_tokens":5}}`+"\n\n"+doneFrame)
 	stream, err := newTestAdapter(t, s.URL).Stream(context.Background(), simpleRequest("m"))
@@ -63,6 +64,7 @@ func TestStreamReadsAnswerUsageAndEnd(t *testing.T) {
 	}
 }
 
+// 守住：正常完成需要 finish_reason 与 [DONE] 双重证据，缺任一则按 ErrStreamInterrupt 判定流被截断。
 func TestStreamRequiresFinishAndDoneEvidence(t *testing.T) {
 	for _, body := range []string{answerFrame, answerFrame + finishFrame, answerFrame + doneFrame} {
 		s := streamServer(t, body)
@@ -77,6 +79,7 @@ func TestStreamRequiresFinishAndDoneEvidence(t *testing.T) {
 	}
 }
 
+// 守住：未验证的 reasoning 强度控制按 ErrUnsupported 拒绝且不发任何 HTTP——未验证端点不盲发显式强度。
 func TestUnverifiedReasoningControlRejectedWithoutHTTP(t *testing.T) {
 	called := false
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { called = true }))
@@ -90,6 +93,7 @@ func TestUnverifiedReasoningControlRejectedWithoutHTTP(t *testing.T) {
 	}
 }
 
+// 守住：流式协议违规（坏 JSON、多 choice、错 index、finish 后再续帧、空答案、伪 DONE）一律拒绝。
 func TestStreamProtocolFixtures(t *testing.T) {
 	cases := []struct {
 		name, body string
@@ -117,6 +121,7 @@ func TestStreamProtocolFixtures(t *testing.T) {
 	}
 }
 
+// 守住：分帧容错由真实 SDK 承担——CRLF、多行 data 与逐字节切分的 UTF-8 多字节字符均能正确重组。
 func TestSDKHandlesCRLFMultilineAndSplitUTF8(t *testing.T) {
 	body := ": keepalive\r\n\r\ndata: {\r\ndata: \"choices\":[{\"index\":0,\"delta\":{\"content\":\"中文😀\"}}]}\r\n\r\n" + strings.ReplaceAll(finishFrame+doneFrame, "\n", "\r\n")
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -141,6 +146,7 @@ func TestSDKHandlesCRLFMultilineAndSplitUTF8(t *testing.T) {
 	}
 }
 
+// 守住：阻塞在 Next 的读取可被 context 取消或并发 Close 打断，错误归 ErrCancelled，且 Close 可重复调用。
 func TestStreamCancelBlockedNextAndConcurrentClose(t *testing.T) {
 	release := make(chan struct{})
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -188,6 +194,7 @@ func TestStreamCancelBlockedNextAndConcurrentClose(t *testing.T) {
 	}
 }
 
+// 守住：无 usage 的流不伪造 usage 事件；注释帧同样计入读取上限，超限报 ErrResponseTooLarge。
 func TestStreamReadsLimitedBytesAndKeepsUnknownUsage(t *testing.T) {
 	srv := streamServer(t, answerFrame+finishFrame+doneFrame)
 	s, err := newTestAdapter(t, srv.URL).Stream(context.Background(), simpleRequest("m"))
@@ -215,6 +222,7 @@ func TestStreamReadsLimitedBytesAndKeepsUnknownUsage(t *testing.T) {
 	_ = s.Close()
 }
 
+// 守住：tool 调用分片按 index 跨帧稳定重组——arguments 逐帧拼接，后续帧改写先帧的 id 则拒绝。
 func TestStreamToolIndicesRemainStable(t *testing.T) {
 	first := `data: {"choices":[{"index":0,"delta":{"tool_calls":[{"index":1,"id":"call-x","function":{"name":"clock","arguments":"{"}}]}}]}` + "\n\n"
 	second := `data: {"choices":[{"index":0,"delta":{"tool_calls":[{"index":1,"function":{"arguments":"}"}}]},"finish_reason":"tool_calls"}]}` + "\n\n"
@@ -250,6 +258,7 @@ func TestStreamToolIndicesRemainStable(t *testing.T) {
 	_ = s.Close()
 }
 
+// 守住：SDK 自动重试保持禁用——HTTP 失败（429）只发一次请求即报错，已取消的调用不发任何请求。
 func TestStreamHTTPFailureDoesNotRetry(t *testing.T) {
 	var calls atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -273,6 +282,7 @@ func TestStreamHTTPFailureDoesNotRetry(t *testing.T) {
 	}
 }
 
+// 守住：连接中途断开时已收到的增量不丢，且归为 ErrStreamInterrupt 而非笼统读取错误。
 func TestStreamBrokenReadPreservesInterruptionClassification(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, buf, err := w.(http.Hijacker).Hijack()
@@ -298,6 +308,7 @@ func TestStreamBrokenReadPreservesInterruptionClassification(t *testing.T) {
 	assertCode(t, s.Err(), model.ErrStreamInterrupt)
 }
 
+// 守住：Content-Length 声明超 16MiB 总量上限时发前即拒绝；未超限的大流可正常读完。
 func TestStreamDeclaredSizeUsesSixteenMiBLimit(t *testing.T) {
 	filler := strings.Repeat(": "+strings.Repeat("x", 1024)+"\n\n", 9000)
 	body := filler + answerFrame + finishFrame + doneFrame
@@ -327,6 +338,8 @@ func TestStreamDeclaredSizeUsesSixteenMiBLimit(t *testing.T) {
 	assertCode(t, err, model.ErrResponseTooLarge)
 }
 
+// 守住：能力画像不虚报——流式受支持、reasoning 控制（强度/关闭）标记未验证，
+// ReasoningOutput 仅 DeepSeek 组合适配器声明，品牌字符串不能让通用适配器启用能力。
 func TestAdapterCapabilityProfilesDoNotClaimUnverifiedControl(t *testing.T) {
 	generic, err := NewAdapter("deepseek", "https://example.com", "")
 	if err != nil {

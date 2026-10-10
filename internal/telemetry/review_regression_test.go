@@ -32,6 +32,8 @@ func reviewModelTerminal(t *testing.T, out *bytes.Buffer) map[string]any {
 	return terminal
 }
 
+// TestReviewContextSpanClassification 守住上下文错误的分类：Canceled 与
+// DeadlineExceeded（含被 %w 包装的）必须归类为 cancelled/timeout，不得丢成未知错误。
 func TestReviewContextSpanClassification(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -55,6 +57,9 @@ func TestReviewContextSpanClassification(t *testing.T) {
 	}
 }
 
+// TestReviewFailedSpanPreservesActualUsage 守住失败流的指标保全：流中断的
+// failed 终态仍要保住已到手的 usage 与 finish_reason（unknown 时不记 token），
+// 且响应正文绝不进 trace。
 func TestReviewFailedSpanPreservesActualUsage(t *testing.T) {
 	for _, known := range []bool{true, false} {
 		t.Run(fmt.Sprint(known), func(t *testing.T) {

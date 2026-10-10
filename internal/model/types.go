@@ -12,6 +12,7 @@ const ProtocolOpenAIChatCompletions = "openai-chat-completions"
 // Role 是一条对话消息的角色。
 type Role string
 
+// 角色值与 Chat Completions 对齐；system 仅由请求拼装层产生。
 const (
 	RoleSystem    Role = "system"
 	RoleUser      Role = "user"
@@ -48,6 +49,7 @@ type ToolDeclaration struct {
 // ReasoningEffort 是已验证的供应商思考请求偏好；空值不发送参数。
 type ReasoningEffort string
 
+// 思考强度档位；none 表示显式关闭（发送关闭参数而非省略）。
 const (
 	ReasoningNone   ReasoningEffort = "none"
 	ReasoningLow    ReasoningEffort = "low"
@@ -88,6 +90,7 @@ type ChatResponse struct {
 // FinishReason 是完成原因。
 type FinishReason string
 
+// 完成原因值；length/content_filter 表示两类截断，映射见各协议适配器。
 const (
 	FinishStop          FinishReason = "stop"
 	FinishLength        FinishReason = "length"
@@ -112,6 +115,8 @@ type Usage struct {
 // EventKind 是规范化流事件的类别（0003 §5）；思考与答案独立输出。
 type EventKind string
 
+// 流事件类别值；一次成功流以 model_done（带完成原因）收尾、
+// stream_ended 结束，usage_update 可在流中多次出现。
 const (
 	EventTextDelta      EventKind = "text_delta"
 	EventReasoningDelta EventKind = "reasoning_delta"

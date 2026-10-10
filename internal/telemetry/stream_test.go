@@ -9,6 +9,9 @@ import (
 	"plume-agent/internal/model"
 )
 
+// TestStreamMetricsContainNoContentAndUnknownIsNull 守住流式 trace 的两条红线：
+// 任何正文（增量或完整内容）不落盘；未发生的首思考耗时必须是显式 null 而非 0，
+// span 恰好终态一次。
 func TestStreamMetricsContainNoContentAndUnknownIsNull(t *testing.T) {
 	var out bytes.Buffer
 	r := NewModelRecorder(&out)
@@ -30,6 +33,8 @@ func TestStreamMetricsContainNoContentAndUnknownIsNull(t *testing.T) {
 	}
 }
 
+// TestFailureTraceDoesNotIncludeUpstreamSummary 守住错误摘要脱敏：上游错误的
+// summary 可能带响应正文，不得整段落进 trace。
 func TestFailureTraceDoesNotIncludeUpstreamSummary(t *testing.T) {
 	var out bytes.Buffer
 	r := NewModelRecorder(&out)

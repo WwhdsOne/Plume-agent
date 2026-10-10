@@ -23,6 +23,7 @@ func (m mapCreds) Key(ref string) (string, error) {
 	return "", errors.New("credential not found")
 }
 
+// schema v1 的两个历史协议选择器（deepseek/openai-compatible）都必须能装配出可用 Client。
 func TestBuildMapsBothPresetProtocols(t *testing.T) {
 	registry := NewRegistry()
 	factory := NewModelFactory(registry, mapCreds{"ds-key": "sk-test"})
@@ -42,6 +43,7 @@ func TestBuildMapsBothPresetProtocols(t *testing.T) {
 	}
 }
 
+// 非法 ModelSpec（缺字段、未知供应商、协议不匹配、凭据缺失、不安全 URL 等）一律以 invalid_config 拒绝。
 func TestBuildRejectsInvalidSpecs(t *testing.T) {
 	registry := NewRegistry()
 	factory := NewModelFactory(registry, mapCreds{})
@@ -72,6 +74,7 @@ func TestBuildRejectsInvalidSpecs(t *testing.T) {
 	}
 }
 
+// 守住 custom-openai 可选凭据契约：无 Key 引用甚至 nil 凭据源也必须能构造 Client。
 func TestBuildWithoutCredentialsSucceedsForOptionalKey(t *testing.T) {
 	// custom-openai 允许无 Key（本机服务）；nil 凭据源也能构造。
 	registry := NewRegistry()
@@ -82,6 +85,7 @@ func TestBuildWithoutCredentialsSucceedsForOptionalKey(t *testing.T) {
 	}
 }
 
+// Probe 是显式单次探测：恰好发出一次携带配置 model id 的请求，响应原样透传。
 func TestProbeRunsExactlyOneRequest(t *testing.T) {
 	var count atomic.Int64
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

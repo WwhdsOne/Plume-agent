@@ -72,6 +72,8 @@ func drainEvents(t *testing.T, svc *Service) []Event {
 	}
 }
 
+// TestServiceHappyPathCommitsHistory 守住成功闭环：事件序列 started→completed、终态后回到
+// 空闲，历史提交后下一轮请求携带完整上下文（system+历史+新输入）。
 func TestServiceHappyPathCommitsHistory(t *testing.T) {
 	fake := model.NewFake(
 		model.FakeScript{Response: &model.ChatResponse{Message: model.Message{Role: model.RoleAssistant, Content: "answer one"}}},
@@ -116,6 +118,8 @@ func TestServiceHappyPathCommitsHistory(t *testing.T) {
 	}
 }
 
+// TestServiceRejectsConcurrentSubmit 守住同会话串行契约：run 执行中再次 Submit 被拒绝为
+// ErrBusy，不产生新请求。
 func TestServiceRejectsConcurrentSubmit(t *testing.T) {
 	blocking := newBlockingFake()
 	svc := NewService(agent.New(blocking, "m"))
@@ -136,6 +140,8 @@ func TestServiceRejectsConcurrentSubmit(t *testing.T) {
 	drainEvents(t, svc)
 }
 
+// TestServiceFailureKeepsHistoryClean 守住失败隔离：模型报错的 run 以失败终态透出模型错误码，
+// 不写入会话历史。
 func TestServiceFailureKeepsHistoryClean(t *testing.T) {
 	fake := model.NewFake(model.FakeScript{Err: model.NewError(model.ErrRateLimited)})
 	svc := NewService(agent.New(fake, "m"))
@@ -158,6 +164,7 @@ func TestServiceFailureKeepsHistoryClean(t *testing.T) {
 	}
 }
 
+// TestServiceCancelDoesNotCommit 守住取消不提交：被取消的 run 以取消错误收尾，不进入会话历史。
 func TestServiceCancelDoesNotCommit(t *testing.T) {
 	blocking := newBlockingFake()
 	svc := NewService(agent.New(blocking, "m"))
@@ -191,6 +198,8 @@ func TestServiceCancelDoesNotCommit(t *testing.T) {
 	}
 }
 
+// TestServiceResetSessionClearsContext 守住会话重置语义：Reset 后下一轮只携带基础规则与
+// 当前输入，不串旧上下文。
 func TestServiceResetSessionClearsContext(t *testing.T) {
 	fake := model.NewFake(
 		model.FakeScript{Response: &model.ChatResponse{Message: model.Message{Role: model.RoleAssistant, Content: "a"}}},

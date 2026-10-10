@@ -10,6 +10,8 @@ import (
 	"time"
 )
 
+// TestWorkspaceDefaultsAllowMoreThanEightSteps 守住默认宽松预算：
+// 12 轮工具步（13 次模型调用）不被上限截断，Generate/Stream 行为一致。
 func TestWorkspaceDefaultsAllowMoreThanEightSteps(t *testing.T) {
 	for _, streaming := range []bool{false, true} {
 		scripts := make([]model.FakeScript, 0, 13)
@@ -31,6 +33,8 @@ func TestWorkspaceDefaultsAllowMoreThanEightSteps(t *testing.T) {
 	}
 }
 
+// TestWorkspacePartialResultsUseBriefSummary 守住截断结果的事件口径：
+// 工具事件上报 completed 状态与工具给出的简短摘要。
 func TestWorkspacePartialResultsUseBriefSummary(t *testing.T) {
 	registry, err := tools.New(tools.Definition{Name: "read", Parameters: `{"type":"object"}`, Execute: func(context.Context, string) tools.Result {
 		return tools.Result{OK: true, Value: map[string]any{"content": "PRIVATE_FILE_CONTENT"}, Truncated: true, Summary: "read 1 line (truncated)"}
@@ -50,6 +54,8 @@ func TestWorkspacePartialResultsUseBriefSummary(t *testing.T) {
 	}
 }
 
+// TestWorkspaceUnlimitedRunRemainsCancellable 守住"零值表示无限"不吞掉取消：
+// 关闭整体期限与次数上限后，run 仍随 context 取消及时终止。
 func TestWorkspaceUnlimitedRunRemainsCancellable(t *testing.T) {
 	r := New(model.NewFake(model.FakeScript{Stream: []model.FakeStep{{Event: model.Event{Kind: model.EventTextDelta, TextDelta: "x"}, Delay: time.Hour}}}), "m")
 	limits := DefaultLimits()
@@ -73,6 +79,8 @@ func TestWorkspaceUnlimitedRunRemainsCancellable(t *testing.T) {
 	}
 }
 
+// TestWorkspaceStepLimitIsIndependentOfUnlimitedTotal 守住单步工具数上限独立于总量：
+// 每步 64 时 9 连发全部执行，每步 8 时整批预检拒绝、一个不执行。
 func TestWorkspaceStepLimitIsIndependentOfUnlimitedTotal(t *testing.T) {
 	calls := []model.ToolCall{}
 	for i := range 9 {

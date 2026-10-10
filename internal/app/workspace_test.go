@@ -16,6 +16,8 @@ import (
 	"time"
 )
 
+// TestReadWorkspaceGitStates 守住 Git 状态快照：正确区分非仓库、unborn、detached 与脏工作区
+// （跟踪/未跟踪改动都追加 *），且不误报 stale。
 func TestReadWorkspaceGitStates(t *testing.T) {
 	t.Setenv("VIRTUAL_ENV", "")
 	tests := []struct {
@@ -68,6 +70,8 @@ func TestReadWorkspaceGitStates(t *testing.T) {
 	}
 }
 
+// TestReadWorkspaceGitMissingCommandIsUnknown 守住 git 缺失降级：命令不存在时报 unknown，
+// 不报错、不标记 stale。
 func TestReadWorkspaceGitMissingCommandIsUnknown(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 	got := ReadWorkspace(context.Background(), WorkspaceOptions{Dir: t.TempDir(), GitEnabled: true})
@@ -76,6 +80,8 @@ func TestReadWorkspaceGitMissingCommandIsUnknown(t *testing.T) {
 	}
 }
 
+// TestReadWorkspaceGitExit128WithoutRepositoryErrorIsUnknown 守住失败分类：git 异常退出但
+// stderr 无"非仓库"语义时归为 unknown（不得误判为非仓库），错误输出不进入快照。
 func TestReadWorkspaceGitExit128WithoutRepositoryErrorIsUnknown(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("shell fixture is POSIX only")
@@ -89,6 +95,8 @@ func TestReadWorkspaceGitExit128WithoutRepositoryErrorIsUnknown(t *testing.T) {
 	}
 }
 
+// TestReadWorkspaceDirectoryRetainsIdentity 守住目录身份：Dir 字段原样保留传入的绝对路径
+// （含控制字符），净化只作用于展示文本。
 func TestReadWorkspaceDirectoryRetainsIdentity(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "directory\x1b[31m\n")
 	got := ReadWorkspace(context.Background(), WorkspaceOptions{Dir: dir})
@@ -97,6 +105,8 @@ func TestReadWorkspaceDirectoryRetainsIdentity(t *testing.T) {
 	}
 }
 
+// TestReadWorkspaceEnvironmentStates 守住环境状态组合：按 uv.lock、项目 .venv 与外部
+// VIRTUAL_ENV 的有无/激活组合给出正确状态文本，且不误报 stale。
 func TestReadWorkspaceEnvironmentStates(t *testing.T) {
 	tests := []struct {
 		name                                                  string
@@ -143,6 +153,8 @@ func TestReadWorkspaceEnvironmentStates(t *testing.T) {
 	}
 }
 
+// TestReadWorkspaceEnvironmentFindsProjectFromSubdirectory 守住向上查找：从子目录仍能发现
+// 父项目根的环境，快照 Dir 保持子目录身份。
 func TestReadWorkspaceEnvironmentFindsProjectFromSubdirectory(t *testing.T) {
 	t.Setenv("VIRTUAL_ENV", "")
 	dir := t.TempDir()
@@ -156,6 +168,8 @@ func TestReadWorkspaceEnvironmentFindsProjectFromSubdirectory(t *testing.T) {
 	}
 }
 
+// TestReadWorkspaceEnvironmentStopsAtNearestProject 守住查找边界：向上查找在最近的项目根
+// 停止，子项目不继承外层环境。
 func TestReadWorkspaceEnvironmentStopsAtNearestProject(t *testing.T) {
 	t.Setenv("VIRTUAL_ENV", "")
 	dir := t.TempDir()
@@ -170,6 +184,8 @@ func TestReadWorkspaceEnvironmentStopsAtNearestProject(t *testing.T) {
 	}
 }
 
+// TestReadWorkspaceEnvironmentActiveSymlinkMatchesProject 守住激活匹配：VIRTUAL_ENV 为
+// 符号链接时按解析后的真实路径与项目 .venv 匹配。
 func TestReadWorkspaceEnvironmentActiveSymlinkMatchesProject(t *testing.T) {
 	dir := t.TempDir()
 	workspaceWriteFixture(t, filepath.Join(dir, "uv.lock"), "version = 1")
@@ -185,6 +201,8 @@ func TestReadWorkspaceEnvironmentActiveSymlinkMatchesProject(t *testing.T) {
 	}
 }
 
+// TestReadWorkspaceEnvironmentFileIsNotAnActiveEnvironment 守住激活判定：VIRTUAL_ENV 指向
+// 普通文件不算活动环境。
 func TestReadWorkspaceEnvironmentFileIsNotAnActiveEnvironment(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "not-an-environment")
@@ -196,6 +214,8 @@ func TestReadWorkspaceEnvironmentFileIsNotAnActiveEnvironment(t *testing.T) {
 	}
 }
 
+// TestReadWorkspaceEnvironmentNameIsSanitized 守住展示净化：外部环境名中的控制序列不得进入
+// 状态文本。
 func TestReadWorkspaceEnvironmentNameIsSanitized(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("control characters in filename require POSIX filesystem")
@@ -210,6 +230,8 @@ func TestReadWorkspaceEnvironmentNameIsSanitized(t *testing.T) {
 	}
 }
 
+// TestReadWorkspaceDisabledFieldsStayEmpty 守住禁用语义：未启用的采集项保持空字符串（区别于
+// unknown 占位），不产生 stale 标记。
 func TestReadWorkspaceDisabledFieldsStayEmpty(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 	t.Setenv("VIRTUAL_ENV", t.TempDir())
@@ -219,6 +241,8 @@ func TestReadWorkspaceDisabledFieldsStayEmpty(t *testing.T) {
 	}
 }
 
+// TestWatchWorkspaceImmediateSnapshotAndClose 守住 Watch 启动语义：立即发出首帧快照（不等
+// 刷新间隔），取消后关闭通道且不再发布。
 func TestWatchWorkspaceImmediateSnapshotAndClose(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -242,6 +266,8 @@ func TestWatchWorkspaceImmediateSnapshotAndClose(t *testing.T) {
 	}
 }
 
+// TestWorkspaceDisabledFieldsDoNotInvokeDependencies 守住零开销禁用：未启用的采集项不调用
+// git/stat/getenv，并把旧值清空。
 func TestWorkspaceDisabledFieldsDoNotInvokeDependencies(t *testing.T) {
 	reader := newWorkspaceReader(WorkspaceOptions{Dir: t.TempDir()}, workspaceDependencies{
 		runGit: func(context.Context, string, ...string) ([]byte, error) {
@@ -263,6 +289,8 @@ func TestWorkspaceDisabledFieldsDoNotInvokeDependencies(t *testing.T) {
 	}
 }
 
+// TestWorkspaceGitTimeoutRetainsPreviousAndRecovers 守住超时降级：git 超时保留上次成功值并
+// 标记 stale，恢复成功后清除 stale。
 func TestWorkspaceGitTimeoutRetainsPreviousAndRecovers(t *testing.T) {
 	calls := 0
 	reader := newWorkspaceReader(WorkspaceOptions{Dir: t.TempDir(), GitEnabled: true, GitTimeout: 10 * time.Millisecond}, workspaceDependencies{
@@ -286,6 +314,8 @@ func TestWorkspaceGitTimeoutRetainsPreviousAndRecovers(t *testing.T) {
 	}
 }
 
+// TestWorkspaceGitTimeoutWithoutPreviousIsUnknown 守住首采超时：没有上次值可退化时报 unknown
+// 并标记 stale。
 func TestWorkspaceGitTimeoutWithoutPreviousIsUnknown(t *testing.T) {
 	reader := newWorkspaceReader(WorkspaceOptions{Dir: t.TempDir(), GitEnabled: true, GitTimeout: time.Millisecond}, workspaceDependencies{
 		runGit: func(ctx context.Context, dir string, args ...string) ([]byte, error) {
@@ -299,6 +329,8 @@ func TestWorkspaceGitTimeoutWithoutPreviousIsUnknown(t *testing.T) {
 	}
 }
 
+// TestWorkspaceGitFailureDoesNotExposeError 守住脱敏：git 失败只报 unknown，错误内容（可能含
+// 敏感信息）不进入快照。
 func TestWorkspaceGitFailureDoesNotExposeError(t *testing.T) {
 	reader := newWorkspaceReader(WorkspaceOptions{Dir: t.TempDir(), GitEnabled: true}, workspaceDependencies{
 		runGit: func(context.Context, string, ...string) ([]byte, error) {
@@ -311,6 +343,8 @@ func TestWorkspaceGitFailureDoesNotExposeError(t *testing.T) {
 	}
 }
 
+// TestWorkspaceEnvironmentReadFailureRetainsStale 守住环境探测降级：读取失败保留上次值并
+// 标记 stale。
 func TestWorkspaceEnvironmentReadFailureRetainsStale(t *testing.T) {
 	t.Setenv("VIRTUAL_ENV", "")
 	dir := t.TempDir()
@@ -332,6 +366,8 @@ func TestWorkspaceEnvironmentReadFailureRetainsStale(t *testing.T) {
 	}
 }
 
+// TestReadWorkspaceMissingDirectoryIsUnknown 守住缺失目录降级：目录不存在时采集项报 unknown
+// 并标记 stale，不报错。
 func TestReadWorkspaceMissingDirectoryIsUnknown(t *testing.T) {
 	t.Setenv("VIRTUAL_ENV", "")
 	got := ReadWorkspace(context.Background(), WorkspaceOptions{Dir: filepath.Join(t.TempDir(), "missing"), GitEnabled: true, EnvironmentEnabled: true})
@@ -340,6 +376,8 @@ func TestReadWorkspaceMissingDirectoryIsUnknown(t *testing.T) {
 	}
 }
 
+// TestWorkspaceTextIsSanitized 守住文本净化：分支名中的终端控制序列（含 OSC 52 剪贴板注入）
+// 必须剥除后才能进入快照。
 func TestWorkspaceTextIsSanitized(t *testing.T) {
 	reader := newWorkspaceReader(WorkspaceOptions{Dir: t.TempDir(), GitEnabled: true}, workspaceDependencies{
 		runGit: func(context.Context, string, ...string) ([]byte, error) {
@@ -352,6 +390,8 @@ func TestWorkspaceTextIsSanitized(t *testing.T) {
 	}
 }
 
+// TestWatchWorkspaceLatestBufferNeverBlocksCollection 守住最新值缓冲：通道容量为 1、只保留
+// 最新完成的快照，消费者停滞不阻塞后台采集。
 func TestWatchWorkspaceLatestBufferNeverBlocksCollection(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -385,6 +425,8 @@ func TestWatchWorkspaceLatestBufferNeverBlocksCollection(t *testing.T) {
 	workspaceAwaitClose(t, updates)
 }
 
+// TestWatchWorkspaceAlreadyCanceledDoesNotCollect 守住竞态起点：传入已取消的上下文时不做
+// 任何采集即关闭通道。
 func TestWatchWorkspaceAlreadyCanceledDoesNotCollect(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -401,6 +443,8 @@ func TestWatchWorkspaceAlreadyCanceledDoesNotCollect(t *testing.T) {
 	workspaceAwaitClose(t, watchWorkspace(ctx, reader))
 }
 
+// TestWatchWorkspaceSlowCollectionIsSerialAndCancelable 守住串行采集：启动不阻塞调用方，
+// 上一轮未完成不开启下一轮、不发布中间快照，取消后立即收尾。
 func TestWatchWorkspaceSlowCollectionIsSerialAndCancelable(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -439,6 +483,8 @@ func TestWatchWorkspaceSlowCollectionIsSerialAndCancelable(t *testing.T) {
 	}
 }
 
+// TestRunWorkspaceGitUsesFixedDirectoryArgumentsAndNoLocks 守住子进程契约：git 固定以目标
+// 目录为工作目录、参数不经 shell 解释，并禁用可选锁、清掉继承的 GIT_DIR。
 func TestRunWorkspaceGitUsesFixedDirectoryArgumentsAndNoLocks(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("shell fixture is POSIX only")
@@ -462,6 +508,8 @@ func TestRunWorkspaceGitUsesFixedDirectoryArgumentsAndNoLocks(t *testing.T) {
 	}
 }
 
+// TestWatchWorkspaceCancellationReapsGitProcess 守住进程回收：取消 Watch 时杀掉仍在运行的
+// git 子进程，不留孤儿。
 func TestWatchWorkspaceCancellationReapsGitProcess(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("shell process fixture is POSIX only")

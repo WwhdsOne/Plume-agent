@@ -23,6 +23,8 @@ func finalScript(text string) model.FakeScript {
 	return model.FakeScript{Response: &model.ChatResponse{Message: model.Message{Role: model.RoleAssistant, Content: text}, FinishReason: model.FinishStop}}
 }
 
+// TestG3ErrorsReturnToModelAndDuplicatesDoNotRerun 守住工具失败以结构化错误回传模型继续循环，
+// 且同一 ID 的重复调用不重复执行。
 func TestG3ErrorsReturnToModelAndDuplicatesDoNotRerun(t *testing.T) {
 	for _, tc := range []struct{ name, args, code string }{
 		{"unknown", `{}`, "unknown_tool"},
@@ -52,6 +54,8 @@ func TestG3ErrorsReturnToModelAndDuplicatesDoNotRerun(t *testing.T) {
 	}
 }
 
+// TestG3BatchPreflightAndIncompleteCallsNeverExecute 守住批量工具的发送前预检：
+// 预算不足或调用不完整（缺 ID、缺参数、finish=length 截断）时一个都不执行。
 func TestG3BatchPreflightAndIncompleteCallsNeverExecute(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
@@ -79,6 +83,8 @@ func TestG3BatchPreflightAndIncompleteCallsNeverExecute(t *testing.T) {
 	}
 }
 
+// TestG3FragmentedCallsAndGenerateConsistency 守住一次响应多个工具调用的执行、
+// 流式分片（名称/参数跨 delta 拆开）能正确重组，且 Generate 与 Stream 语义一致。
 func TestG3FragmentedCallsAndGenerateConsistency(t *testing.T) {
 	response := model.FakeScript{Response: &model.ChatResponse{Message: model.Message{Content: "checking", Reasoning: "keep", ToolCalls: []model.ToolCall{{ID: "a", Name: "calculate", Arguments: `{"operation":"add","a":1,"b":2}`}, {ID: "b", Name: "current_time", Arguments: `{}`}}}, FinishReason: model.FinishToolCalls}}
 	now := func() time.Time { return time.Date(2026, 10, 9, 0, 0, 0, 0, time.UTC) }
@@ -113,6 +119,8 @@ func TestG3FragmentedCallsAndGenerateConsistency(t *testing.T) {
 	}
 }
 
+// TestG3ToolTimeoutAndRunCancellation 守住两级中断语义：单工具超时以结构化结果回传模型继续循环；
+// 整个 run 取消则立即中止、不再调用模型也不提交历史。
 func TestG3ToolTimeoutAndRunCancellation(t *testing.T) {
 	for _, cancelRun := range []bool{false, true} {
 		t.Run(map[bool]string{false: "timeout", true: "cancel"}[cancelRun], func(t *testing.T) {
@@ -150,6 +158,8 @@ func TestG3ToolTimeoutAndRunCancellation(t *testing.T) {
 	}
 }
 
+// TestG3PromptBudgetAndGroups 守住发送前校验：必发请求超预算、历史含未配对的工具调用，
+// 都在联系模型前拒绝。
 func TestG3PromptBudgetAndGroups(t *testing.T) {
 	fake := model.NewFake(finalScript("ok"))
 	r := New(fake, "m")
@@ -165,6 +175,8 @@ func TestG3PromptBudgetAndGroups(t *testing.T) {
 	}
 }
 
+// TestG3ResultTruncationAndAllowlist 守住结果边界与许可：工具结果超限截断且带显式 truncated 标记；
+// 未注册的工具不进声明列表，调用只得到结构化 unknown_tool 错误。
 func TestG3ResultTruncationAndAllowlist(t *testing.T) {
 	registry, err := tools.New(tools.Definition{Name: "large", Parameters: `{"type":"object"}`, Execute: func(context.Context, string) tools.Result {
 		return tools.Result{OK: true, Value: strings.Repeat("x", 1000)}
@@ -198,6 +210,8 @@ func TestG3ResultTruncationAndAllowlist(t *testing.T) {
 	}
 }
 
+// TestG3MalformedStreamNeverExecutes 守住协议流损坏时宁可失败也不执行：
+// ID 冲突、索引跳号、重复调用、结束后续写、缺结束事件一律拒绝。
 func TestG3MalformedStreamNeverExecutes(t *testing.T) {
 	for _, kind := range []string{"conflict", "sparse", "duplicate", "after_finish", "no_done"} {
 		t.Run(kind, func(t *testing.T) {
@@ -225,6 +239,8 @@ func TestG3MalformedStreamNeverExecutes(t *testing.T) {
 	}
 }
 
+// TestG3ToolRoundTrip 守住基础工具往返契约：两轮模型调用、角色与 ID 配对正确，
+// 工具结果以 JSON 回传模型。
 func TestG3ToolRoundTrip(t *testing.T) {
 	fake := model.NewFake(toolScript("c1", "calculate", `{"operation":"multiply","a":6,"b":7}`), model.FakeScript{Response: &model.ChatResponse{Message: model.Message{Role: model.RoleAssistant, Content: "42"}, FinishReason: model.FinishStop}})
 	result, err := New(fake, "m").RunStream(context.Background(), nil, "calculate 6*7", nil, nil)
@@ -250,6 +266,7 @@ func TestG3ToolRoundTrip(t *testing.T) {
 	}
 }
 
+// TestG3TruncatedResponseFails 守住 finish_reason=length 的截断响应不得当作成功的最终答案。
 func TestG3TruncatedResponseFails(t *testing.T) {
 	fake := model.NewFake(model.FakeScript{Response: &model.ChatResponse{Message: model.Message{Content: "partial"}, FinishReason: model.FinishLength}})
 	_, err := New(fake, "m").RunStream(context.Background(), nil, "hello", nil, nil)

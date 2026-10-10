@@ -2,6 +2,7 @@ package channel
 
 import "testing"
 
+// 守住首版渠道清单：weixin 是唯一启用渠道，feishu/qq 在真正实现前必须保持禁用并标记 coming soon。
 func TestFirstReleaseChannels(t *testing.T) {
 	r := NewRegistry()
 	if got := len(r.All()); got != 3 {
@@ -30,6 +31,7 @@ func TestFirstReleaseChannels(t *testing.T) {
 	}
 }
 
+// Available 必须区分"已知且启用 / 已知未启用 / 未知"三种结果，未知渠道不得被报告为可用。
 func TestAvailable(t *testing.T) {
 	r := NewRegistry()
 
@@ -44,6 +46,7 @@ func TestAvailable(t *testing.T) {
 	}
 }
 
+// Register 按渠道 ID 追加新条目或原位替换旧条目，不得产生重复或改变原有顺序。
 func TestRegisterAddsAndReplacesWithoutDuplicating(t *testing.T) {
 	r := NewRegistry()
 

@@ -1,6 +1,4 @@
-// Package agent 实现受控模型—工具循环与请求拼装。
-// Runtime 只依赖模型和工具契约，不依赖 TUI/渠道；run 编排
-// （ID、串行、取消、事件）属于 internal/app。
+// 包注释集中在 prompt.go（本包的请求拼装蓝图与职责边界）。
 package agent
 
 import (

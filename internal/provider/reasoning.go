@@ -16,6 +16,9 @@ type ReasoningPolicy struct {
 	Capability string
 }
 
+// ResolveReasoning 计算思考偏好的请求值与有效值：未配置默认 high（source
+// 为 default）；显式强度只对 DeepSeek 官方端点 + 受验证模型放行，否则报
+// unsupported（未验证端点不盲发显式强度）；有效值把 medium 归一为 high。
 func ResolveReasoning(spec ModelSpec) (ReasoningPolicy, error) {
 	p := ReasoningPolicy{Requested: model.ReasoningHigh, Source: "default", Capability: "provider_default"}
 	if spec.ReasoningEffort != nil {
@@ -48,11 +51,13 @@ type reasoningClient struct {
 	effort model.ReasoningEffort
 }
 
+// Generate 覆盖请求中的思考强度为已验证有效值，再透传底层客户端。
 func (c reasoningClient) Generate(ctx context.Context, req model.ChatRequest) (*model.ChatResponse, error) {
 	req.ReasoningEffort = c.effort
 	return c.Client.Generate(ctx, req)
 }
 
+// Stream 同 Generate：覆盖思考强度后透传。
 func (c reasoningClient) Stream(ctx context.Context, req model.ChatRequest) (model.EventStream, error) {
 	req.ReasoningEffort = c.effort
 	return c.Client.Stream(ctx, req)

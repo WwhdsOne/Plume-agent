@@ -10,6 +10,7 @@ import (
 	"testing"
 )
 
+// TestSoulDefaultsPersist 守住 soul 默认值契约：Save 完整落盘 enabled:true、path:soul.md、max_bytes:65536，并同步到内存配置。
 func TestSoulDefaultsPersist(t *testing.T) {
 	t.Setenv("PLUME_HOME", t.TempDir())
 	cfg := &Config{SchemaVersion: SchemaVersion, Agent: &AgentConfig{Budget: DefaultAgent().Budget}}
@@ -37,6 +38,8 @@ func TestSoulDefaultsPersist(t *testing.T) {
 	}
 }
 
+// TestSoulMigrationPreservesOverridesAndUnknownFields 守住 soul 迁移语义：缺失/null 补默认、
+// 用户覆盖与扩展字段保留、迁移幂等，Save 也不丢扩展字段。
 func TestSoulMigrationPreservesOverridesAndUnknownFields(t *testing.T) {
 	for _, soul := range []string{
 		``, `null`, `{}`, `{"enabled":null,"path":null,"max_bytes":null,"extension":{"keep":true}}`,
@@ -93,6 +96,8 @@ func TestSoulMigrationPreservesOverridesAndUnknownFields(t *testing.T) {
 	}
 }
 
+// TestSoulConfigRejectsInvalidValues 守住 soul 校验边界：错误类型、空白/含控制字符的路径、
+// 越界的 max_bytes 在反序列化阶段拒绝；边界尺寸 1 与 8MiB 合法。
 func TestSoulConfigRejectsInvalidValues(t *testing.T) {
 	for _, soul := range []string{
 		`[]`, `false`, `"soul.md"`, `{"enabled":0}`, `{"enabled":"false"}`,
@@ -117,6 +122,8 @@ func TestSoulConfigRejectsInvalidValues(t *testing.T) {
 	}
 }
 
+// TestSoulResolvePathUsesConfigDirectory 守住路径解析契约：相对路径基于配置目录，支持 ~ 与
+// 环境变量展开；禁用返回空路径，空展开与控制字符路径拒绝。
 func TestSoulResolvePathUsesConfigDirectory(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("PLUME_HOME", home)

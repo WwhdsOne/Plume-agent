@@ -26,6 +26,7 @@ func streamModel(t *testing.T) (*Model, *time.Time) {
 
 func send(m *Model, e app.Event) { m.Update(AppEvent{Event: e}) }
 
+// 守住：流式各阶段随事件正确流转；started 事件不重置计时起点；过期 run 的事件不渲染；终态不重复成行。
 func TestStreamPhasesAndTerminalAlignment(t *testing.T) {
 	m, now := streamModel(t)
 	if m.phase != app.PhasePreparing {
@@ -55,6 +56,7 @@ func TestStreamPhasesAndTerminalAlignment(t *testing.T) {
 	}
 }
 
+// 守住：流式中手动展开的思考在答案到达后仍保持展开；空闲时 Ctrl+O 折叠/展开最近一次思考。
 func TestReasoningToggleManualExpansionSurvivesAnswer(t *testing.T) {
 	m, _ := streamModel(t)
 	send(m, app.Event{RunID: "r1", Kind: app.EventReasoningDelta, ReasoningDelta: "one\ntwo\nthree\nfour"})
@@ -74,6 +76,7 @@ func TestReasoningToggleManualExpansionSurvivesAnswer(t *testing.T) {
 	}
 }
 
+// 守住：整轮没有思考内容时不渲染 Thought 标题。
 func TestNoReasoningHasNoThoughtTitle(t *testing.T) {
 	m, _ := streamModel(t)
 	send(m, app.Event{RunID: "r1", Kind: app.EventTextDelta, TextDelta: "reply"})
@@ -83,6 +86,7 @@ func TestNoReasoningHasNoThoughtTitle(t *testing.T) {
 	}
 }
 
+// 守住：取消时行内保留原始累计文本（含残缺转义），渲染层净化且不重复拼接。
 func TestStreamCancellationKeepsPartialRawAndSanitizesCumulative(t *testing.T) {
 	m, now := streamModel(t)
 	send(m, app.Event{RunID: "r1", Kind: app.EventTextDelta, TextDelta: "hello\x1b["})
@@ -98,6 +102,7 @@ func TestStreamCancellationKeepsPartialRawAndSanitizesCumulative(t *testing.T) {
 	}
 }
 
+// 守住：用户/助手多行内容与角色前缀对齐；折行按字素簇切分，不破坏 UTF-8 与 emoji。
 func TestRoleAlignmentAndGraphemeWrapping(t *testing.T) {
 	v := ansi.Strip(renderLines([]chatLine{{kind: lineUser, text: "第一行\n第二行"}, {kind: lineAssistant, text: "first\nsecond"}}, 40))
 	for _, want := range []string{"  > 第一行", "    第二行", "  ● first", "    second"} {
@@ -117,6 +122,7 @@ func TestRoleAlignmentAndGraphemeWrapping(t *testing.T) {
 	}
 }
 
+// 守住：Markdown 各降级路径（未闭合强调/HTML/数学/表格/未闭合代码块）都保留源 token；正常渲染不丢内容、不产生 OSC8。
 func TestMarkdownCompactReadableFallbacks(t *testing.T) {
 	for _, raw := range []string{"**unfinished", "<div>HTML</div>", "$x^2$", "| a | very-long-cell-preserved |\n|---|---|\n| x | contents |"} {
 		v := ansi.Strip(renderMarkdown(raw, 18))
@@ -141,6 +147,7 @@ func TestMarkdownCompactReadableFallbacks(t *testing.T) {
 	}
 }
 
+// 守住：首条 delta 立即上屏、后续 50ms 节流由 tick 刷新；完成后回复走缓存，tick 不再重渲染。
 func TestRefreshThrottleAndCompletedCache(t *testing.T) {
 	m, now := streamModel(t)
 	send(m, app.Event{RunID: "r1", Kind: app.EventTextDelta, TextDelta: "first"})
@@ -165,6 +172,7 @@ func TestRefreshThrottleAndCompletedCache(t *testing.T) {
 	}
 }
 
+// 守住：上滚阅读时流式 delta 与 resize 都不跳转视口；回到底部后恢复自动跟随。
 func TestScrollFreezeAndResizePreservePosition(t *testing.T) {
 	m, now := streamModel(t)
 	for range 30 {
@@ -191,6 +199,7 @@ func TestScrollFreezeAndResizePreservePosition(t *testing.T) {
 	}
 }
 
+// 守住：阶段文案候选一次选定，tick/resize 不重选也不重置计时；footer 不重复思考标题；缺省文案由 Resolved 补齐。
 func TestStatusCandidatesChosenOnceAndClockNotReset(t *testing.T) {
 	now := time.Now()
 	calls := 0
@@ -218,6 +227,7 @@ func TestStatusCandidatesChosenOnceAndClockNotReset(t *testing.T) {
 	}
 }
 
+// 守住：FirstAnswer 只在正文进入真实 View 帧后触发一次，延迟取首条 delta 时刻。
 func TestFirstAnswerCallbackOnlyOnVisibleTeaViewOnce(t *testing.T) {
 	m, now := streamModel(t)
 	calls := 0
@@ -242,6 +252,7 @@ func TestFirstAnswerCallbackOnlyOnVisibleTeaViewOnce(t *testing.T) {
 	}
 }
 
+// 守住：思考标题携带运行时长且 spinner 前进；答案开始后折叠为 ▸ 并停住 spinner。
 func TestThoughtHeaderCarriesElapsedAndStopsSpinner(t *testing.T) {
 	m, now := streamModel(t)
 	*now = now.Add(time.Second)
@@ -262,14 +273,21 @@ func TestThoughtHeaderCarriesElapsedAndStopsSpinner(t *testing.T) {
 	}
 }
 
+// 守住：sanitize 能剥离非常规序列——冒号参数 SGR、未完成 CSI、DCS 与 C1 单字节 CSI。
 func TestSanitizeIncompleteAndExtendedSequences(t *testing.T) {
-	for _, raw := range []string{"ok\x1b[38:2:1:2:3m", "ok\x1b[123;", "ok\x1bPsecret\x1b\\", "ok\u009b2J"} {
+	for _, raw := range []string{
+		"ok\x1b[38:2:1:2:3m",  // case: 带冒号子参数的 SGR 序列
+		"ok\x1b[123;",         // case: 被截断、缺终结符的 CSI
+		"ok\x1bPsecret\x1b\\", // case: DCS 私有序列
+		"ok\u009b2J",          // case: C1 区单字节 CSI（U+009B）
+	} {
 		if got := sanitize(raw); got != "ok" {
 			t.Fatalf("sanitize(%q) = %q", raw, got)
 		}
 	}
 }
 
+// 守住：显式启用 run_id 后状态栏保留 run ID；窄终端下 elapsed 压缩精度且不溢出。
 func TestFooterPreservesRunIDAndNarrowElapsed(t *testing.T) {
 	m, now := streamModel(t)
 	// 新契约默认隐藏 run ID；开启后仍应保持正确关联。
@@ -295,6 +313,7 @@ func TestFooterPreservesRunIDAndNarrowElapsed(t *testing.T) {
 	}
 }
 
+// 守住：无 run ID 的事件不结束当前 run；答案已开始后迟到的 reasoning 仍归入当前行、不改阶段。
 func TestEmptyRunIDAndLateReasoningDoNotChangeRun(t *testing.T) {
 	m, _ := streamModel(t)
 	send(m, app.Event{Kind: app.EventRunFailed, Err: context.Canceled})
@@ -308,6 +327,7 @@ func TestEmptyRunIDAndLateReasoningDoNotChangeRun(t *testing.T) {
 	}
 }
 
+// 守住：已完成行的 Markdown 渲染缓存不被下一轮 run 触发重解析。
 func TestCompletedHistoricalCacheUnaffectedByNextRun(t *testing.T) {
 	m, _ := streamModel(t)
 	send(m, app.Event{RunID: "r1", Kind: app.EventRunCompleted, Reply: "**old answer**"})
@@ -321,6 +341,7 @@ func TestCompletedHistoricalCacheUnaffectedByNextRun(t *testing.T) {
 	}
 }
 
+// 守住：思考预览先按可见宽度折行再取最后三行，emoji 不被截半。
 func TestThoughtPreviewUsesVisibleWrappedRows(t *testing.T) {
 	raw := "🙂🙂🙂🙂🙂🙂🙂🙂"
 	got := thoughtPreview(raw, 4)
@@ -329,6 +350,7 @@ func TestThoughtPreviewUsesVisibleWrappedRows(t *testing.T) {
 	}
 }
 
+// 守住：表格单元格一律左对齐（忽略对齐语法），窄宽度下宽单元格内容不丢。
 func TestMarkdownTableAlwaysLeftAlignedAndKeepsWideCells(t *testing.T) {
 	raw := "| name | values |\n| :---: | ---: |\n| x | y |\n| longname | z |"
 	v := ansi.Strip(renderMarkdown(raw, 50))
@@ -344,6 +366,7 @@ func TestMarkdownTableAlwaysLeftAlignedAndKeepsWideCells(t *testing.T) {
 	}
 }
 
+// 守住：新 run 尚无思考时 Ctrl+O 不改上一条回复的折叠状态。
 func TestRunningToggleDoesNotChangePreviousThought(t *testing.T) {
 	m, _ := streamModel(t)
 	send(m, app.Event{RunID: "r1", Kind: app.EventRunCompleted, Reply: "done", Reasoning: "prior"})
@@ -354,6 +377,7 @@ func TestRunningToggleDoesNotChangePreviousThought(t *testing.T) {
 	}
 }
 
+// 守住：RunStarted 的 AcceptedAt 只校正计时起点，不重置阶段、思考内容与已选文案。
 func TestAcceptedAtCorrectsClockWithoutResettingPhaseOrChoice(t *testing.T) {
 	m, now := streamModel(t)
 	send(m, app.Event{RunID: "r1", Kind: app.EventReasoningDelta, ReasoningDelta: "thought"})

@@ -6,6 +6,7 @@ import (
 	"testing"
 )
 
+// TestReviewCandidateTypesHaveExactPath 守住错误可定位：候选文案元素类型非法时，错误必须指向 tui.status_messages.waiting[1] 这样的精确路径。
 func TestReviewCandidateTypesHaveExactPath(t *testing.T) {
 	for _, value := range []string{"null", "42", "false", "{}", "[]"} {
 		t.Run(value, func(t *testing.T) {
@@ -19,6 +20,7 @@ func TestReviewCandidateTypesHaveExactPath(t *testing.T) {
 	}
 }
 
+// TestReviewNullPhaseStillFallsBack 守住 null 回退：阶段显式 null 视为未自定义，MessageOverrides 不产出该阶段候选。
 func TestReviewNullPhaseStillFallsBack(t *testing.T) {
 	var cfg Config
 	if err := json.Unmarshal([]byte(`{"schema_version":1,"tui":{"status_messages":{"waiting":null}}}`), &cfg); err != nil {

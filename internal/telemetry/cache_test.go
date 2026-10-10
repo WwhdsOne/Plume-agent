@@ -8,6 +8,9 @@ import (
 	"plume-agent/internal/model"
 )
 
+// TestModelSpanRecordsCachedPromptTokens 守住缓存 token 的如实上报：
+// 有值记值（0 也是已知）、未知记 null，缓存字段不得影响 usage_known 判定，
+// 重复 End 以首个终态为准。
 func TestModelSpanRecordsCachedPromptTokens(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
@@ -48,6 +51,8 @@ func TestModelSpanRecordsCachedPromptTokens(t *testing.T) {
 	}
 }
 
+// TestModelSpanNoResponseRecordsUnknownCache 守住字段在场契约：响应整体缺失
+// （如取消）时终态也要带 cached_prompt_tokens 字段且值为 null，不能悄悄缺字段。
 func TestModelSpanNoResponseRecordsUnknownCache(t *testing.T) {
 	var out bytes.Buffer
 	r := NewModelRecorder(&out)

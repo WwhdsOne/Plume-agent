@@ -23,6 +23,8 @@ func writeSoulForTest(t *testing.T, path, text string) {
 	}
 }
 
+// TestSoulRunSnapshotAndNextRunReload 守住人格的 run 级快照：每 run 只读一次（工具中途改写不影响当前 run），
+// system 拼装恰好一份且占位符不递归展开、正文不进提交历史，下一 run 才重新加载新内容。
 func TestSoulRunSnapshotAndNextRunReload(t *testing.T) {
 	for _, streaming := range []bool{false, true} {
 		t.Run(map[bool]string{false: "generate", true: "stream"}[streaming], func(t *testing.T) {
@@ -77,6 +79,8 @@ func TestSoulRunSnapshotAndNextRunReload(t *testing.T) {
 	}
 }
 
+// TestSoulMissingEmptyAndDisabled 守住人格缺失时的兜底：文件缺失/空白/禁用都不追加标题或空白，
+// system 消息保持纯基础规则；禁用后连非法文件也不读取。
 func TestSoulMissingEmptyAndDisabled(t *testing.T) {
 	for _, state := range []string{"missing", "empty", "whitespace", "disabled"} {
 		t.Run(state, func(t *testing.T) {
@@ -104,6 +108,8 @@ func TestSoulMissingEmptyAndDisabled(t *testing.T) {
 	}
 }
 
+// TestSoulErrorsStopBeforeModel 守住"人格读取失败在发送前失败"：非法 UTF-8、路径是目录、超源限制、
+// 超请求预算、已取消，都不联系模型、不提交历史，错误正确分类且不泄漏人格正文。
 func TestSoulErrorsStopBeforeModel(t *testing.T) {
 	for _, state := range []string{"invalid UTF8", "directory", "source limit", "request budget", "cancelled"} {
 		t.Run(state, func(t *testing.T) {
@@ -149,6 +155,8 @@ func TestSoulErrorsStopBeforeModel(t *testing.T) {
 	}
 }
 
+// TestSoulGenerateStreamRequestsMatchAndTraceIsRedacted 守住 Generate 与 Stream 的人格请求逐字段一致，
+// 且 trace 只记 prompt 版本、不含人格正文与文件路径。
 func TestSoulGenerateStreamRequestsMatchAndTraceIsRedacted(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "soul.md")
 	private := "private-soul-marker-请以简洁中文回答"

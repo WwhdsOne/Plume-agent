@@ -8,6 +8,7 @@ import (
 	"testing"
 )
 
+// 守住：工具 running→completed 复用同一行、摘要经净化无控制序列，过期 run 的工具事件被忽略。
 func TestG3ToolStateUsesOneSafeLeftAlignedLine(t *testing.T) {
 	m := New("fake", Hooks{})
 	m.startRun("r")
@@ -26,6 +27,7 @@ func TestG3ToolStateUsesOneSafeLeftAlignedLine(t *testing.T) {
 	}
 }
 
+// 守住：工具后下一次模型调用尚未上报缓存统计时，上一步的缓存快照不被冲掉。
 func TestG3CacheSnapshotSurvivesNextModelCall(t *testing.T) {
 	m := New("fake", Hooks{})
 	m.startRun("r")
@@ -45,6 +47,7 @@ func TestG3CacheSnapshotSurvivesNextModelCall(t *testing.T) {
 	}
 }
 
+// 守住：思考、工具行与最终答案按事件顺序分行追加，不互相覆盖。
 func TestG3ToolThenFinalAnswerKeepsChronologicalLines(t *testing.T) {
 	m := New("fake", Hooks{})
 	m.startRun("r")

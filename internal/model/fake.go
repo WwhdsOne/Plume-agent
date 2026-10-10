@@ -200,6 +200,9 @@ func newFakeStream(ctx context.Context, script FakeScript) (EventStream, error) 
 	streamCtx, cancel := context.WithCancel(ctx)
 	return &fakeStream{ctx: streamCtx, cancel: cancel, steps: steps, finalErr: script.StreamErr}, nil
 }
+
+// Next 按脚本步进；Wait/Delay 期间同时监听消费方 ctx 与流自身 ctx，
+// 任一取消即以对应分类的错误终态。
 func (s *fakeStream) Next(ctx context.Context) bool {
 	if s.ended {
 		return false
@@ -252,5 +255,9 @@ func (s *fakeStream) Next(ctx context.Context) bool {
 	return true
 }
 func (s *fakeStream) Event() Event { return s.current }
-func (s *fakeStream) Err() error   { s.mu.Lock(); defer s.mu.Unlock(); return s.err }
+
+// Err 返回终态错误；与 Close/fail 并发安全。
+func (s *fakeStream) Err() error { s.mu.Lock(); defer s.mu.Unlock(); return s.err }
+
+// Close 取消流 ctx，让阻塞在 Wait/Delay 上的 Next 尽快返回。
 func (s *fakeStream) Close() error { s.cancel(); return nil }

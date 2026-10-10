@@ -45,6 +45,8 @@ func (s *Session) observeUsage(callID string, usage model.Usage, existingOnly bo
 	s.lastCall = callID
 }
 
+// Statistics 聚合会话内全部调用的用量：未知调用不计入 token 合计；
+// 缓存分子/分母只来自缓存已知的调用；累加溢出时钳到 MaxInt64 并置 Overflow。
 func (s *Session) Statistics() SessionStats {
 	s.mu.Lock()
 	defer s.mu.Unlock()

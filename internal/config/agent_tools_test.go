@@ -8,6 +8,8 @@ import (
 	"testing"
 )
 
+// TestWorkspaceDefaultsPersistAndMigrate 守住工具默认值契约：Save 完整落盘 agent.budget
+// 九键与 tools 默认值；旧配置迁移只补缺失项，用户覆盖/未知字段保留且幂等。
 func TestWorkspaceDefaultsPersistAndMigrate(t *testing.T) {
 	t.Setenv("PLUME_HOME", t.TempDir())
 	cfg := &Config{SchemaVersion: SchemaVersion}
@@ -59,6 +61,8 @@ func TestWorkspaceDefaultsPersistAndMigrate(t *testing.T) {
 	}
 }
 
+// TestWorkspaceConfigRejectsInvalidValues 守住工具配置取值边界：非法值（负预算、null、
+// 未知/重复工具名等）在反序列化阶段拒绝；全零预算与空 enabled（无限/禁用语义）合法。
 func TestWorkspaceConfigRejectsInvalidValues(t *testing.T) {
 	for _, fragment := range []string{
 		`"agent":null`, `"agent":{"budget":null}`, `"agent":{"budget":{"model_calls":-1}}`,

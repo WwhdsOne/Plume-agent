@@ -2,6 +2,7 @@ package provider
 
 import "testing"
 
+// 守住首版预设清单：仅 DeepSeek 与通用 OpenAI 兼容两个预设，且后者的默认 Base URL 必须为空、由用户提供。
 func TestFirstReleasePresets(t *testing.T) {
 	r := NewRegistry()
 	if got := len(r.All()); got != 2 {
@@ -41,6 +42,7 @@ func TestDeferredPresetsAreAbsent(t *testing.T) {
 	}
 }
 
+// ProtocolFor/DefaultBaseURL 对未知预设以 ok=false/空串应答，不得报错或返回猜测值。
 func TestProtocolForAndDefaultBaseURL(t *testing.T) {
 	r := NewRegistry()
 	if p, ok := r.ProtocolFor("deepseek"); !ok || p != "deepseek" {
@@ -57,6 +59,7 @@ func TestProtocolForAndDefaultBaseURL(t *testing.T) {
 	}
 }
 
+// Register 按预设 ID 追加新条目或原位替换旧条目，不得产生重复或改变原有顺序。
 func TestRegisterAddsAndReplacesWithoutDuplicating(t *testing.T) {
 	r := NewRegistry()
 

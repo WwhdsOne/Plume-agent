@@ -29,6 +29,7 @@ type toolCase struct {
 	Tools     int    `json:"tools"`
 }
 
+// G3 工具循环回归集：30 个脚本化用例守住错误分类、模型/工具调用计数、trace 完整与脱敏、失败回合不提交历史。
 func TestG3ToolsDataset(t *testing.T) {
 	raw, err := os.ReadFile(filepath.Join("..", "..", "eval", "datasets", "tools.v1.jsonl"))
 	if err != nil {

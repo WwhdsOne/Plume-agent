@@ -10,6 +10,7 @@ import (
 	"plume-agent/internal/app"
 )
 
+// 守住：代码块内的表格分隔行属于代码正文，不得被 Markdown 表格语法改写。
 func TestReviewTableSeparatorInsideCodeIsUnchanged(t *testing.T) {
 	raw := "```text\n| a | b |\n| ---: | :---: |\n| x | y |\n```"
 	got := ansi.Strip(renderMarkdown(raw, 80))
@@ -18,6 +19,7 @@ func TestReviewTableSeparatorInsideCodeIsUnchanged(t *testing.T) {
 	}
 }
 
+// 守住：临界终端宽度下渲染表格不得截断单元格内容。
 func TestReviewTableBoundaryRetainsEveryCell(t *testing.T) {
 	raw := "| abcdefghijk | 123456 |\n| --- | --- |\n| xy | zz |"
 	got := ansi.Strip(renderMarkdown(raw, 20))
@@ -26,6 +28,7 @@ func TestReviewTableBoundaryRetainsEveryCell(t *testing.T) {
 	}
 }
 
+// 守住：上一轮的流式计时消息不得为新一轮续订计时。
 func TestReviewOldRunTickCannotResubscribe(t *testing.T) {
 	m, _ := streamModel(t)
 	oldTick := nextStreamTick("r1")
@@ -39,6 +42,7 @@ func TestReviewOldRunTickCannotResubscribe(t *testing.T) {
 	}
 }
 
+// 守住：首答案计量以正文真正进入可见帧为准，且一次 run 只计量一次。
 func TestReviewFirstAnswerWaitsForVisibleBodyColumn(t *testing.T) {
 	m, _ := streamModel(t)
 	m.Update(tea.WindowSizeMsg{Width: bodyOffset(), Height: 10})
@@ -59,6 +63,7 @@ func TestReviewFirstAnswerWaitsForVisibleBodyColumn(t *testing.T) {
 	}
 }
 
+// 守住：可见帧里只有空白派生行（空链接）不算答案，正文行进入视野才触发首答案。
 func TestReviewFirstAnswerSkipsVisibleBlankMarkdownRow(t *testing.T) {
 	m, _ := streamModel(t)
 	m.Update(tea.WindowSizeMsg{Width: 40, Height: 3})
@@ -86,6 +91,7 @@ func TestReviewFirstAnswerSkipsVisibleBlankMarkdownRow(t *testing.T) {
 	}
 }
 
+// 守住：折叠把视口夹紧到新底部后阅读冻结仍生效，后续 delta 与 resize 都不移动位置，主动滚回底部才恢复跟随。
 func TestReviewThoughtCollapseKeepsReaderFrozenUntilManualBottom(t *testing.T) {
 	m, now := streamModel(t)
 	m.Update(tea.WindowSizeMsg{Width: 40, Height: 10})
@@ -123,6 +129,7 @@ func TestReviewThoughtCollapseKeepsReaderFrozenUntilManualBottom(t *testing.T) {
 	}
 }
 
+// 守住：外层围栏包住的内层代码围栏属于代码正文，不得额外插入语言标签。
 func TestReviewNestedCodeFencePreservesCodeBody(t *testing.T) {
 	raw := "````markdown\n```go\nx\n```\n````"
 	got := ansi.Strip(renderMarkdown(raw, 60))
@@ -131,6 +138,7 @@ func TestReviewNestedCodeFencePreservesCodeBody(t *testing.T) {
 	}
 }
 
+// 守住：代码围栏尚未闭合时，不得让前文已渲染的 Markdown 退回原始文本。
 func TestReviewOpenCodeFenceDoesNotDisableEarlierMarkdown(t *testing.T) {
 	raw := "下面是 **Python、Java、C++** 三个语言的快速排序实现。\n\n### 1. Python\n```python\ndef quick_sort(arr, low, high):\n    if low < high:\n        return arr"
 	got := ansi.Strip(renderMarkdown(raw, 80))
@@ -144,6 +152,7 @@ func TestReviewOpenCodeFenceDoesNotDisableEarlierMarkdown(t *testing.T) {
 	}
 }
 
+// 守住：代码内容里的 $ 与 HTML 字符不得触发整篇文档的原始 Markdown 回退。
 func TestReviewCodeContentDoesNotTriggerDocumentFallback(t *testing.T) {
 	raw := "## Python\n```python\nprice = '$5'\nprint('<div>')"
 	got := ansi.Strip(renderMarkdown(raw, 80))
@@ -155,6 +164,7 @@ func TestReviewCodeContentDoesNotTriggerDocumentFallback(t *testing.T) {
 	}
 }
 
+// 守住：run 完成后仍未闭合的代码围栏，不得让聊天区整体退回原始 Markdown。
 func TestReviewUnclosedFenceRendersInChatAfterRunCompletes(t *testing.T) {
 	m, _ := streamModel(t)
 	raw := "下面是 **Python、Java、C++** 三个语言。\n\n### 1. Python\n```python\ndef quick_sort(arr):\n    return arr"
@@ -169,6 +179,7 @@ func TestReviewUnclosedFenceRendersInChatAfterRunCompletes(t *testing.T) {
 	}
 }
 
+// 守住：HTML 注释与 CDATA（含未闭合注释）的源文在 Markdown 渲染中不得被丢弃。
 func TestReviewHTMLCommentsAndCDATAPreserveReadableSource(t *testing.T) {
 	for _, raw := range []string{
 		"<!-- keep source -->\nanswer",

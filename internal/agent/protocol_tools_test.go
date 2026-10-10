@@ -11,6 +11,8 @@ import (
 	"testing"
 )
 
+// TestG3SDKToolCycleStreamAndGenerate 用真实 openai-go 适配器守住 SDK 层工具循环：
+// 工具声明随请求下发、续轮请求保留 reasoning 与 tool_call_id 关联，流式与非流式都成立。
 func TestG3SDKToolCycleStreamAndGenerate(t *testing.T) {
 	for _, streaming := range []bool{false, true} {
 		t.Run(fmt.Sprint(streaming), func(t *testing.T) {

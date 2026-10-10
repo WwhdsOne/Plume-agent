@@ -12,6 +12,8 @@ import (
 	"plume-agent/internal/model"
 )
 
+// 守住 DeepSeek 适配器的组合契约：请求必须命中 /chat/completions，
+// provider、protocol 标识与响应正文不因组合而变形。
 func TestDeepseekAdapterComposesCompatibleImplementation(t *testing.T) {
 	// DeepSeek 适配器组合兼容实现；本测试锁定 provider 标识与基本转发，
 	// 供应商差异在后续单元验证后落在本包。
@@ -47,6 +49,8 @@ func TestDeepseekAdapterComposesCompatibleImplementation(t *testing.T) {
 	}
 }
 
+// 守住 Stream 的应答校验：服务端不以 text/event-stream 应答（此处的空
+// 应答）时必须报错，不得静默给出空流。
 func TestDeepseekStreamUnsupported(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	t.Cleanup(srv.Close)
@@ -59,6 +63,9 @@ func TestDeepseekStreamUnsupported(t *testing.T) {
 	}
 }
 
+// 守住 DeepSeek 思考参数的编码契约：thinking.type 随档位启停、effort 档位
+// 映射（medium 归一为 high，none 不发 reasoning_effort）、无工具时历史思考
+// 不回传、响应 reasoning_content 解析进 Message.Reasoning。
 func TestDeepseekReasoningEncodingAndNormalization(t *testing.T) {
 	for _, tc := range []struct {
 		effort        model.ReasoningEffort
@@ -103,6 +110,8 @@ func TestDeepseekReasoningEncodingAndNormalization(t *testing.T) {
 	}
 }
 
+// 守住关闭思考的强校验：ReasoningNone 下服务端仍返回 reasoning_content
+// 必须报 unsupported，不得静默丢弃。
 func TestDeepseekNoneRejectsUnexpectedReasoning(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

@@ -35,6 +35,8 @@ func workspaceService(t *testing.T, client model.Client) (*Service, string, *byt
 	return s, dir, trace
 }
 
+// TestWorkspaceCompleteDevelopmentWorkflow 守住 G3 工具组闭环：/demo workspace 按序执行
+// 六个工具并原子提交整轮历史，文件正文与命令不泄漏进工具摘要和 trace。
 func TestWorkspaceCompleteDevelopmentWorkflow(t *testing.T) {
 	s, dir, trace := workspaceService(t, model.NewToolDemo())
 	if _, err := s.Submit(context.Background(), "/demo workspace"); err != nil {
@@ -82,6 +84,8 @@ func TestWorkspaceCompleteDevelopmentWorkflow(t *testing.T) {
 	}
 }
 
+// TestWorkspaceCancellationKeepsSideEffectsButNotSuccessHistory 守住取消语义：工具副作用
+// （已写入的文件）保留，但不提交成功历史，终态为取消失败。
 func TestWorkspaceCancellationKeepsSideEffectsButNotSuccessHistory(t *testing.T) {
 	call := func(id, name, args string) model.FakeScript {
 		return model.FakeScript{Response: &model.ChatResponse{Message: model.Message{Role: model.RoleAssistant, ToolCalls: []model.ToolCall{{ID: id, Name: name, Arguments: args}}}, FinishReason: model.FinishToolCalls}}

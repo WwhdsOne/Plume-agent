@@ -9,6 +9,8 @@ import (
 	"plume-agent/internal/model"
 )
 
+// TestSessionUsageSnapshotReplacesInsteadOfDoubleCounting 守住用量去重累计：同一调用的快照
+// 按最后一份替换、不重复计数，未知用量只计入调用数；Reset 后归零。
 func TestSessionUsageSnapshotReplacesInsteadOfDoubleCounting(t *testing.T) {
 	s := NewSession()
 	s.ObserveUsage("call-1", model.Usage{})
@@ -26,6 +28,7 @@ func TestSessionUsageSnapshotReplacesInsteadOfDoubleCounting(t *testing.T) {
 	}
 }
 
+// TestCancelledBeforeModelCallDoesNotCount 守住统计口径：模型调用前就取消的 run 不计入调用统计。
 func TestCancelledBeforeModelCallDoesNotCount(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -40,6 +43,8 @@ func TestCancelledBeforeModelCallDoesNotCount(t *testing.T) {
 	}
 }
 
+// TestUsageSnapshotsDoNotAliasCallerPointers 守住快照隔离：指针字段被克隆，会话与调用方、
+// Statistics 返回值之间互不共享可变状态。
 func TestUsageSnapshotsDoNotAliasCallerPointers(t *testing.T) {
 	s := NewSession()
 	cached := int64(2)
@@ -55,6 +60,8 @@ func TestUsageSnapshotsDoNotAliasCallerPointers(t *testing.T) {
 	}
 }
 
+// TestSessionCacheSnapshotsReplaceAndExcludeUnknownInputs 守住缓存口径：缓存 token 按快照
+// 替换累计，缓存未知或非法（超过输入 token）的调用不计入缓存分子与分母；Reset 清零。
 func TestSessionCacheSnapshotsReplaceAndExcludeUnknownInputs(t *testing.T) {
 	s := NewSession()
 	old, updated, zero, invalid := int64(2), int64(8), int64(0), int64(11)
@@ -75,6 +82,8 @@ func TestSessionCacheSnapshotsReplaceAndExcludeUnknownInputs(t *testing.T) {
 	}
 }
 
+// TestSessionCacheOverflowDoesNotWrap 守住溢出行为：累计溢出时钳到 MaxInt64 并置 Overflow
+// 标记，不回绕。
 func TestSessionCacheOverflowDoesNotWrap(t *testing.T) {
 	s := NewSession()
 	large, one := int64(math.MaxInt64), int64(1)

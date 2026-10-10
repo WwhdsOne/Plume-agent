@@ -143,6 +143,7 @@ func TestSplashRendersBoxedSplash(t *testing.T) {
 	}
 }
 
+// 守住：立体字标题按终端宽度取 94/71 两档，左对齐且阴影轮廓与双色完整。
 func TestWordmarkShadow(t *testing.T) {
 	for _, width := range []int{80, 93, 94, 100, 160} {
 		t.Run(fmt.Sprint(width), func(t *testing.T) {

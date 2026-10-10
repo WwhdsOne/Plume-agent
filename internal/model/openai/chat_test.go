@@ -94,6 +94,8 @@ func simpleRequest(modelID string) model.ChatRequest {
 	}
 }
 
+// 守住：Generate 的请求形状（POST /chat/completions、Bearer 认证、model/messages 原样编码）
+// 与响应归一化（content、finish_reason、usage、来源头回填请求 ID、provider/protocol 标识）。
 func TestGenerateAssertsURLAuthModelAndBody(t *testing.T) {
 	srv, cap := captureServer(t, http.StatusOK, completionBody)
 	adapter := newTestAdapter(t, srv.URL)
@@ -139,6 +141,7 @@ func TestGenerateAssertsURLAuthModelAndBody(t *testing.T) {
 	}
 }
 
+// 守住：Base URL 的路径前缀在拼接 /chat/completions 时原样保留，适配器不猜测补 /v1（0003 §4）。
 func TestBaseURLVariantsKeepPathPrefix(t *testing.T) {
 	// 用户配置的路径前缀必须保留，不猜测补 /v1（0003 §4）。
 	cases := []struct {
@@ -164,6 +167,7 @@ func TestBaseURLVariantsKeepPathPrefix(t *testing.T) {
 	}
 }
 
+// 守住：temperature 可选——设置时下发，nil 时请求体省略该字段而非发零值。
 func TestTemperatureOptional(t *testing.T) {
 	srv, cap := captureServer(t, http.StatusOK, completionBody)
 	adapter := newTestAdapter(t, srv.URL)
@@ -189,6 +193,7 @@ func TestTemperatureOptional(t *testing.T) {
 	}
 }
 
+// 守住：工具调用历史按协议编码——assistant 携带 tool_calls、tool 结果带 tool_call_id，保证多轮工具循环可回放。
 func TestToolCallHistoryEncoding(t *testing.T) {
 	srv, cap := captureServer(t, http.StatusOK, completionBody)
 	adapter := newTestAdapter(t, srv.URL)
@@ -226,6 +231,7 @@ func TestToolCallHistoryEncoding(t *testing.T) {
 	}
 }
 
+// 守住：响应缺 usage 字段时用量记为 unknown，不编造任何 token 计数。
 func TestUsageMissingMeansUnknown(t *testing.T) {
 	noUsage := `{"id":"c","choices":[{"finish_reason":"stop","message":{"role":"assistant","content":"x"}}]}`
 	srv, _ := captureServer(t, http.StatusOK, noUsage)
@@ -243,6 +249,7 @@ func TestUsageMissingMeansUnknown(t *testing.T) {
 	}
 }
 
+// 守住：finish_reason 到内部枚举的映射——已知值各归其位，未知与空值归 FinishUnknown 而非报错。
 func TestFinishReasonMapping(t *testing.T) {
 	cases := map[string]model.FinishReason{
 		"stop":           model.FinishStop,
@@ -266,6 +273,7 @@ func TestFinishReasonMapping(t *testing.T) {
 	}
 }
 
+// 守住：choices 多于一项时按 ErrInvalidResponse 拒绝——单轮对话只接受单 choice 响应。
 func TestMultiChoiceRejected(t *testing.T) {
 	twoChoices := `{"id":"c","choices":[{"finish_reason":"stop","message":{"role":"assistant","content":"a"}},{"finish_reason":"stop","message":{"role":"assistant","content":"b"}}]}`
 	srv, _ := captureServer(t, http.StatusOK, twoChoices)
@@ -275,6 +283,7 @@ func TestMultiChoiceRejected(t *testing.T) {
 	assertCode(t, err, model.ErrInvalidResponse)
 }
 
+// 守住：choices 为空数组时拒绝，不把无内容响应当成功。
 func TestEmptyChoicesRejected(t *testing.T) {
 	srv, _ := captureServer(t, http.StatusOK, `{"id":"c","choices":[]}`)
 	adapter := newTestAdapter(t, srv.URL)
@@ -283,6 +292,8 @@ func TestEmptyChoicesRejected(t *testing.T) {
 	assertCode(t, err, model.ErrInvalidResponse)
 }
 
+// 守住：HTTP 状态码到错误码的分类（401/403 认证、429 限流、400 无效响应、5xx 上游），
+// 且错误保留状态码与请求 ID、Summary 必在且永不含密钥。
 func TestHTTPStatusClassification(t *testing.T) {
 	cases := map[int]model.ErrCode{
 		http.StatusUnauthorized:        model.ErrAuthentication,
@@ -317,6 +328,7 @@ func TestHTTPStatusClassification(t *testing.T) {
 	}
 }
 
+// 守住：非 JSON（HTML）与截断 JSON 响应一律按 ErrInvalidResponse 拒绝，不做宽松解析。
 func TestNonJSONAndMalformedResponsesRejected(t *testing.T) {
 	cases := map[string]string{
 		"html body": "<html>under construction</html>",
@@ -332,6 +344,7 @@ func TestNonJSONAndMalformedResponsesRejected(t *testing.T) {
 	}
 }
 
+// 守住：请求超过 context 期限时归为 ErrTimeout，不与取消、上游错误混淆。
 func TestTimeoutClassified(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(2 * time.Second)
@@ -346,6 +359,7 @@ func TestTimeoutClassified(t *testing.T) {
 	assertCode(t, err, model.ErrTimeout)
 }
 
+// 守住：调用方取消 context 时归为 ErrCancelled，与超时区分开。
 func TestCancelClassified(t *testing.T) {
 	started := make(chan struct{})
 	release := make(chan struct{})
@@ -375,6 +389,7 @@ func TestCancelClassified(t *testing.T) {
 	assertCode(t, <-errCh, model.ErrCancelled)
 }
 
+// 守住：不合法的工具声明（缺 object 参数 schema）发送前按 ErrInvalidConfig 拒绝，不发出任何 HTTP。
 func TestInvalidToolDeclarationsRejectedWithoutHTTP(t *testing.T) {
 	srv, cap := captureServer(t, http.StatusOK, completionBody)
 	adapter := newTestAdapter(t, srv.URL)
@@ -388,6 +403,7 @@ func TestInvalidToolDeclarationsRejectedWithoutHTTP(t *testing.T) {
 	}
 }
 
+// 守住：非法请求（空 model、空 messages、未知 role、tool 消息缺 call id）发送前按 ErrInvalidConfig 拒绝。
 func TestInvalidRequestsRejectedWithoutHTTP(t *testing.T) {
 	cases := map[string]model.ChatRequest{
 		"empty model":          {Messages: []model.Message{{Role: model.RoleUser, Content: "x"}}},
@@ -405,6 +421,7 @@ func TestInvalidRequestsRejectedWithoutHTTP(t *testing.T) {
 	}
 }
 
+// 守住：Stream 拒绝以 JSON 应答的非 SSE 响应，不回退到整包解析。
 func TestStreamRejectsNonSSE(t *testing.T) {
 	srv, _ := captureServer(t, http.StatusOK, completionBody)
 	adapter := newTestAdapter(t, srv.URL)

@@ -11,6 +11,8 @@ import (
 	"testing"
 )
 
+// TestLoadPersistsMissingDefaultsWithoutLosingCustomFields 守住默认值补齐迁移：缺失项补默认、
+// 自定义字段与中文文案保留、第二次 Load 不重写文件、权限保持 0600。
 func TestLoadPersistsMissingDefaultsWithoutLosingCustomFields(t *testing.T) {
 	dir := withTempDir(t)
 	path := filepath.Join(dir, "config.json")
@@ -51,6 +53,8 @@ func TestLoadPersistsMissingDefaultsWithoutLosingCustomFields(t *testing.T) {
 	}
 }
 
+// TestDefaultHighDoesNotBreakUnverifiedModel 守住"不盲发显式强度"：默认 high 不落给未验证的
+// custom-openai 未知模型（保持 nil），状态文案默认四阶段照常落盘。
 func TestDefaultHighDoesNotBreakUnverifiedModel(t *testing.T) {
 	withTempDir(t)
 	cfg := &Config{SchemaVersion: SchemaVersion, Models: []ModelConfig{{ID: "proxy", Provider: "custom-openai", Protocol: "openai-compatible", BaseURL: "https://example.com/v1", Model: "unknown"}}}
@@ -70,6 +74,7 @@ func TestDefaultHighDoesNotBreakUnverifiedModel(t *testing.T) {
 	}
 }
 
+// TestLoadKeepsExplicitNone 守住显式关闭优先：reasoning_effort:"none" 不被默认值 high 覆盖。
 func TestLoadKeepsExplicitNone(t *testing.T) {
 	dir := withTempDir(t)
 	path := filepath.Join(dir, "config.json")
@@ -94,6 +99,7 @@ func withTempDir(t *testing.T) string {
 	return dir
 }
 
+// TestDirHonorsPlumeHome 守住解析优先级：设置 PLUME_HOME 时 Dir() 直接采用该目录。
 func TestDirHonorsPlumeHome(t *testing.T) {
 	dir := withTempDir(t)
 	got, err := Dir()
@@ -105,6 +111,7 @@ func TestDirHonorsPlumeHome(t *testing.T) {
 	}
 }
 
+// TestDirExpandsTildeInPlumeHome 守住 ~ 展开：PLUME_HOME 中的 ~ 展开为用户主目录。
 func TestDirExpandsTildeInPlumeHome(t *testing.T) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -120,6 +127,7 @@ func TestDirExpandsTildeInPlumeHome(t *testing.T) {
 	}
 }
 
+// TestDirExpandsEnvVarInPlumeHome 守住变量展开：PLUME_HOME 支持引用其他环境变量拼接路径。
 func TestDirExpandsEnvVarInPlumeHome(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("PLUME_TEST_BASE", dir)
@@ -133,6 +141,7 @@ func TestDirExpandsEnvVarInPlumeHome(t *testing.T) {
 	}
 }
 
+// TestSaveLoadRoundTrip 守住序列化往返：Save 后 Load 得到的配置与写入前深度相等。
 func TestSaveLoadRoundTrip(t *testing.T) {
 	withTempDir(t)
 	in := &Config{
@@ -159,6 +168,7 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	}
 }
 
+// TestLoadMissingFileReportsNotExist 守住缺文件语义：配置不存在时返回 os.ErrNotExist，调用方可据此识别首次安装。
 func TestLoadMissingFileReportsNotExist(t *testing.T) {
 	withTempDir(t)
 	if _, err := Load(); !errors.Is(err, os.ErrNotExist) {
@@ -166,6 +176,7 @@ func TestLoadMissingFileReportsNotExist(t *testing.T) {
 	}
 }
 
+// TestLoadRejectsUnsupportedSchemaWithoutChangingFile 守住 schema 门禁：版本缺失或超前一律拒绝，且拒绝时不改写原文件。
 func TestLoadRejectsUnsupportedSchemaWithoutChangingFile(t *testing.T) {
 	for _, raw := range []string{`{"schema_version":2,"default_model":"main"}`, `{"default_model":"main"}`} {
 		t.Run(raw, func(t *testing.T) {
@@ -185,6 +196,7 @@ func TestLoadRejectsUnsupportedSchemaWithoutChangingFile(t *testing.T) {
 	}
 }
 
+// TestLoadRejectsMalformedJSON 守住语法校验：损坏的 JSON 必须报错。
 func TestLoadRejectsMalformedJSON(t *testing.T) {
 	dir := withTempDir(t)
 	if err := os.WriteFile(filepath.Join(dir, "config.json"), []byte("{not json"), 0o600); err != nil {
@@ -195,6 +207,7 @@ func TestLoadRejectsMalformedJSON(t *testing.T) {
 	}
 }
 
+// TestSaveWritesOwnerOnlyPermissions 守住配置权限位：config.json 仅属主可读写（0600）。
 func TestSaveWritesOwnerOnlyPermissions(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("no POSIX permission bits on windows")
@@ -216,6 +229,7 @@ func TestSaveWritesOwnerOnlyPermissions(t *testing.T) {
 	}
 }
 
+// TestSaveLeavesNoTemporaryFilesBehind 守住原子写入清理：Save 成功后不得残留 .tmp- 临时文件。
 func TestSaveLeavesNoTemporaryFilesBehind(t *testing.T) {
 	dir := withTempDir(t)
 	if err := Save(&Config{SchemaVersion: SchemaVersion}); err != nil {
@@ -232,6 +246,7 @@ func TestSaveLeavesNoTemporaryFilesBehind(t *testing.T) {
 	}
 }
 
+// TestSaveFailureKeepsExistingConfig 守住"写入失败保留原配置"：目录不可写导致 Save 失败时，既有 config.json 一字不改。
 func TestSaveFailureKeepsExistingConfig(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("directory permissions are not enforced the same way on windows")
@@ -270,6 +285,7 @@ func TestSaveFailureKeepsExistingConfig(t *testing.T) {
 	}
 }
 
+// TestWriteFileAtomicFailureLeavesNoTemporaryFiles 守住失败路径清理：rename 失败时同样不得残留临时文件。
 func TestWriteFileAtomicFailureLeavesNoTemporaryFiles(t *testing.T) {
 	dir := withTempDir(t)
 	target := filepath.Join(dir, "config.json")
