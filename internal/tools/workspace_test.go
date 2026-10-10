@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -468,6 +469,176 @@ func TestWorkspaceResultBudgetIncludesLongPathMetadata(t *testing.T) {
 		if !got.OK || len(got.JSON()) > 256 || !got.Truncated {
 			t.Fatalf("%s exceeds result budget: %d %s", name, len(got.JSON()), got.JSON())
 		}
+	}
+}
+
+// TestWorkspaceJSONEscapedLengthMatchesMarshal 守住 jsonEscapedLen 与
+// encoding/json 默认 HTML 转义的逐字节等价：全字节域、多字节、无效 UTF-8
+// 与确定性随机混合序列的 marshal 字节数必须完全一致，clipText 依赖该等价。
+func TestWorkspaceJSONEscapedLengthMatchesMarshal(t *testing.T) {
+	corpus := []string{
+		"", "plain ascii", `quote"backslash\`, "<html>&</html>",
+		"\x00\x01\x02\x1f\x7f", "\n\r\t", "héllo 羽毛 \U0001F426",
+		"\ufffd", "a\xc3b", "mixed 引号\"<>&\x01\xffend",
+		string([]byte{0x80, 0x81}), string([]byte{0xc3, 0x28}),
+		string([]byte{0xe0, 0x80, 0x80}), string([]byte{0xed, 0xa0, 0x80}),
+		string([]byte{0xf5, 0x90}), string([]byte{0xc2}),
+	}
+	for i := range 256 {
+		corpus = append(corpus, string([]byte{byte(i)}))
+	}
+	// 确定性伪随机混合序列：固定种子保证可复现，覆盖随机边界组合。
+	state := uint64(0x9E3779B97F4A7C15)
+	for range 512 {
+		state = state*6364136223846793005 + 1442695040888963407
+		raw := make([]byte, int(state%97)+1)
+		for j := range raw {
+			state = state*6364136223846793005 + 1442695040888963407
+			raw[j] = byte(state >> 33)
+		}
+		corpus = append(corpus, string(raw))
+	}
+	for _, text := range corpus {
+		encoded, err := json.Marshal(text)
+		if err != nil {
+			t.Fatalf("marshal %q: %v", text, err)
+		}
+		if got, want := jsonEscapedLen(text), len(encoded); got != want {
+			t.Fatalf("jsonEscapedLen(%q) = %d, want marshal bytes %d", text, got, want)
+		}
+	}
+}
+
+// referenceRead 逐行重建候选串并经 clipText 探测预算，逐字复刻增量改造前的
+// read 循环；增量实现必须与之输出完全一致，作为等价性基准。
+func referenceRead(lines []string, offset, limit, limitBytes int) (content string, next int, truncated, partialLine bool) {
+	end := offset - 1 + min(len(lines)-(offset-1), limit)
+	var b strings.Builder
+	next = offset
+	for i := offset - 1; i < end; i++ {
+		piece := fmt.Sprintf("%d: %s\n", i+1, lines[i])
+		candidate := b.String() + piece
+		_, cut := clipText(candidate, limitBytes)
+		if cut {
+			truncated = true
+			if b.Len() == 0 {
+				clipped, _ := clipText(piece, limitBytes)
+				b.WriteString(clipped)
+				next = i + 2
+				partialLine = true
+			}
+			break
+		}
+		b.WriteString(piece)
+		next = i + 2
+	}
+	truncated = truncated || next <= len(lines)
+	return b.String(), next, truncated, partialLine
+}
+
+// TestWorkspaceReadMatchesRebuildReference 守住 read 增量预算探测与旧式
+// "逐行重建候选串"的等价：content/next_offset/partial_line/truncated 在
+// 对抗用例与确定性随机组合下必须逐字段一致。
+func TestWorkspaceReadMatchesRebuildReference(t *testing.T) {
+	runCase := func(t *testing.T, lines []string, offset, limit, maxOutput int) {
+		t.Helper()
+		root := t.TempDir()
+		options := DefaultWorkspaceOptions()
+		options.Root, options.MaxOutputBytes = root, maxOutput
+		r, err := NewWorkspace(options)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer r.Close()
+		// 期望口径以文件实际往返为准：尾部空行经 splitLines 会并入行尾，不单列。
+		data := []byte(strings.Join(lines, "\n"))
+		fileLines := splitLines(data)
+		if offset > len(fileLines)+1 {
+			args := fmt.Sprintf(`{"path":"f.txt","offset":%d,"limit":%d}`, offset, limit)
+			if result := r.workspace.read(context.Background(), args); result.OK {
+				t.Fatalf("offset %d beyond %d lines should fail", offset, len(fileLines))
+			}
+			return
+		}
+		if err := os.WriteFile(filepath.Join(root, "f.txt"), data, 0600); err != nil {
+			t.Fatal(err)
+		}
+		args := fmt.Sprintf(`{"path":"f.txt","offset":%d,"limit":%d}`, offset, limit)
+		result := r.workspace.read(context.Background(), args)
+		if !result.OK {
+			t.Fatalf("read failed: %s", result.JSON())
+		}
+		value, _ := result.Value.(map[string]any)
+		if value == nil {
+			t.Fatal("read result has no value map")
+		}
+		wantContent, wantNext, wantTruncated, wantPartial := referenceRead(fileLines, offset, limit, r.workspace.textLimit())
+		if got := value["content"]; got != wantContent {
+			t.Fatalf("content mismatch:\ngot  %q\nwant %q", got, wantContent)
+		}
+		if got := value["next_offset"]; got != wantNext {
+			t.Fatalf("next_offset = %v, want %v", got, wantNext)
+		}
+		if got := value["total_lines"]; got != len(fileLines) {
+			t.Fatalf("total_lines = %v, want %d", got, len(fileLines))
+		}
+		if result.Truncated != wantTruncated || value["partial_line"] != wantPartial {
+			t.Fatalf("truncated=%v partial_line=%v, want %v/%v", result.Truncated, value["partial_line"], wantTruncated, wantPartial)
+		}
+	}
+
+	midLines := make([]string, 24)
+	for i := range midLines {
+		midLines[i] = strings.Repeat("y", 30)
+	}
+	for _, test := range []struct {
+		name                     string
+		lines                    []string
+		offset, limit, maxOutput int
+	}{
+		{"plain_fits", []string{"alpha", "beta", "gamma"}, 1, 200, 32768},
+		// case: 预算在中途耗尽，break 丢弃当行。
+		{"overflow_mid", midLines, 1, 200, 200},
+		// case: 转义密集的超长首行触发 partial_line（转义预算先于原始字节耗尽）。
+		{"oversize_first_escaped", []string{strings.Repeat(`"`, 500), "tail"}, 1, 200, 200},
+		// case: 原始字节先于转义耗尽的超长首行。
+		{"oversize_first_raw", []string{strings.Repeat("x", 500), "tail"}, 1, 200, 100},
+		{"cjk_emoji_escape", []string{"羽毛🐦引号\"<>&", strings.Repeat("羽", 80), "\x01ctrl", ""}, 1, 200, 150},
+		{"empty_file", nil, 1, 200, 32768},
+		{"single_line", []string{"only"}, 1, 200, 32768},
+		{"middle_offset", midLines, 15, 3, 32768},
+		// case: offset 指向尾后空页，next_offset 不前进。
+		{"tail_page", midLines, 25, 200, 32768},
+		{"limit_one", midLines, 2, 1, 64},
+		// case: 极小预算下转义与原始预算同时吃紧。
+		{"tiny_budget", []string{`a"b\c<d>e&f`, "second"}, 1, 200, 24},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			runCase(t, test.lines, test.offset, test.limit, test.maxOutput)
+		})
+	}
+
+	// 确定性随机组合：固定种子覆盖随机边界（字符池含转义、控制符与多字节）。
+	alphabet := []string{"x", `"`, `\`, "<", ">", "&", "\x01", "羽", "🐦", ""}
+	state := uint64(0x2545F4914F6CDD1D)
+	pick := func(n int) int {
+		state = state*6364136223846793005 + 1442695040888963407
+		return int(state>>33) % n
+	}
+	outputs := []int{20, 40, 100, 512, 32768}
+	for iteration := range 300 {
+		lines := make([]string, pick(25))
+		for i := range lines {
+			lines[i] = ""
+			for range pick(51) {
+				lines[i] += alphabet[pick(len(alphabet))]
+			}
+		}
+		offset, limit := 1+pick(len(lines)+1), 1+pick(10)
+		name := fmt.Sprintf("random/%d", iteration)
+		t.Run(name, func(t *testing.T) {
+			runCase(t, lines, offset, limit, outputs[pick(len(outputs))])
+		})
 	}
 }
 

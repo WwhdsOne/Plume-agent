@@ -3,7 +3,6 @@ package tools
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -156,19 +155,37 @@ func (w *workspace) boundResult(result Result) Result {
 		text, _ = clipText(text, max(0, available))
 		value[field] = text
 	}
-	if matches, ok := value["matches"].([]searchMatch); ok {
-		for len(matches) > 0 && len(result.JSON()) > budget {
-			matches = matches[:len(matches)-1]
-			value["matches"] = matches
-			value["count"] = len(matches)
+	if matches, ok := value["matches"].([]searchMatch); ok && len(matches) > 0 && len(result.JSON()) > budget {
+		// JSON 体积随保留元素数单调不增；二分收敛到预算内可保留的最大数量，
+		// 代替逐个丢弃时每步的全量重序列化。
+		lo, hi := 0, len(matches)-1
+		for lo < hi {
+			keep := (lo + hi + 1) / 2
+			value["matches"] = matches[:keep]
+			value["count"] = keep
+			if len(result.JSON()) <= budget {
+				lo = keep
+			} else {
+				hi = keep - 1
+			}
 		}
+		value["matches"] = matches[:lo]
+		value["count"] = lo
 	}
-	if paths, ok := value["paths"].([]string); ok {
-		for len(paths) > 0 && len(result.JSON()) > budget {
-			paths = paths[:len(paths)-1]
-			value["paths"] = paths
-			value["count"] = len(paths)
+	if paths, ok := value["paths"].([]string); ok && len(paths) > 0 && len(result.JSON()) > budget {
+		lo, hi := 0, len(paths)-1
+		for lo < hi {
+			keep := (lo + hi + 1) / 2
+			value["paths"] = paths[:keep]
+			value["count"] = keep
+			if len(result.JSON()) <= budget {
+				lo = keep
+			} else {
+				hi = keep - 1
+			}
 		}
+		value["paths"] = paths[:lo]
+		value["count"] = lo
 	}
 	if len(result.JSON()) > budget {
 		result.Value = map[string]any{"output_omitted": true}
@@ -284,11 +301,12 @@ func (w *workspace) loadText(ctx context.Context, path string) ([]byte, os.FileI
 }
 
 // clipText 同时限制原始字节和 JSON 转义字节，截断保持 UTF-8 完整。
+// 转义字节数经 jsonEscapedLen 零分配扫描得出，替代早期实现的逐次 json.Marshal 探测。
 func clipText(text string, limit int) (string, bool) {
 	if limit < 0 {
 		limit = 0
 	}
-	fits := func(s string) bool { b, _ := json.Marshal(s); return len(s) <= limit && len(b) <= limit }
+	fits := func(s string) bool { return len(s) <= limit && jsonEscapedLen(s) <= limit }
 	if fits(text) {
 		return text, false
 	}
@@ -305,6 +323,53 @@ func clipText(text string, limit int) (string, bool) {
 		lo--
 	}
 	return text[:lo], true
+}
+
+// jsonASCIIEscapeLen 给出每个 ASCII 字节经 json.Marshal 输出的字节数：
+// 原样为 1，短转义（" \ 与 \b\f\n\r\t）为 2，\uXXXX（其余控制字符与 <>&）为 6。
+// 查表替代逐字节比较链，避免高频探测时劣于原 json.Marshal 的吞吐。
+var jsonASCIIEscapeLen = func() [256]int8 {
+	var table [256]int8
+	for i := range table {
+		switch byte(i) {
+		case '"', '\\', '\b', '\f', '\n', '\r', '\t':
+			table[i] = 2
+		default:
+			if i < 0x20 || i == '<' || i == '>' || i == '&' {
+				table[i] = 6
+			} else {
+				table[i] = 1
+			}
+		}
+	}
+	return table
+}()
+
+// jsonEscapedLen 计算 json.Marshal(s) 的确切字节数（含两侧引号），与
+// encoding/json 默认 HTML 转义逐分支一致：引号、反斜杠与 \b\f\n\r\t 为两字节，
+// 其余控制字符、<>& 与 U+2028/U+2029 各转成六字节 \uXXXX；无效 UTF-8 字节
+// 按现行实现替换为原始 U+FFFD 字符（三字节，非六字节转义），其余原样输出。
+// 等价性由 TestWorkspaceJSONEscapedLengthMatchesMarshal 守住。
+func jsonEscapedLen(s string) int {
+	n := 2
+	for i := 0; i < len(s); {
+		if c := s[i]; c < utf8.RuneSelf {
+			n += int(jsonASCIIEscapeLen[c])
+			i++
+			continue
+		}
+		r, size := utf8.DecodeRuneInString(s[i:])
+		switch {
+		case r == utf8.RuneError && size == 1:
+			n += 3
+		case r == '\u2028' || r == '\u2029':
+			n += 6
+		default:
+			n += size
+		}
+		i += size
+	}
+	return n
 }
 func (w *workspace) textLimit() int {
 	limit := max(min(w.options.MaxOutputBytes, w.options.ResultBytes-512), 1)
@@ -360,17 +425,21 @@ func (w *workspace) read(ctx context.Context, raw string) Result {
 	next := offset
 	truncated := false
 	partialLine := false
+	limitBytes := w.textLimit()
+	// 预算探测用增量计数：转义长度逐段可加（每段以 ASCII 行号前缀开头、以 \n
+	// 结尾，段边界不会拼接出新的多字节序列；loadText 已保证全文合法 UTF-8），
+	// 避免每行为一次 fits 判断重建整个候选串。usedEsc 含外层引号，从 2 起算。
+	usedRaw, usedEsc := 0, 2
 	for i := offset - 1; i < end; i++ {
 		if ctx.Err() != nil {
 			return Result{Code: "cancelled"}
 		}
 		piece := fmt.Sprintf("%d: %s\n", i+1, lines[i])
-		candidate := b.String() + piece
-		_, cut := clipText(candidate, w.textLimit())
-		if cut {
+		pieceEsc := jsonEscapedLen(piece) - 2
+		if usedRaw+len(piece) > limitBytes || usedEsc+pieceEsc > limitBytes {
 			truncated = true
 			if b.Len() == 0 {
-				clipped, _ := clipText(piece, w.textLimit())
+				clipped, _ := clipText(piece, limitBytes)
 				b.WriteString(clipped)
 				next = i + 2
 				// 极长首行只能返回前缀，next_offset 跳到下一行；没有字节级续读，须明确标记。
@@ -379,6 +448,8 @@ func (w *workspace) read(ctx context.Context, raw string) Result {
 			break
 		}
 		b.WriteString(piece)
+		usedRaw += len(piece)
+		usedEsc += pieceEsc
 		next = i + 2
 	}
 	content := b.String()
