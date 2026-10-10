@@ -1,7 +1,7 @@
 ---
 title: Agent 上下文与工具请求拼装契约
 status: active
-updated: 2026-10-09
+updated: 2026-10-10
 summary: G3/G3.1 tools 已通过；G3.2 接入 soul 人格，长期记忆、MCP 与 skill 继续预留
 ---
 
@@ -9,7 +9,7 @@ summary: G3/G3.1 tools 已通过；G3.2 接入 soul 人格，长期记忆、MCP 
 
 用户于 2026-10-08 确认：prompt 拼装应提前考虑 `soul.md`、人格、长期记忆、MCP tools 和 skill，当时只授权基础 tools。本文同时记录当前接入边界与后续规划，未实现来源不因写在模板中而具备能力。
 
-2026-10-09：用户审核通过 G3/G3.1，基础规则/会话/tools 拼装与六种开发工具循环已实现，见 [现行契约](../specs/agent/tools.md) 和 [审核记录](../reviews/G3.1.md)。用户随后明确授权 G3.2 人格初始化与读取，见 [人格契约](../specs/agent/soul.md) 与 [实施计划](2026-10-09-soul-context.md)。记忆、MCP 与 skill 仍仅规划；必要历史组超限明确拒绝，不静默裁剪，未实现 token 估算器。
+2026-10-09：用户审核通过 G3/G3.1，基础规则/会话/tools 拼装与六种开发工具循环已实现，见 [现行契约](../specs/agent/tools.md) 和 [审核记录](../reviews/G3.1.md)。G3.2 人格初始化与读取于 2026-10-10 审核通过，见 [人格契约](../specs/agent/soul.md) 与 [归档实施计划](../archive/plans/2026-10-09-soul-context.md)。记忆、MCP 与 skill 仍仅规划；必要历史组超限明确拒绝，不静默裁剪，未实现 token 估算器。
 
 关联：[第一阶段 G3](phase-01-tui.md)、[模型运行时决策](../decisions/0003-model-runtime.md)。
 

@@ -1,7 +1,7 @@
 ---
 title: AGENTS.md
 status: active
-updated: 2026-10-09
+updated: 2026-10-10
 summary: 仓库长期快照：语言约定、审核制度、架构边界、codegraph MCP、依赖与文档维护规则；动手前必读
 ---
 
@@ -21,7 +21,7 @@ This file provides guidance to CodeBuddy Code when working with code in this rep
 
 `plume-agent`：用 Go 构建的个人 Agent，首版入口是 **TUI 聊天界面**，不是微信登录。模型层传输与协议解析采用 **OpenAI 官方 Go SDK（openai-go）**，其上以协议适配器归一化（为未来 Anthropic/Gemini 协议预留同一接口），Agent 循环自研，不引入 Eino。微信 iLink Bot、飞书、QQ 属于后续渠道扩展。目标是展示完整执行链路与可复现的量化改造收益。
 
-上述是 2026-10-06 更新的目标架构；G0 至 G1b.4、G3/G3.1 已通过（G1b.4、G3/G3.1 于 2026-10-09 审核通过）。实际实现与设计差异见「当前进度与禁区」，以 `docs/decisions/0003-model-runtime.md` 为新路线依据。文档索引见 `docs/index.md`。
+上述是 2026-10-06 更新的目标架构；G0 至 G1b.4、G3/G3.1/G3.2 已通过（G1b.4、G3/G3.1 于 2026-10-09、G3.2 于 2026-10-10 审核通过）。实际实现与设计差异见「当前进度与禁区」，以 `docs/decisions/0003-model-runtime.md` 为新路线依据。文档索引见 `docs/index.md`。
 
 模块名是 `plume-agent`，CLI 命令名是 `plume`。
 
@@ -108,7 +108,7 @@ codegraph uninit        # 删 .codegraph/
 
 实施顺序：已通过 `G0` / `G1a` / `G1b.1` / `G1b.2`（含 .1/.2.1/.2.2）/ `G1b.3` / `G1b.4` / `G3` / `G3.1`。用户于 2026-10-09 审核通过 G3.1 六种开发工具和可配置宽松预算，包含其基础 G3 工具循环，并授权提交推送；不自动推进渠道/记忆/技能。
 
-用户随后明确授权 `G3.2`（soul.md 初始化与上下文拼装）；已交付待审核。用户于 2026-10-09 另行授权将本单元及随后状态栏调整提交推送；提交不改变待审核状态，也不自动推进记忆/MCP/skill。
+用户随后明确授权 `G3.2`（soul.md 初始化与上下文拼装），于 2026-10-09 提交推送、2026-10-10 审核通过。实施计划已归档至 `docs/archive/plans/2026-10-09-soul-context.md`，审核窗口证据按 runbook 删除；不自动推进记忆/MCP/skill。
 
 之后另行授权第二阶段：`G2a.1`（扫码登录）→ `G2a.2`（真实收发）→ `G2b`（可靠性）。保留原编号含义，G3 前移，不按数字自动推进。`G4a/G4b/G5/G6` 作为后续记忆、压缩、技能与实验路线储备。没有微信配置不得阻塞未来 TUI 启动。
 

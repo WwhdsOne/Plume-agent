@@ -1,13 +1,13 @@
 ---
 title: G3.2 人格初始化与上下文拼装实施计划
-status: active
-updated: 2026-10-09
-summary: 将 soul.md 默认配置、setup 幂等初始化和每 run 人格快照接入现有工具循环
+status: historical
+updated: 2026-10-10
+summary: G3.2 已于 2026-10-10 通过；保留人格初始化和每 run 快照的完成步骤
 ---
 
 # G3.2 人格初始化与上下文拼装实施计划
 
-> 执行方式：使用 subagent-driven-development 或 executing-plans 逐项实施并验证；用户已于 2026-10-09 明确授权实现，不再等待方案确认。完成本单元后停在待审核，不自动提交推送或推进记忆、MCP、skill。
+> 历史完成计划：用户于 2026-10-09 授权实现，2026-10-10 审核通过；现行行为以人格契约为准。本文保留实施步骤，不作为重新开工或推进记忆/MCP/skill 的授权。
 
 **目标：** setup 生成可编辑的 `soul.md`，在线 Agent 每次 run 准备时读取一次，并在同一工具循环内复用人格快照。
 
@@ -15,7 +15,7 @@ summary: 将 soul.md 默认配置、setup 幂等初始化和每 run 人格快照
 
 **技术栈：** 现有 Go 标准库、schema v1 原子配置持久化、现有 Agent/模型契约；不引入依赖。
 
-关联：[人格契约](../specs/agent/soul.md)、[上下文规划](agent-context.md)、[第一阶段计划](phase-01-tui.md)、[模型决策](../decisions/0003-model-runtime.md)。
+关联：[人格契约](../../specs/agent/soul.md)、[上下文规划](../../plans/agent-context.md)、[第一阶段计划](../../plans/phase-01-tui.md)、[模型决策](../../decisions/0003-model-runtime.md)。
 
 ## 1. 配置与路径
 
@@ -76,4 +76,4 @@ tools = {tool} + {mcp}
 - [x] 新建 `docs/reviews/G3.2.md`（pending-review），在 roadmap 数据增加 G3.2；当日记录追加到 `docs/daily/2026-10-09.md`，保留原日志。
 - [x] 执行 `rtk go test -race ./...`、`rtk go vet ./...`、`rtk proxy gofmt -l .`、`rtk git diff --check` 和 `rtk proxy ./scripts/build.sh`，保存真实结果。
 - [x] 在临时 `PLUME_HOME` 验证 setup 默认资产、用户修改与再次 setup、在线请求 fake 成功/读取失败 trace；`--offline` 不依赖人格。记录实际命令、路径与结果，不用本地 fixture 推断真实供应商性能。
-- [x] 交付本闭环并停止，等待用户审核 G3.2；交付后用户另行授权提交推送，审核状态不变。
+- [x] 交付后按用户授权提交推送，2026-10-10 用户审核通过；计划归档，审核窗口证据清理，不推进下一来源。

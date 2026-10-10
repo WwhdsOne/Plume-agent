@@ -1,3 +1,0 @@
-{"level": "info", "ts": "2026-10-09T22:13:04.764+0800", "msg": "run_started", "run_id": "run-000001", "accepted_at": "2026-10-09T22:13:04.764+0800"}
-{"level": "info", "ts": "2026-10-09T22:13:04.764+0800", "msg": "run_phase", "run_id": "run-000001", "phase": "preparing"}
-{"level": "info", "ts": "2026-10-09T22:13:04.764+0800", "msg": "run_ended", "run_id": "run-000001", "status": "error", "error_code": "invalid_config", "duration_ms": 0.343667, "preparation_ms": 0.343667, "first_reasoning_ms": null, "first_answer_ms": null, "reasoning_bytes": 0, "answer_bytes": 0}
