@@ -39,7 +39,7 @@ func TestWorkspaceBashKillsRealChildOnTimeoutAndAfterExit(t *testing.T) {
 				break
 			}
 			if time.Now().After(deadline) {
-				syscall.Kill(pid, syscall.SIGKILL)
+				_ = syscall.Kill(pid, syscall.SIGKILL)
 				t.Fatalf("child %d remained alive: %s", pid, status)
 			}
 			time.Sleep(10 * time.Millisecond)

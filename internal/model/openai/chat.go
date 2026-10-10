@@ -275,10 +275,10 @@ func (a *Adapter) wrap(ctx context.Context, err error, httpResp *http.Response) 
 	}
 	if mErr, ok := errors.AsType[*model.Error](err); ok {
 		if mErr.Provider == "" {
-			mErr.WithProvider(a.provider, model.ProtocolOpenAIChatCompletions)
+			mErr = mErr.WithProvider(a.provider, model.ProtocolOpenAIChatCompletions)
 		}
 		if mErr.StatusCode == 0 {
-			mErr.WithStatus(statusOf(httpResp))
+			mErr = mErr.WithStatus(statusOf(httpResp))
 		}
 		return mErr
 	}

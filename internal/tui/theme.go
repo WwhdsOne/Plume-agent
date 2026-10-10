@@ -50,9 +50,6 @@ func markdownStyles() glamouransi.StyleConfig {
 	}
 }
 
-//go:fix inline
-func ptr[T any](v T) *T { return new(v) }
-
 // 语义色（不占用主题色）：错误红、提示黄、中性暗灰。
 var (
 	colorError  = lipgloss.Color("9")

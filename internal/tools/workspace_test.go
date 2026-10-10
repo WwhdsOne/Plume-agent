@@ -272,7 +272,9 @@ func TestWorkspaceReadEscapingPaginationAndLongLineProgress(t *testing.T) {
 		t.Fatal(err)
 	}
 	got = toolCall(t, r, "read", map[string]any{"path": "long"})
-	json.Unmarshal([]byte(got.JSON()), &envelope)
+	if err := json.Unmarshal([]byte(got.JSON()), &envelope); err != nil {
+		t.Fatal(err)
+	}
 	if envelope.Value.Next != 2 {
 		t.Fatalf("long line cannot progress: %s", got.JSON()[:min(200, len(got.JSON()))])
 	}

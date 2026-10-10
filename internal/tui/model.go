@@ -232,8 +232,8 @@ func (m *Model) inputCursor() *tea.Cursor {
 		return nil
 	}
 	info := m.input.LineInfo()
-	c.Position.X += max(info.ColumnOffset-info.CharOffset, 0)
-	c.Position.Y += m.viewport.Height() + 1
+	c.X += max(info.ColumnOffset-info.CharOffset, 0)
+	c.Y += m.viewport.Height() + 1
 	return c
 }
 

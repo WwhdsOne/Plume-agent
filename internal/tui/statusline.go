@@ -227,12 +227,13 @@ func (m *Model) cacheValue(barWidth int) (string, bool) {
 				ratio = float64(cached) / float64(prompt) * 100
 			}
 			p := percent(ratio)
-			if cfg.CacheFormat == "bar" {
+			switch cfg.CacheFormat {
+			case "bar":
 				bar := tokenBar(ratio/100, min(barWidth, cfg.CacheBar.Width), cfg.CacheBar.Style)
 				text = fmt.Sprintf("%s%.1f%% %s/%s", bar, ratio, formatToken(cached, cfg.TokenFormat), formatToken(prompt, cfg.TokenFormat))
-			} else if cfg.CacheFormat == "ratio" {
+			case "ratio":
 				text = p
-			} else {
+			default:
 				text += " (" + p + ")"
 			}
 		} else if cfg.CacheFormat == "ratio" || cfg.CacheFormat == "bar" {

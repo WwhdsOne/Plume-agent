@@ -63,7 +63,7 @@ func TestAdaptiveRowsKeepFrameAndInputCursorAligned(t *testing.T) {
 	m, _ = m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 	for _, git := range []string{"main", strings.Repeat("b", 72), "main"} {
 		m, _ = m.Update(WorkspaceEvent{app.WorkspaceStatus{Dir: "/workspace", Git: git}})
-		if len(strings.Split(m.View(), "\n")) != 24 || m.inputCursor().Position.Y != 24-m.statusRows()-2 {
+		if len(strings.Split(m.View(), "\n")) != 24 || m.inputCursor().Y != 24-m.statusRows()-2 {
 			t.Fatal("status row transition moved frame height or input cursor")
 		}
 	}
@@ -91,7 +91,7 @@ func TestAdaptiveRowsAfterInputGrowAtThoughtBoundary(t *testing.T) {
 	m.input.SetValue("first")
 	m, _ = m.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyEnter, Mod: tea.ModAlt}))
 	for range 3 {
-		cursorY := m.inputCursor().Position.Y
+		cursorY := m.inputCursor().Y
 		if len(strings.Split(m.View(), "\n")) != 24 || cursorY < m.viewport.Height()+1 || cursorY >= m.viewport.Height()+1+m.input.Height() {
 			t.Fatalf("frame layout mismatch: rows=%d viewport=%d input=%d", m.statusRows(), m.viewport.Height(), m.input.Height())
 		}
@@ -493,7 +493,7 @@ func TestHiddenStatusShowsSubmissionAndRunFailureWhileReadingHistory(t *testing.
 					m.submitInput()
 				} else {
 					m.startRun("r")
-					var err error = errors.New("backend failed")
+					err := errors.New("backend failed")
 					if failure == "cancel" {
 						err = context.Canceled
 					}

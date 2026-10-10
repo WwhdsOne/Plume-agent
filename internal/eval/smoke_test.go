@@ -43,7 +43,6 @@ type smokeExpect struct {
 }
 
 const (
-	fixtureContent = "pong from smoke fixture"
 	// fakeKey 只用于验证 trace 脱敏，与真实凭据无关。
 	fakeKey = "sk-smoke-secret-key-never-leak"
 )

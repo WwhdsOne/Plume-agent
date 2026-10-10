@@ -42,19 +42,19 @@ func TestInputCursorFollowsCaret(t *testing.T) {
 	if c == nil {
 		t.Fatal("inputCursor = nil, want cursor at caret (virtual cursor disabled)")
 	}
-	if want := m.viewport.Height() + 1; c.Position.Y != want {
-		t.Errorf("cursor Y = %d, want %d (viewport height + separator)", c.Position.Y, want)
+	if want := m.viewport.Height() + 1; c.Y != want {
+		t.Errorf("cursor Y = %d, want %d (viewport height + separator)", c.Y, want)
 	}
 	// 提示符（"┃ "）占 2 列 + 默认行号列占 3 列 + 两个半宽字符
-	if want := 2 + 3 + 2; c.Position.X != want {
-		t.Errorf("cursor X = %d, want %d (prompt + line number + typed columns)", c.Position.X, want)
+	if want := 2 + 3 + 2; c.X != want {
+		t.Errorf("cursor X = %d, want %d (prompt + line number + typed columns)", c.X, want)
 	}
 
 	// 中文双宽字符按显示列宽计算，候选窗跟随列位置而非字符数
 	m.input.SetValue("你好")
 	m.resize()
 	c = m.inputCursor()
-	if want := 2 + 3 + 4; c.Position.X != want {
-		t.Errorf("cursor X with CJK = %d, want %d (prompt + line number + 2 double-width runes)", c.Position.X, want)
+	if want := 2 + 3 + 4; c.X != want {
+		t.Errorf("cursor X with CJK = %d, want %d (prompt + line number + 2 double-width runes)", c.X, want)
 	}
 }

@@ -19,7 +19,6 @@ var (
 	styleStatusLabel     = lipgloss.NewStyle().Foreground(themePrimary).Bold(true)
 	styleStatusSeparator = lipgloss.NewStyle().Foreground(themeDark)
 	styleNotice          = lipgloss.NewStyle().Foreground(colorNotice)
-	styleRunning         = lipgloss.NewStyle().Foreground(themeDark) // running 强调
 	// styleSeparator 渲染输入区上下分隔线（用户要求醒目标出输入框，
 	// 用主题主色；语义色不占用主题色，横线属于装饰性主题元素）。
 	styleSeparator = lipgloss.NewStyle().Foreground(themePrimary)

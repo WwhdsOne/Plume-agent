@@ -19,7 +19,7 @@ import (
 	"unicode/utf8"
 )
 
-var stopSearch = errors.New("search limit reached")
+var errStopSearch = errors.New("search limit reached")
 
 func ignoredSearchPath(path string) bool {
 	for part := range strings.SplitSeq(filepath.ToSlash(path), "/") {
@@ -183,18 +183,18 @@ func (w *workspace) glob(ctx context.Context, raw string) Result {
 		}
 		if len(paths) >= limit {
 			truncated = true
-			return stopSearch
+			return errStopSearch
 		}
 		candidate := append(paths, filepath.ToSlash(file))
 		b, _ := json.Marshal(candidate)
 		if len(b) > w.textLimit() {
 			truncated = true
-			return stopSearch
+			return errStopSearch
 		}
 		paths = candidate
 		return nil
 	})
-	if err != nil && !errors.Is(err, stopSearch) {
+	if err != nil && !errors.Is(err, errStopSearch) {
 		return fileFailure(err)
 	}
 	sort.Strings(paths)
@@ -367,7 +367,7 @@ func (w *workspace) grep(ctx context.Context, raw string) Result {
 			}
 			if len(matches) >= limit {
 				truncated = true
-				return stopSearch
+				return errStopSearch
 			}
 			text, cut := clipText(lines[i], w.textLimit()/2)
 			match := searchMatch{Path: filepath.ToSlash(file), Line: i + 1, Content: text}
@@ -391,13 +391,13 @@ func (w *workspace) grep(ctx context.Context, raw string) Result {
 			}
 			if !fits {
 				truncated = true
-				return stopSearch
+				return errStopSearch
 			}
 			matches = append(matches, match)
 		}
 		return nil
 	})
-	if err != nil && !errors.Is(err, stopSearch) {
+	if err != nil && !errors.Is(err, errStopSearch) {
 		return fileFailure(err)
 	}
 	result := grepResult(matches, statistics, engine, truncated)

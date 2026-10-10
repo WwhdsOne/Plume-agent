@@ -31,6 +31,7 @@ This file provides guidance to CodeBuddy Code when working with code in this rep
 go build ./...                 # 编译全部
 go vet ./...                   # 静态检查
 gofmt -l .                     # 列出未格式化文件（应为空）
+go tool golangci-lint run      # 核心 lint 集（规则见 .golangci.yml）；提交前应 0 issues
 go test ./...                  # 全部测试
 go test -race ./...            # 竞态检测；提交前应通过
 go test ./internal/config -run TestSaveFailureKeepsExistingConfig   # 单个测试
@@ -285,6 +286,8 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 v1 栈（`github.com/charmbracelet/{bubbletea,bubbles,lipgloss,huh}`）已于 G1b.2.1 全部移除，`rg 'github.com/charmbracelet/(bubbletea|bubbles|lipgloss|huh)'` 应为空。
 
 新增依赖应发生在对应单元，并记录**版本锁定与兼容性验证**。体积与依赖增量不单独记录，**也不得用体积数字填充指标表**——性能一律以 `docs/specs/metrics.md` 的延迟/成功率指标为准。2026-10-06 的路线切换同步只移除了代码中的 Eino 元数据/注释（`Preset.Component` 等），没有安装依赖或变更 `go.mod`。**模型传输已拍板 OpenAI 官方 Go SDK（`github.com/openai/openai-go`，锁定 v1.12.0，2026-10-06 决策），替代早先的 Resty 方案（原 v2/v3 比较作废）。SDK 自动重试必须显式禁用（默认 2 次），DeepSeek 与自定义兼容服务同走 `openai-chat-completions` 协议适配器。**
+
+`go.mod` 另有一条 **`tool` 指令**（构建工具，不进二进制）：`golangci-lint`，用 `go tool golangci-lint run` 调用，版本随 go.mod 锁定；规则集在仓库根 `.golangci.yml`（只启用核心集，要求零告警，`std-error-handling` 预设放行 `defer Close`/`Fprintf` 这类标准写法）。
 
 ### 与需求文档的常见偏差
 

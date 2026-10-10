@@ -65,7 +65,7 @@ func (p *prompter) InputBaseURL(initial string, required bool) (string, error) {
 	if required {
 		field = field.Validate(func(s string) error {
 			if strings.TrimSpace(s) == "" {
-				return errors.New("Base URL 不能为空")
+				return errors.New("base URL 不能为空")
 			}
 			return nil
 		})
@@ -142,7 +142,7 @@ func (p *prompter) InputSecret(label string, hasExisting bool) (string, bool, er
 	value := ""
 	field := huh.NewInput().
 		Title(label).
-		Password(true).
+		EchoMode(huh.EchoModePassword).
 		Value(&value)
 	if hasExisting {
 		field = field.Description("已有密钥；直接回车保留原值")

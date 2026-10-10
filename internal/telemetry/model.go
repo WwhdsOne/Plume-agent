@@ -131,17 +131,6 @@ func (s *ModelSpan) End(resp *model.ChatResponse, err error) {
 	})
 }
 
-// maxModelErrorLogRunes 限制非分类错误进入 trace 的长度。
-const maxModelErrorLogRunes = 512
-
-func truncate(s string, n int) string {
-	runes := []rune(s)
-	if len(runes) <= n {
-		return s
-	}
-	return string(runes[:n]) + "…"
-}
-
 // Close 刷出缓冲并关闭 sink。
 func (r *ModelRecorder) Close() error {
 	_ = r.logger.Sync()

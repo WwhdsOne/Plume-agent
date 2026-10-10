@@ -137,7 +137,8 @@ func (w *workspace) atomicWrite(ctx context.Context, path string, data []byte, m
 	if err != nil {
 		return fileFailure(err)
 	}
-	defer w.root.Remove(temporary)
+	// 临时文件是尽力清理：失败也由上层在下次写入时重建，不改变本次结果。
+	defer func() { _ = w.root.Remove(temporary) }()
 	if err = f.Chmod(mode); err == nil {
 		_, err = f.Write(data)
 	}

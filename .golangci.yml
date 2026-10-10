@@ -1,0 +1,27 @@
+# golangci-lint v2 配置。
+#
+# 只启用能长期保持零告警的核心集：不追求规则数量，而要求 `run` 永远干净，
+# 这样它才能作为提交前门槛（见 AGENTS.md「常用命令」）。
+# 运行方式：go tool golangci-lint run（版本锁定在 go.mod 的 tool 指令）
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - errcheck      # 未处理的 error 返回值
+    - govet         # 标准 vet 检查
+    - ineffassign   # 无效赋值
+    - misspell      # 英文拼写（中文注释不受影响）
+    - staticcheck   # SA/ST/QF 静态分析
+    - unused        # 未使用的标识符
+
+  exclusions:
+    # 官方预设：std-error-handling 放行"无处可处理"的标准写法
+    # （defer f.Close()、fmt.Fprintf 到 stdout、os.Remove 清理等）。
+    # 其余 error 一律要求显式处理；本仓库不使用其他排除规则。
+    presets:
+      - std-error-handling
+
+formatters:
+  enable:
+    - gofmt

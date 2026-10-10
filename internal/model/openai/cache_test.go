@@ -22,9 +22,6 @@ func assertCachedPromptTokens(t *testing.T, usage model.Usage, want *int64) {
 	}
 }
 
-//go:fix inline
-func cacheCount(n int64) *int64 { return new(n) }
-
 // 每份 HTTP fixture 都走真实 SDK 的 Generate 与 Stream 两种解析路径。
 func exerciseCacheFixture(t *testing.T, usage string, deepseek bool) (model.Usage, model.Usage) {
 	t.Helper()

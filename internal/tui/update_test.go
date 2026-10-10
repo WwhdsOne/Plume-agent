@@ -285,7 +285,7 @@ func TestCtrlCThreeStage(t *testing.T) {
 	var cancels atomic.Int64
 	m := newTestModel(t, Hooks{Cancel: func() { cancels.Add(1) }})
 	m.startRun("run-000001")
-	updated, cmd := m.Update(ctrlKey('c'))
+	_, cmd := m.Update(ctrlKey('c'))
 	if cmd == nil {
 		t.Fatal("ctrl+c while running must cancel")
 	}
@@ -297,7 +297,7 @@ func TestCtrlCThreeStage(t *testing.T) {
 	// 第二段：idle 有草稿清空草稿（不退出）
 	m.endRun()
 	m.input.SetValue("draft here")
-	updated, cmd = m.Update(ctrlKey('c'))
+	updated, cmd := m.Update(ctrlKey('c'))
 	m = updated
 	if cmd != nil {
 		t.Error("ctrl+c with draft must not quit")
