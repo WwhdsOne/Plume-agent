@@ -186,7 +186,6 @@ func newFakeStream(ctx context.Context, script FakeScript) (EventStream, error) 
 		appendText(EventReasoningDelta, r.Message.Reasoning)
 		appendText(EventTextDelta, r.Message.Content)
 		for i, call := range r.Message.ToolCalls {
-			call := call
 			steps = append(steps, FakeStep{Event: Event{Kind: EventToolDelta, ToolIndex: i, ToolCall: &call}})
 		}
 		if r.Usage.OK || r.Usage.CachedPromptTokens != nil {

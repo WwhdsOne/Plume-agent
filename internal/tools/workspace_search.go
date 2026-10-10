@@ -22,7 +22,7 @@ import (
 var stopSearch = errors.New("search limit reached")
 
 func ignoredSearchPath(path string) bool {
-	for _, part := range strings.Split(filepath.ToSlash(path), "/") {
+	for part := range strings.SplitSeq(filepath.ToSlash(path), "/") {
 		switch part {
 		case ".git", ".plume", "node_modules", ".venv", "venv", "__pycache__", ".codegraph":
 			return true
@@ -453,7 +453,7 @@ func rgMatchingLines(ctx context.Context, rg string, data []byte, pattern string
 	}
 	numbers := []int{}
 	previous := -1
-	for _, line := range strings.Split(output.String(), "\n") {
+	for line := range strings.SplitSeq(output.String(), "\n") {
 		prefix, _, ok := strings.Cut(line, ":")
 		if !ok {
 			continue

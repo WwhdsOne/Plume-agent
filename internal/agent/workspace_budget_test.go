@@ -13,7 +13,7 @@ import (
 func TestWorkspaceDefaultsAllowMoreThanEightSteps(t *testing.T) {
 	for _, streaming := range []bool{false, true} {
 		scripts := make([]model.FakeScript, 0, 13)
-		for i := 0; i < 12; i++ {
+		for i := range 12 {
 			scripts = append(scripts, model.FakeScript{Response: &model.ChatResponse{Message: model.Message{Role: model.RoleAssistant, ToolCalls: []model.ToolCall{{ID: fmt.Sprint(i), Name: "current_time", Arguments: `{}`}}}, FinishReason: model.FinishToolCalls}})
 		}
 		scripts = append(scripts, finalScript("finished"))
@@ -75,7 +75,7 @@ func TestWorkspaceUnlimitedRunRemainsCancellable(t *testing.T) {
 
 func TestWorkspaceStepLimitIsIndependentOfUnlimitedTotal(t *testing.T) {
 	calls := []model.ToolCall{}
-	for i := 0; i < 9; i++ {
+	for i := range 9 {
 		calls = append(calls, model.ToolCall{ID: fmt.Sprintf("c%d", i), Name: "current_time", Arguments: `{}`})
 	}
 	first := model.FakeScript{Response: &model.ChatResponse{Message: model.Message{Role: model.RoleAssistant, ToolCalls: calls}, FinishReason: model.FinishToolCalls}}

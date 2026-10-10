@@ -23,7 +23,7 @@ func TestWorkspaceDemoDeclaresCompleteWorkflow(t *testing.T) {
 	demo := NewToolDemo()
 	messages := []Message{{Role: RoleUser, Content: "/demo workspace"}}
 	names := []string{}
-	for i := 0; i < 7; i++ {
+	for range 7 {
 		response, err := demo.Generate(context.Background(), ChatRequest{Messages: messages})
 		if err != nil {
 			t.Fatal(err)
@@ -42,7 +42,7 @@ func TestWorkspaceDemoDeclaresCompleteWorkflow(t *testing.T) {
 func TestWorkspaceBudgetDemoTerminatesWithUnlimitedDefaults(t *testing.T) {
 	demo := NewToolDemo()
 	messages := []Message{{Role: RoleUser, Content: "/demo budget"}}
-	for i := 0; i < 13; i++ {
+	for i := range 13 {
 		response, err := demo.Generate(context.Background(), ChatRequest{Messages: messages})
 		if err != nil {
 			t.Fatal(err)

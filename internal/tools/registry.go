@@ -123,12 +123,11 @@ func decodeArguments(raw string, out any) error {
 	}
 	typeOf = typeOf.Elem()
 	allowed := make(map[string]bool, typeOf.NumField())
-	for i := 0; i < typeOf.NumField(); i++ {
-		field := typeOf.Field(i)
+	for field := range typeOf.Fields() {
 		if field.PkgPath != "" {
 			continue
 		}
-		name := strings.Split(field.Tag.Get("json"), ",")[0]
+		name, _, _ := strings.Cut(field.Tag.Get("json"), ",")
 		if name == "-" {
 			continue
 		}

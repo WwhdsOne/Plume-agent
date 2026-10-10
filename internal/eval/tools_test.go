@@ -133,7 +133,7 @@ func TestG3ToolsDataset(t *testing.T) {
 				}
 			}
 			starts, ends, toolStarts, toolEnds := 0, 0, 0, 0
-			for _, entry := range strings.Split(strings.TrimSpace(trace.String()), "\n") {
+			for entry := range strings.SplitSeq(strings.TrimSpace(trace.String()), "\n") {
 				var e map[string]any
 				if json.Unmarshal([]byte(entry), &e) != nil {
 					t.Fatal("invalid trace JSON")

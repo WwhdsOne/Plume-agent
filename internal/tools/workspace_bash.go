@@ -118,8 +118,7 @@ func (w *workspace) bash(ctx context.Context, raw string) Result {
 	exitCode := 0
 	if err != nil {
 		exitCode = -1
-		var exit *exec.ExitError
-		if errors.As(err, &exit) {
+		if exit, ok := errors.AsType[*exec.ExitError](err); ok {
 			exitCode = exit.ExitCode()
 		}
 	}
@@ -132,9 +131,8 @@ func (w *workspace) bash(ctx context.Context, raw string) Result {
 		result.OK = false
 		result.Code = "timeout"
 	} else if err != nil {
-		var exit *exec.ExitError
 		result.OK = false
-		if !errors.As(err, &exit) {
+		if _, ok := errors.AsType[*exec.ExitError](err); !ok {
 			result.Code = "shell_error"
 		} else {
 			result.Code = "command_failed"

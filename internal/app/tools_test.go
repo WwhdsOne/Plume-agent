@@ -91,7 +91,7 @@ func TestG3DeadlineStartsBeforeStartedEventDelivery(t *testing.T) {
 	runtime.SetLimits(limits)
 	s := NewService(runtime)
 	defer s.Close()
-	for i := 0; i < eventBuffer; i++ {
+	for range eventBuffer {
 		s.events <- Event{Kind: EventRunPhase}
 	}
 	if _, err := s.Submit(context.Background(), "task"); err != nil {

@@ -111,9 +111,9 @@ func (d *ToolDemo) Stream(ctx context.Context, req ChatRequest) (EventStream, er
 		return nil, err
 	}
 	if response.FinishReason == FinishStop {
-		for i := len(req.Messages) - 1; i >= 0; i-- {
-			if req.Messages[i].Role == RoleUser {
-				if strings.TrimSpace(req.Messages[i].Content) == "/demo cancel" {
+		for _, v := range slices.Backward(req.Messages) {
+			if v.Role == RoleUser {
+				if strings.TrimSpace(v.Content) == "/demo cancel" {
 					return newFakeStream(ctx, FakeScript{Stream: []FakeStep{{Event: Event{Kind: EventTextDelta, TextDelta: response.Message.Content}, Delay: 30 * time.Second}, {Event: Event{Kind: EventModelDone, FinishReason: FinishStop}}, {Event: Event{Kind: EventStreamEnded}}}})
 				}
 				break

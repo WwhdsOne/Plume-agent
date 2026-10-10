@@ -155,7 +155,7 @@ func TestWordmarkShadow(t *testing.T) {
 			if width < 94 {
 				wantWidth = 71
 			}
-			for i := 0; i < 6; i++ {
+			for i := range 6 {
 				row := stripANSI(lines[i].text)
 				if got := lipgloss.Width(row); got != wantWidth || got > width {
 					t.Errorf("row %d width = %d, want %d within %d", i, got, wantWidth, width)

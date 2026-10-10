@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -105,9 +106,7 @@ func NewWorkspace(options WorkspaceOptions) (*Registry, error) {
 		"write": {Name: "write", Description: "Atomically create a workspace UTF-8 file, creating parent directories. Existing files require overwrite=true and a prior read of unchanged content. Preserves existing permissions and rejects symlink destinations.", Parameters: `{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"},"overwrite":{"type":"boolean","description":"Default false. Existing content must have been read and remain unchanged."}},"required":["path","content"],"additionalProperties":false}`, Execute: w.write},
 		"bash":  {Name: "bash", Description: "Execute an explicitly supplied foreground command using the configured local non-interactive shell (default bash). cwd is workspace or its subdirectory. This is not a shell sandbox: commands can access the host. Sensitive environment variables are removed. Returns combined bounded output, exit_code, elapsed_ms and truncation; cancellation/timeout kills the process group on Unix.", Parameters: fmt.Sprintf(`{"type":"object","properties":{"command":{"type":"string","minLength":1},"workdir":{"type":"string","description":"Workspace-relative directory, default ."},"timeout_seconds":{"type":"integer","minimum":1,"default":%d,"description":"Positive command timeout; outer tool timeout still applies."}},"required":["command"],"additionalProperties":false}`, options.BashTimeoutSeconds), Execute: w.bash},
 	}
-	for name, d := range Builtins(time.Now).definitions {
-		available[name] = d
-	}
+	maps.Copy(available, Builtins(time.Now).definitions)
 	var definitions []Definition
 	seen := map[string]bool{}
 	for _, name := range options.Enabled {
@@ -308,10 +307,7 @@ func clipText(text string, limit int) (string, bool) {
 	return text[:lo], true
 }
 func (w *workspace) textLimit() int {
-	limit := min(w.options.MaxOutputBytes, w.options.ResultBytes-512)
-	if limit < 1 {
-		limit = 1
-	}
+	limit := max(min(w.options.MaxOutputBytes, w.options.ResultBytes-512), 1)
 	return limit
 }
 
