@@ -509,7 +509,8 @@ func TestRunWorkspaceGitUsesFixedDirectoryArgumentsAndNoLocks(t *testing.T) {
 }
 
 // TestWatchWorkspaceCancellationReapsGitProcess 守住进程回收：取消 Watch 时杀掉仍在运行的
-// git 子进程，不留孤儿。
+// git 子进程，不留孤儿。这里等待 PID 后主动取消；Git 期限另有独立测试，
+// 不让一秒启动/采集期限在 race 或繁忙机器上抢先触发，误测成启动调度能力。
 func TestWatchWorkspaceCancellationReapsGitProcess(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("shell process fixture is POSIX only")
@@ -520,19 +521,19 @@ func TestWatchWorkspaceCancellationReapsGitProcess(t *testing.T) {
 	t.Setenv("PATH", binDir)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	updates := WatchWorkspace(ctx, WorkspaceOptions{Dir: dir, GitEnabled: true, GitTimeout: time.Second})
-	deadline := time.Now().Add(time.Second)
+	updates := WatchWorkspace(ctx, WorkspaceOptions{Dir: dir, GitEnabled: true, GitTimeout: 10 * time.Second})
+	deadline := time.Now().Add(5 * time.Second)
 	var pidBytes []byte
+	var lastReadErr error
 	for time.Now().Before(deadline) {
-		var err error
-		pidBytes, err = os.ReadFile(pidPath)
-		if err == nil && len(pidBytes) > 0 {
+		pidBytes, lastReadErr = os.ReadFile(pidPath)
+		if lastReadErr == nil && len(pidBytes) > 0 {
 			break
 		}
 		time.Sleep(time.Millisecond)
 	}
 	if len(pidBytes) == 0 {
-		t.Fatal("Git subprocess did not start")
+		t.Fatalf("Git subprocess did not start within test startup budget: last PID read error = %v, context error = %v", lastReadErr, ctx.Err())
 	}
 	pid, err := strconv.Atoi(string(pidBytes))
 	if err != nil {

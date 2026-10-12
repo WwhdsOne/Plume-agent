@@ -58,9 +58,12 @@ func newRootCmd() *cobra.Command {
 				return errors.New("plume needs an interactive terminal; try `plume chat --offline` for scripted output")
 			}
 			// 配置就绪且在 TTY：模仿 Hermes，零参数直接进入聊天。
-			return startChat(out, chatOptions{})
+			continueRecent, _ := cmd.Flags().GetBool("continue")
+			return startChat(out, chatOptions{continueRecent: continueRecent})
 		},
 	}
+	// -c 只挂在根命令与 chat 上；setup/config/version 不继承（普通 flag）。
+	root.Flags().BoolP("continue", "c", false, "resume the most recent session in this workspace (requires persisted history)")
 	root.AddCommand(newSetupCmd(), newChatCmd(), newConfigCmd(), newVersionCmd())
 	return root
 }

@@ -101,11 +101,11 @@ class Fixture(BaseHTTPRequestHandler):
 
 
 class Terminal:
-    def __init__(self, binary, work, env, width, height, offline=False):
+    def __init__(self, binary, work, env, width, height, offline=False, args=None):
         self.width, self.height = width, height
         self.master, slave = pty.openpty()
         fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", height, width, 0, 0))
-        command = [str(binary), "chat"] + (["--offline"] if offline else [])
+        command = [str(binary), "chat"] + (["--offline"] if offline else []) + [str(a) for a in (args or [])]
         self.process = subprocess.Popen(command, stdin=slave, stdout=slave, stderr=slave, cwd=work, env=env)
         os.close(slave)
         self.raw = bytearray()

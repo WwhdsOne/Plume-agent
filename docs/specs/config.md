@@ -1,8 +1,8 @@
 ---
 title: 配置契约（schema v1）
 status: active
-updated: 2026-10-09
-summary: 配置目录解析、原子持久化、凭据边界与 v1 字段总览；含 soul.md 人格默认配置
+updated: 2026-10-11
+summary: 配置目录解析、原子持久化、凭据边界与 v1 字段总览；含人格与持久历史默认配置
 ---
 
 # 配置契约（schema v1）
@@ -21,6 +21,7 @@ summary: 配置目录解析、原子持久化、凭据边界与 v1 字段总览�
 ~/.plume/
   config.json          # 含 schema_version，非敏感
   soul.md              # setup 初始化的人格模板，0600；用户可编辑
+  sessions/            # 新目录0700；history.db、辅助及锁文件0600，含聊天正文
   credentials/         # 0700，文件 0600
   logs/                # 0700；setup.jsonl 等结构化 trace，文件 0600
 ```
@@ -58,6 +59,7 @@ PLUME_HOME=$(mktemp -d) go run ./cmd/plume config show
 | `agent.budget` | 模型/工具次数、单响应工具数、请求/参数/结果字节与整体/单步超时；完整默认落盘，零次数/整体时长表示不限 |
 | `agent.soul` | enabled、path、max_bytes；默认开启、配置目录相对 soul.md、65536 字节；完整默认落盘 |
 | `tools` | workspace、enabled、read_lines、search_results、max_file_bytes、max_output_bytes、shell；允许空许可列表关闭工具 |
+| `sessions` | history.enabled/path、page_size、shutdown_timeout_ms；持久历史、后续分页与完整退出收尾期限 |
 
 易混点：`provider` 是品牌、`protocol` 是适配选择器、`model` 是发给供应商的 API 模型名——三者在 `internal/provider` 工厂里映射，配置 ID（`id`）不参与请求。
 
@@ -119,3 +121,26 @@ model_calls/tool_calls/run_timeout_seconds 的 0 表示无限；其他数值为�
 path 相对配置目录解析，支持 `~`、环境变量及绝对路径；与 `tools.workspace` 从启动目录解析的规则不同。path 原值及展开后必须非空且不含 Unicode 控制字符，max_bytes 范围1..8388608（最多8MiB）。agent.soul 对象及三个已知字段缺失/null 均补默认，类型错误拒绝；显式空路径/0 不被默认替代，按非法值拒绝。enabled:false 时不初始化或读取人格文件，仍保留 path/max_bytes 设置。
 
 Load 只补配置，不创建 soul.md。setup 保存模型成功后以无覆盖原子发布初始化默认文件，新文件0600；已有文件（包括空文件）不覆盖。在线每 run preparing 读取一次，缺失/空白跳过，读取失败或超限在首次模型调用前失败；正文不出现在 config show 或 trace。完整文件行为、快照与执行边界见 [人格契约](agent/soul.md)。
+
+## 7. 历史会话默认配置（G4a.1，待审核）
+
+Save 和旧配置首次 Load 会实际写入以下默认值；setup 不增加问题。sessions/history 对象及已知字段缺失或 null 均补默认，显式 false、自定义值及未知字段保留。Save 与 Load 使用相同校验，失败时保留原配置文件。
+
+```json
+{
+  "sessions": {
+    "history": {
+      "enabled": true,
+      "path": "sessions/history.db"
+    },
+    "page_size": 20,
+    "shutdown_timeout_ms": 5000
+  }
+}
+```
+
+history.path 相对配置目录解析，支持 `~`、环境变量与绝对路径；原值和展开结果必须非空且不含控制字符。page_size 范围 1..100，当前只校验与落盘，G4a.2 才消费分页。shutdown_timeout_ms 范围 1000..60000，约束整个聊天退出收尾（取消、等待 run、终态保存与资源关闭），禁用历史时仍生效；超时返回错误并保留仍在使用的资源及数据库锁，等待进程退出释放，不能提前交给第二进程。
+
+enabled:false 不创建数据库，`-c` 明确报禁用错误；offline 不读配置、不持久化。数据库及锁/辅助文件要求 0600，默认目录 0700；按真实路径统一识别锁，拒绝硬链接别名与非普通文件。正文仅存私密历史库，凭据不进库，正文与凭据不进 trace。
+
+恢复加载受两类安全上限约束：每个加载结果最多 min(agent.budget.request_bytes,8MiB) 正文字节、10000 条记录；每份消息 JSON 展开前累计数组元素最多 10000，旧格式同样受限。超限拒绝恢复，不截断工具组或静默开新会话；这不是自动上下文压缩。消息使用独立 v1 DTO，兼容旧数组时校验角色、完整工具组与终态关联。使用与报错排查见 [TUI runbook](../runbooks/tui.md)，修复与验证见 [G4a.1 修复复审](../reviews/G4a.1-fixes-2026-10-11.md)。

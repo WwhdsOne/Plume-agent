@@ -1,7 +1,7 @@
 ---
 title: 第二阶段：渠道网关接入计划
 status: active
-updated: 2026-10-07
+updated: 2026-10-11
 summary: 第二阶段草案：微信扫码、真实收发、消息可靠性；第一阶段通过后另行授权
 ---
 
@@ -36,6 +36,8 @@ plume gateway status   # 脱敏连接状态及最近收发时间
 
 这些命令尚未实现。裸 `plume` 仍以 TUI 为默认入口，不因用户保存过微信配置而自动启动网关。首版不承诺 TUI 和网关跨进程同时写同一会话存储；如需同时运行须增加所有权/锁定审核。
 
+2026-10-11 的 [历史会话与统一指令方案](2026-10-10-session-history-commands.md) 提议先由 G4a.1/G4a.2 建立存储及公共路由，方案尚待审核。若先获准实施，G2a.2 直接复用会话管理与 `/help`、`/new`、`/resume` 等处理器，平台只做鉴权、身份/消息归一化和渲染；G2b 在同一数据库上补可靠性迁移。公共语义中的群聊/飞书/QQ 只是规划及 fake 覆盖，不扩展本阶段真实接入范围。
+
 ## 3. 模块与可靠性约束
 
 - 渠道注册项包含稳定 ID、名称、可用状态、设置流程、Adapter 工厂及能力说明。新增测试渠道可复用 app/agent，不在运行时增加品牌分支。
@@ -64,7 +66,7 @@ plume gateway status   # 脱敏连接状态及最近收发时间
 
 **拟改文件：** `internal/channel/{message,registry}.go`、`internal/channel/wechat/adapter.go`、`internal/app/{service,session}.go`、`cmd/plume/gateway.go`、对应 `_test.go`、`docs/runbooks/wechat.md`。
 
-- [ ] 实现 gateway start、长轮询、会话映射、文本发送和按账号/对话保存回复上下文。
+- [ ] 实现 gateway start、长轮询、会话映射、文本发送和按账号/对话保存回复上下文；接入已审核的公共会话/指令服务，验证管理指令不进入模型请求、不可访问本地 TUI 历史、重复命令不修改另一会话。
 - [ ] 通过 `model_ref` 使用第一阶段工厂与运行时；用测试渠道验证无微信字段泄漏到 Agent/TUI 模型契约。
 - [ ] 覆盖正常空轮询、网络/限流退避、无效凭证、模型超时、发送失败；不同类型的重试各自测试。
 - [ ] 完成至少 10 条真实消息闭环，保留脱敏回执和 trace；只作为连通性证据，不宣称 p95 显著改善或生产可靠性。
@@ -73,6 +75,8 @@ plume gateway status   # 脱敏连接状态及最近收发时间
 ### G2b：消息可靠性与会话隔离
 
 **拟改文件：** `internal/store/sqlite.go`、`internal/store/migrations/001_messages.sql`、`internal/app/{inbox,worker,session_queue,delivery}.go`、对应 `_test.go`。
+
+若 G4a 历史存储已先行建立，复用其存储接口与迁移版本序列，上述 `001_messages.sql` 仅为旧规划示意，不能覆盖现有版本或再建立第二套聊天库。同库多进程运行须先将首版整库独占升级为可验证的会话执行所有权，再开放 TUI/gateway 并发。
 
 - [ ] 先制定状态转移表，再实现入站/运行/出站持久化、同批消息与游标的事务、去重、有界 worker 和可恢复任务。
 - [ ] 注入入站落盘后崩溃、模型完成后崩溃、发送响应丢失，分别验证恢复与未知投递；已完成 Agent 不因发送失败重复执行。

@@ -389,6 +389,47 @@ func TestAcceptedAtCorrectsClockWithoutResettingPhaseOrChoice(t *testing.T) {
 	}
 }
 
+// 守住：恢复转录（`-c` 路径）预置进记录区——类别、净化与终态标记正确，
+// 不污染输入草稿历史，视口落在底部。
+func TestInitialTranscriptRestoresLines(t *testing.T) {
+	now := time.Date(2026, 10, 11, 0, 0, 0, 0, time.UTC)
+	m := NewWithOptions("test/model", Hooks{}, Options{
+		Clock:  func() time.Time { return now },
+		Choose: func(int) int { return 0 },
+		InitialTranscript: []TranscriptLine{
+			{Kind: TranscriptSystem, Text: "Resumed session abc12345 · 2 runs"},
+			{Kind: TranscriptUser, Text: "past question"},
+			{Kind: TranscriptAssistant, Text: "partial answer", Terminal: "cancelled"},
+			{Kind: TranscriptUser, Text: "escape\x1b]11;?input"},
+		},
+	})
+	m.width, m.height = 40, 20
+	m.resize()
+	if len(m.lines) != 4 {
+		t.Fatalf("lines = %d, want 4", len(m.lines))
+	}
+	if m.lines[0].kind != lineSystem || !strings.Contains(m.lines[0].text, "Resumed session") {
+		t.Fatalf("system line = %+v", m.lines[0])
+	}
+	if m.lines[1].kind != lineUser || m.lines[1].text != "past question" {
+		t.Fatalf("user line = %+v", m.lines[1])
+	}
+	if m.lines[2].kind != lineAssistant || m.lines[2].terminal != "cancelled" {
+		t.Fatalf("assistant line = %+v", m.lines[2])
+	}
+	// 控制序列经 sanitize 过滤，不进入记录区。
+	if strings.ContainsRune(m.lines[3].text, '\x1b') {
+		t.Fatalf("escape sequence leaked into transcript: %q", m.lines[3].text)
+	}
+	// 恢复转录不进入 Up/Down 草稿历史（那是 UI 层当次会话状态）。
+	if len(m.history) != 0 {
+		t.Fatalf("draft history polluted by transcript: %v", m.history)
+	}
+	if !m.viewport.AtBottom() {
+		t.Fatal("viewport must land at bottom after transcript restore")
+	}
+}
+
 func BenchmarkMarkdown(b *testing.B) {
 	for _, size := range []int{1024, 10240, 102400} {
 		b.Run(fmt.Sprintf("%dKiB", size/1024), func(b *testing.B) {

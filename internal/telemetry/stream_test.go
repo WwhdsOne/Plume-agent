@@ -15,13 +15,13 @@ import (
 func TestStreamMetricsContainNoContentAndUnknownIsNull(t *testing.T) {
 	var out bytes.Buffer
 	r := NewModelRecorder(&out)
-	r.RunStart("r", time.Now())
+	r.RunStart("sess", "r", time.Now())
 	r.RunPhase("r", "waiting")
 	s := r.StartModel("r/model-1", "fake", model.ProtocolOpenAIChatCompletions, "m")
 	s.Reasoning(ReasoningInfo{Requested: "none", Source: "configured", Effective: "none", Capability: "verified"})
 	s.Observe(model.Event{Kind: model.EventTextDelta, TextDelta: "private secret"})
 	s.End(&model.ChatResponse{Message: model.Message{Content: "private secret"}}, nil)
-	r.RunEnd("r", RunMetrics{Duration: time.Millisecond}, nil)
+	r.RunEnd("sess", "r", RunMetrics{Duration: time.Millisecond}, nil)
 	if strings.Contains(out.String(), "private secret") {
 		t.Fatal("trace contains response content")
 	}

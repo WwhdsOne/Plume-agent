@@ -35,7 +35,7 @@ type workspace struct {
 	// mu 串行保护先读后改检查、文件发布与关闭；搜索和 Shell 不持有此锁。
 	mu sync.Mutex
 	// seen 保存本注册表内 read 取得的全文摘要，分页/截断也按全文计算；写入成功后失效。
-	// 它不随 run 自动清空，因此每次覆盖仍须核对当前内容，不能把旧摘要当作文件锁。
+	// 它不随 run 自动清空；会话切换时必须清空，每次覆盖仍核对当前内容，不能当作文件锁。
 	seen   map[string][32]byte
 	closed bool
 }
@@ -206,6 +206,23 @@ func (r *Registry) Close() error {
 	}
 	w.closed = true
 	return w.root.Close()
+}
+
+// ResetSessionState 清除先读后改摘要，保留许可、根句柄和工具配置。
+// 调用方必须先确认没有执行中的 run；mu 只保证内存与关闭安全，不能使
+// 并发工具跨会话具有正确顺序。已关闭工作区拒绝切换，让 app 保留旧会话。
+func (r *Registry) ResetSessionState() error {
+	if r == nil || r.workspace == nil {
+		return nil
+	}
+	w := r.workspace
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.closed {
+		return errors.New("workspace is closed")
+	}
+	clear(w.seen)
+	return nil
 }
 
 // Workspace 返回实际解析后的绝对工作目录；无工作区的注册表返回空字符串。

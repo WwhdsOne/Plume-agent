@@ -204,7 +204,7 @@ func TestSplashNarrowFallback(t *testing.T) {
 // TestSplashOnlyOnce：开屏只出现一次；新会话不复活，后续 resize 不重排。
 func TestSplashOnlyOnce(t *testing.T) {
 	var resets atomic.Int64
-	m := newTestModel(t, Hooks{ResetSession: func() { resets.Add(1) }})
+	m := newTestModel(t, Hooks{ResetSession: func() error { resets.Add(1); return nil }})
 	m.SetSplash(Splash{Version: "v0.1.0 (abc1234)", Label: "test/model"})
 
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})

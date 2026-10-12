@@ -1,7 +1,7 @@
 ---
 title: 文档索引
 status: active
-updated: 2026-10-10
+updated: 2026-10-12
 summary: docs 结构的唯一入口：按意图分类的索引、当前状态速览、旧路径映射表与新增文档规则
 ---
 
@@ -29,7 +29,8 @@ docs/
 ├── plans/              计划——"将要做什么"
 │   ├── phase-01-tui.md        第一阶段
 │   ├── phase-02-channel.md    第二阶段（渠道网关，另行授权）
-│   └── agent-context.md       Agent 上下文与 tools 拼装规划
+│   ├── agent-context.md       Agent 上下文与 tools 拼装规划
+│   └── 2026-10-10-session-history-commands.md  历史会话与统一指令（G4a.1 已通过，G4a.2 已授权）
 ├── decisions/          决策记录（ADR，编号不复用）
 │   ├── 0001-scope.md
 │   ├── 0002-wechat.md
@@ -51,19 +52,24 @@ docs/
 | 知道某个决定的理由 | `decisions/` |
 | 知道某单元做了什么、限制是什么 | `reviews/Gx.md` |
 | 检查工具实现与注释的自审结论 | [tools 自审](reviews/tools-audit-2026-10-10.md) |
+| 查看 G4a.1 实现复核与补充反例 | [G4a.1 独立复核](reviews/G4a.1-audit-2026-10-11.md) |
+| 查看 G4a.1 缺陷修复与子 agent 复审 | [G4a.1 修复复审](reviews/G4a.1-fixes-2026-10-11.md) |
 | 复现/排查本地问题 | `runbooks/` |
 | 修改人格或关闭 soul.md | [人格契约](specs/agent/soul.md) + [setup 手册](runbooks/setup.md) |
+| 审核历史保存、`-c`、`/resume` 及跨入口指令方案 | [历史会话与统一指令方案](plans/2026-10-10-session-history-commands.md)；G4a.1 交付状态见 [审核记录](reviews/G4a.1.md) |
 | 回看某天发生了什么 | `daily/` |
 | 找历史快照或已完成的计划 | `archive/` |
 
-## 3. 状态速览（2026-10-10）
+## 3. 状态速览（2026-10-12）
 
 已通过：G0、G1a、G1b.1、G1b.2（.1/.2.1/.2.2）、G1b.3、G1b.4。
 **G3/G3.1 于 2026-10-09 审核通过**，见 [循环审核](reviews/G3.md) 与 [开发工具审核](reviews/G3.1.md)。已完成计划归档为 [G3 初始计划](archive/plans/2026-10-09-g3-tools.md)、[G3.1 开发工具计划](archive/plans/2026-10-09-g3-workspace-tools.md)，现行契约为 `specs/agent/tools.md`；状态栏最新定制恢复 ctx 进度条加当前/总计，cache 仅百分比。审核窗口证据已按 runbook 删除，重跑方法保留在审核记录。后续阶段仍待另行授权。
 
 **G3.2 人格初始化与拼装于 2026-10-10 审核通过**，见 [审核记录](reviews/G3.2.md)。默认配置、文件与每 run 快照行为见 [现行契约](specs/agent/soul.md)，完成步骤归档为 [实施计划](archive/plans/2026-10-09-soul-context.md)。审核窗口证据已删除，可从提交 29d82f4 或复现脚本取回；不推进记忆、MCP、skill 或渠道。
 
-单一事实来源：单元状态只在 `reviews/Gx.md` 的 frontmatter 维护；`roadmap.html` 是可读快照，两者冲突时以 reviews 为准。`plans/` 与 `specs/` 不再重复记录单元状态。
+**G4a.1 持久历史与显式继续含全部修复于 2026-10-12 审核通过**，见 [审核记录](reviews/G4a.1.md)：SQLite 持久层（`internal/store`）、`plume -c` 恢复最近会话、Ctrl+N 新会话、崩溃中断标记与整库进程锁；复现脚本 `scripts/pty_demo_g4a1.py`。审核窗口证据按 runbook 随通过提交删除，原始数值与复现命令保留在审核记录及 [修复复审](reviews/G4a.1-fixes-2026-10-11.md)。G4a.2（公共 `/` 指令与 TUI 历史选择，方案见 [历史会话与统一指令方案](plans/2026-10-10-session-history-commands.md)）已获用户授权，待 G4a.1 提交推送后开始编码，尚未交付。当天通过、提交准备与后续授权见 [2026-10-12 流水](daily/2026-10-12.md)。
+
+单一事实来源：已交付单元状态只在 `reviews/Gx.md` 的 frontmatter 维护；`roadmap.html` 是可读快照，两者冲突时以 reviews 为准。未开工提案在 `plans/` 中明确待批准，不为它虚建实现审核记录；`specs/` 仅描述现行行为。
 
 ## 4. 旧路径映射（2026-10-09 重组）
 

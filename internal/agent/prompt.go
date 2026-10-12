@@ -100,7 +100,8 @@ func renderSystemPrompt(workspace, personality string) string {
 }
 
 // Build 返回请求、请求 SHA-256、JSON 字节数和错误；字节数不是 token 估算。
-// history 是已提交历史，turn 是当前 run 的用户输入和工具轨迹；二者保留原角色。
+// history 是已提交历史，turn 是当前 run 的用户输入和工具轨迹；二者仅允许
+// user/assistant/tool。system 唯一来源是本轮模板，旧历史不能重新授予指令权限。
 func (p PromptBuilder) Build(history, turn []model.Message) (model.ChatRequest, string, int, error) {
 	// 1. 文本通道：唯一 system 消息 → 历史 → 本轮轨迹。
 	messages := []model.Message{{Role: model.RoleSystem, Content: p.systemPrompt}}
@@ -138,13 +139,25 @@ func cloneMessages(messages []model.Message) []model.Message {
 	return out
 }
 
-// validateConversation 检查 assistant 调用与紧随其后的 tool 结果按 ID 完整对应。
+// validateConversation 检查唯一首条 system、角色专用字段，以及 assistant
+// 调用与紧随其后的 tool 结果按 ID 完整对应。
 // 参数内容、工具许可和实际执行由 tools/循环负责，不在这里重复校验。
 func validateConversation(messages []model.Message) error {
 	// pending 是当前工具组仍缺少的结果；seen 跨历史与本轮检查 ID 重复。
 	pending := map[string]bool{}
 	seen := map[string]bool{}
-	for _, msg := range messages {
+	for index, msg := range messages {
+		// Build 固定首条模板来源；任何追加的 system 都来自 history/turn，
+		// 即使正文与当前模板相同也必须拒绝，不能靠内容比较判断权限。
+		if msg.Role == model.RoleSystem && index != 0 {
+			return protocolError("system message outside template source")
+		}
+		if msg.Role != model.RoleTool && msg.ToolCallID != "" {
+			return protocolError("tool result ID on non-tool message")
+		}
+		if len(msg.ToolCalls) > 0 && msg.Role != model.RoleAssistant {
+			return protocolError("tool call on non-assistant message")
+		}
 		if msg.Role == model.RoleTool {
 			// 同组结果可按任意顺序返回，每个 ID 只允许消费一次。
 			if !pending[msg.ToolCallID] {
@@ -159,9 +172,6 @@ func validateConversation(messages []model.Message) error {
 		}
 		if msg.Role != model.RoleSystem && msg.Role != model.RoleUser && msg.Role != model.RoleAssistant {
 			return protocolError("unknown message role")
-		}
-		if len(msg.ToolCalls) > 0 && msg.Role != model.RoleAssistant {
-			return protocolError("tool call on non-assistant message")
 		}
 		for _, call := range msg.ToolCalls {
 			if strings.TrimSpace(call.ID) == "" || seen[call.ID] {

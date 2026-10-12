@@ -21,6 +21,10 @@ var configShape = &rawShape{fields: map[string]*rawShape{
 		"soul": {fields: map[string]*rawShape{"enabled": nil, "path": nil, "max_bytes": nil}},
 	}},
 	"tools": {fields: map[string]*rawShape{"workspace": nil, "enabled": nil, "read_lines": nil, "search_results": nil, "max_file_bytes": nil, "max_output_bytes": nil, "shell": nil}},
+	"sessions": {fields: map[string]*rawShape{
+		"history":   {fields: map[string]*rawShape{"enabled": nil, "path": nil}},
+		"page_size": nil, "shutdown_timeout_ms": nil,
+	}},
 	"models": {element: &rawShape{fields: map[string]*rawShape{
 		"id": nil, "provider": nil, "protocol": nil, "base_url": nil, "model": nil,
 		"api_key_ref": nil, "reasoning_effort": nil, "context_window_tokens": nil,

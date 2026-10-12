@@ -25,6 +25,7 @@ type Config struct {
 	TUI           *TUIConfig      `json:"tui,omitempty"`
 	Agent         *AgentConfig    `json:"agent,omitempty"`
 	Tools         *ToolsConfig    `json:"tools,omitempty"`
+	Sessions      *SessionsConfig `json:"sessions,omitempty"`
 	rawJSON       []byte          // 保留解码来源的未知字段，跨目录 Save 时仍可合并。
 }
 
@@ -206,7 +207,9 @@ func (c *Config) Validate(providers ProviderCatalog, channels ChannelCatalog) er
 // validateDisplayOptions 也用于持久化边界，不依赖供应商和渠道注册表。
 func (c *Config) validateDisplayOptions() error {
 	var errs []error
-	errs = append(errs, c.Agent.Validate(), c.Tools.Validate())
+	// Save 和 Load 共用此入口；先拒绝非法 sessions，不能先写成一个
+	// 下一次 Load 才拒绝的文件。nil 段仍由 fillDefaults 补齐。
+	errs = append(errs, c.Agent.Validate(), c.Tools.Validate(), c.Sessions.Validate())
 	for i, m := range c.Models {
 		if m.ContextWindowTokens != nil && (*m.ContextWindowTokens < 1 || *m.ContextWindowTokens > 2147483647) {
 			errs = append(errs, fmt.Errorf("models[%d].context_window_tokens: expected null or integer in 1..2147483647", i))

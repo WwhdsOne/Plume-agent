@@ -16,8 +16,30 @@ type Options struct {
 	Provider, ModelID, Reasoning, Dir, HomeDir string
 	ContextWindowTokens                        *int64
 	InitialStats                               *app.SessionStats
-	Clock                                      func() time.Time
-	Choose                                     func(int) int
+	// InitialTranscript 是恢复会话时预置进聊天记录的展示行（`-c` 路径）；
+	// 输入草稿与 Up/Down 草稿历史不从磁盘恢复。
+	InitialTranscript []TranscriptLine
+	Clock             func() time.Time
+	Choose            func(int) int
+}
+
+// TranscriptKind 是恢复转录行的展示类别。
+type TranscriptKind int
+
+// 转录行类别：user/assistant 对应聊天记录，system 用于恢复提示。
+const (
+	TranscriptUser TranscriptKind = iota
+	TranscriptAssistant
+	TranscriptSystem
+)
+
+// TranscriptLine 是持久历史的一行展示文本；Terminal 携带取消/中断等
+// 终态标记（仅 assistant 行使用），渲染沿用现有净化路径。
+type TranscriptLine struct {
+	Kind      TranscriptKind
+	Text      string
+	Reasoning string // 仅 assistant 展示思考；恢复时净化，不作为模型 system 来源。
+	Terminal  string
 }
 
 // DefaultStatusMessages 每次返回独立默认集合，调用方可安全修改。

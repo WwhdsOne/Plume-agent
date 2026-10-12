@@ -66,8 +66,8 @@ type Hooks struct {
 	Submit func(input string) (runID string, err error)
 	// Cancel 打断当前 run（app.Service.Cancel）。
 	Cancel func()
-	// ResetSession 清空会话上下文（app.Session.Reset）。
-	ResetSession func()
+	// ResetSession 先创建新会话；失败时界面必须保留旧记录和草稿。
+	ResetSession func() error
 	// FirstAnswer 在 TeaModel.View 首次包含可见答案时记录帧耗时。
 	FirstAnswer func(runID string, latency time.Duration)
 }
@@ -173,6 +173,22 @@ func NewWithOptions(modelLabel string, hooks Hooks, options Options) Model {
 	if options.InitialStats != nil {
 		m.status.stats = *options.InitialStats
 		m.status.sessionStarted = options.InitialStats.StartedAt
+		// -c 在首次 View 前没有 usage 事件，必须从恢复统计预灌展示快照。
+		// 只用末次实际输入，不能用会话累计量或零值冒充未报告的 usage。
+		usage := options.InitialStats.LastUsage
+		if usage.CachedPromptTokens != nil {
+			cached := *usage.CachedPromptTokens
+			usage.CachedPromptTokens = &cached // 隔离调用方快照指针，后续修改不影响展示。
+		}
+		m.status.stats.LastUsage = usage
+		m.status.usage = usage
+		if m.status.stats.Calls > 0 {
+			m.status.contextLast = true
+			if usage.OK {
+				tokens := usage.PromptTokens
+				m.status.contextTokens = &tokens
+			}
+		}
 	}
 	if options.ModelID == "" {
 		if p, id, found := strings.Cut(modelLabel, "/"); found {
@@ -182,6 +198,25 @@ func NewWithOptions(modelLabel string, hooks Hooks, options Options) Model {
 		}
 	}
 	m.initializeEmptyContext()
+	// 恢复转录直接预置进记录区：文本沿用运行时的净化路径，assistant 行的
+	// 终态标记（cancelled/incomplete）映射到 chatLine.terminal。
+	for _, line := range options.InitialTranscript {
+		entry := chatLine{text: sanitize(line.Text)}
+		switch line.Kind {
+		case TranscriptUser:
+			entry.kind = lineUser
+		case TranscriptAssistant:
+			entry.kind = lineAssistant
+			entry.reasoning = sanitize(line.Reasoning)
+			entry.terminal = sanitize(line.Terminal)
+		default:
+			entry.kind = lineSystem
+		}
+		m.lines = append(m.lines, entry)
+	}
+	if len(options.InitialTranscript) > 0 {
+		m.syncViewport()
+	}
 	return m
 }
 

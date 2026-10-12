@@ -42,6 +42,10 @@ func (r *Runtime) SetSoul(path string, maxBytes int) {
 // Close 在 app 的运行任务全部退出后释放工作区句柄。
 func (r *Runtime) Close() error { return r.tools.Close() }
 
+// ResetSessionState 只重置当前工具注册表的会话状态；模型、人格和许可保持不变。
+// app 必须在持有会话串行所有权且无活动 run 时调用，成功后再替换会话。
+func (r *Runtime) ResetSessionState() error { return r.tools.ResetSessionState() }
+
 // ModelID 返回绑定的模型配置 ID。
 func (r *Runtime) ModelID() string { return r.modelID }
 

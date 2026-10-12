@@ -1,7 +1,7 @@
 ---
 title: TUI 可配置底部状态栏（G1b.4）
 status: active
-updated: 2026-10-09
+updated: 2026-10-11
 summary: G1b.4 状态栏契约：默认 ctx 进度条与当前/总计，cache 仅显示命中百分比
 ---
 
@@ -54,6 +54,7 @@ git:main* │ env:uv/.venv(active) │ session:12m30s │ responding 6.8s
 - 默认 context_format:bar 显示 `ctx: [██░░░░░░░░] 200k/1M`，条体后固定带当前/总计，数量遵循 token_format。show_percent:false 默认不加比例，true 可额外显示；context_format:usage 仍可显示 `ctx: 20.0% 200k/1M`。两种格式均不显示 `(last)`。
 - 供应商给出本次 `PromptTokens` 且容量已知时：使用该次调用的实际输入比例；完成后保留这个快照。它是最近实际请求的输入，不是下一请求的发送前估算。
 - 新草稿、成功回答追加历史、工具轨迹或上下文变化不会通过字符长度猜 token。没有估算器时保留最近已知快照；已知 1M 容量的新会话为 `ctx: [░░░░░░░░░░] 0/1M`。请求准备、等待、思考和回答期间保留初始零值或请求前快照，收到本次实际输入统计立即更新；新调用结束仍无输入统计才显示 `ctx: usage unknown`。准备阶段取消且未发起新调用时保留原值；容量未知始终显示 `ctx: capacity unknown`，`unknown:hide` 时隐藏整个字段。未来估算器若启用须带 `~` 来源标记并独立验收。
+- `-c` 恢复时，首次画面从持久统计的 LastUsage 预灌 ctx 与最近调用缓存快照，不发送模型请求、不等待新 usage 事件。ctx 使用最后一次调用实际 PromptTokens，不用会话累计量；最后一次调用未报告 usage 仍为 unknown，不拿更早值或零冒充。无调用的会话沿用初始零值，CC 会话累计缓存与 Pi 最近调用缓存保持各自口径；下一请求等待期间保留恢复快照。
 - 流式生成中的答案/思考不能用字符长度冒充新增 token。供应商的 output token 统计可能包含思考，也不直接等于未来回传历史的输入规模。
 - 用户可在模型配置中提供 `context_window_tokens` 正整数，作为展示容量。官方 HTTPS DeepSeek 的 `deepseek-flash` / `deepseek-v4-pro` 缺失或 null 自动补写 `1000000`（1M），保留用户手填值；自定义端点或未知模型保持 null。该字段不修改 API 请求、不保证模型真实支持该容量、不代替执行预算。
 - usage 模式超过 100% 时如实显示 `120.0% 1.2M/1M`，不裁成 100%。可选 bar 模式默认 10 格、填充向下取整、百分比最多一位小数；超过容量时条体填满但比例仍显示实际超限值。两种模式都不自动压缩或删除历史。

@@ -27,7 +27,11 @@ func configureRuntimeTools(runtime *agent.Runtime, cfg *config.Config) error {
 	if err := t.Validate(); err != nil {
 		return err
 	}
-	options := tools.WorkspaceOptions{Root: t.Workspace, Enabled: append([]string{}, t.Enabled...), ReadLines: t.ReadLines, SearchResults: t.SearchResults, MaxFileBytes: t.MaxFileBytes, MaxOutputBytes: t.MaxOutputBytes, Shell: t.Shell, ResultBytes: a.Budget.ResultBytes, BashTimeoutSeconds: a.Budget.ToolTimeoutSeconds}
+	root, err := workspaceDir(cfg)
+	if err != nil {
+		return err
+	}
+	options := tools.WorkspaceOptions{Root: root, Enabled: append([]string{}, t.Enabled...), ReadLines: t.ReadLines, SearchResults: t.SearchResults, MaxFileBytes: t.MaxFileBytes, MaxOutputBytes: t.MaxOutputBytes, Shell: t.Shell, ResultBytes: a.Budget.ResultBytes, BashTimeoutSeconds: a.Budget.ToolTimeoutSeconds}
 	registry, err := tools.NewWorkspace(options)
 	if err != nil {
 		return err

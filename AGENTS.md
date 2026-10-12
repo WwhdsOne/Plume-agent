@@ -1,7 +1,7 @@
 ---
 title: AGENTS.md
 status: active
-updated: 2026-10-10
+updated: 2026-10-12
 summary: 仓库长期快照：语言约定、审核制度、架构边界、codegraph MCP、依赖与文档维护规则；动手前必读
 ---
 
@@ -41,7 +41,7 @@ This file provides guidance to CodeBuddy Code when working with code in this rep
 
 `plume-agent`：用 Go 构建的个人 Agent，首版入口是 **TUI 聊天界面**，不是微信登录。模型层传输与协议解析采用 **OpenAI 官方 Go SDK（openai-go）**，其上以协议适配器归一化（为未来 Anthropic/Gemini 协议预留同一接口），Agent 循环自研，不引入 Eino。微信 iLink Bot、飞书、QQ 属于后续渠道扩展。目标是展示完整执行链路与可复现的量化改造收益。
 
-上述是 2026-10-06 更新的目标架构；G0 至 G1b.4、G3/G3.1/G3.2 已通过（G1b.4、G3/G3.1 于 2026-10-09、G3.2 于 2026-10-10 审核通过）。实际实现与设计差异见「当前进度与禁区」，以 `docs/decisions/0003-model-runtime.md` 为新路线依据。文档索引见 `docs/index.md`。
+上述是 2026-10-06 更新的目标架构；G0 至 G1b.4、G3/G3.1/G3.2 已通过（G1b.4、G3/G3.1 于 2026-10-09、G3.2 于 2026-10-10 审核通过），G4a.1（持久历史与显式继续）含全部审核修复于 2026-10-12 审核通过。G4a.2 已获实施授权，待 G4a.1 提交推送后开始编码。实际实现与设计差异见「当前进度与禁区」，以 `docs/decisions/0003-model-runtime.md` 为新路线依据。文档索引见 `docs/index.md`。
 
 模块名是 `plume-agent`，CLI 命令名是 `plume`。
 
@@ -129,11 +129,13 @@ codegraph uninit        # 删 .codegraph/
 
 审核证据（终端 pty 产物、评测输出等）只在单元待审期间保留，**通过时随该提交一并删除**；保存、复现与取回规则见 [`docs/runbooks/tui.md`](docs/runbooks/tui.md)「证据治理：通过即删」。
 
-实施顺序：已通过 `G0` / `G1a` / `G1b.1` / `G1b.2`（含 .1/.2.1/.2.2）/ `G1b.3` / `G1b.4` / `G3` / `G3.1` / `G3.2`（G3.1 于 2026-10-09、G3.2 于 2026-10-10 审核通过，各单元均获用户授权后提交推送）。**不自动推进**渠道、记忆或技能；下一单元需另行授权。
+实施顺序：已通过 `G0` / `G1a` / `G1b.1` / `G1b.2`（含 .1/.2.1/.2.2）/ `G1b.3` / `G1b.4` / `G3` / `G3.1` / `G3.2` / `G4a.1`（G3.1 于 2026-10-09、G3.2 于 2026-10-10、G4a.1 含全部修复于 2026-10-12 审核通过）。用户已授权提交推送 G4a.1 及修复，并在此后实施 G4a.2；G4a.2 尚未交付。**不自动推进**渠道、长期记忆或技能；后续单元需另行授权。
 
 G3.1 交付六种开发工具与可配置宽松预算（含其基础 G3 工具循环），G3.2 交付 soul.md 初始化与上下文拼装；两者的实施计划已归档至 `docs/archive/plans/`，审核窗口证据按 runbook 删除。
 
 之后另行授权第二阶段：`G2a.1`（扫码登录）→ `G2a.2`（真实收发）→ `G2b`（可靠性）。保留原编号含义，G3 前移，不按数字自动推进。`G4a/G4b/G5/G6` 作为后续记忆、压缩、技能与实验路线储备。没有微信配置不得阻塞未来 TUI 启动。
+
+用户于 2026-10-10 规划历史会话与统一 `/` 指令，2026-10-11 授权实施 **G4a.1（持久历史与显式继续）**：SQLite 持久历史、`plume -c` 继续最近会话、Ctrl+N 新会话（见 `docs/reviews/G4a.1.md`）。2026-10-12 用户通过 G4a.1 及全部修复、授权提交推送，并授权随后实施 **G4a.2（公共指令与 TUI 历史选择）**；当前尚未编码或交付，不再等待方案授权。设计见 `docs/plans/2026-10-10-session-history-commands.md`，长期记忆和真实 gateway 仍另行授权。
 
 指标与比较协议见 `docs/specs/metrics.md`：基线阶段只报绝对值、变化列 N/A，不得为了填表编造"提升"；数据缺失记 `N/A`/`unknown`，不得当 0。
 
@@ -219,9 +221,10 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 | `internal/model/` | G1b.1 已建：自有契约（消息/请求/响应/流/错误/能力）、endpoint 安全装配、openai-chat-completions 适配器（openai-go SDK）、deepseek 组合适配器、脚本化 fake |
 | `internal/tui/` | G1b.2 已建、G1b.2.1 迁 v2：Bubble Tea v2 聊天界面（记录/输入/状态栏、控制序列净化、KeyMap 键位抽象、草稿历史）；不发送模型 HTTP、不执行工具，副作用经 Hooks 注入 |
 | `internal/channel/` | 现有渠道注册表；第二阶段才实现消息适配器，不拼装 prompt |
-| `internal/app/` | 会话历史、run 生命周期（串行、取消、有界事件流）；G1b.4 增加调用用量快照去重累计、会话起点与 Git/uv 异步只读采集；后续扩展持久化与渠道调度 |
+| `internal/app/` | 会话历史、run 生命周期（串行、取消、有界事件流）；G1b.4 增加调用用量快照去重累计、会话起点与 Git/uv 异步只读采集；G4a.1 增加持久化集成（起点先落盘、终态事务、失败降级）与会话管理器（新会话 ID、恢复装配）；后续扩展渠道调度 |
 | `internal/agent/` | G3 统一请求拼装、Generate/Stream 工具循环与预算；规则/声明快照、完整工具组与失败隔离 |
 | `internal/tools/` | 不可变许可注册表、严格参数校验；G3.1 os.Root 工作区读写/搜索与本地 Shell，计算器/时钟可选 |
+| `internal/store/` | G4a.1 已建：会话/run/调用/轮次的 SQLite 持久化（modernc.org/sqlite）、三段式落盘契约、整库进程锁与前向迁移；不做展示分页与渠道绑定（G4a.2 扩展），也不承载长期记忆 |
 | `internal/soul/` | G3.2 默认人格模板、无覆盖原子初始化与有界 UTF-8 读取；不管工具许可或长期记忆 |
 | `internal/telemetry/` | setup、模型及 run 生命周期 trace，首思考/首答案/准备计量；不记录正文或展示文案 |
 | `internal/eval/` | G1b.1 已建：12 个离线种子数据集（`eval/datasets/smoke.v1.jsonl`）与运行器；后续评分、统计、比较报告 |
@@ -238,6 +241,8 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 
 配置目录解析（`PLUME_HOME` → POSIX `~/.plume` → Windows `%LOCALAPPDATA%\plume`）、目录布局、凭据边界、`writeFileAtomic` 原子写入、旧配置补齐与 schema v1 字段总览见 [`docs/specs/config.md`](docs/specs/config.md)。
 
+G4a.1 新增 `sessions` 段（schema v1 兼容扩展，段与标量缺失/null 原子补默认，未知字段保留，Save 前校验）：`history.enabled`（默认 true）、`history.path`（默认 `sessions/history.db`，相对配置目录）、`page_size`（默认 20，G4a.2 浏览分页才消费）、`shutdown_timeout_ms`（默认 5000，完整退出收尾总期限，禁用历史也消费）。禁用历史不创建数据库；凭据不进库，聊天/必要工具正文仅进入私密历史库、不进 trace，usage 仅保存计数。
+
 **新增持久化不要直接用 `os.WriteFile` 覆盖目标文件**（会丢掉"写入失败保留原配置"这条保证）；配置里永不出现密钥值（见设计点 3）。
 
 ### 日志与 CLI 输出
@@ -247,7 +252,8 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 
 ### 命令行层
 
-- CLI 用 `github.com/spf13/cobra`（G1a-2 引入 `v1.10.2`）。命令构造集中在 `cmd/plume/{main,chat,setup,config,version}.go`，每个命令一个 `newXxxCmd()`；运行时装配辅助在 `runtime_tools.go`/`runtime_soul.go`。`SilenceErrors`/`SilenceUsage` 都开着，错误只由 `main` 打印一次。
+- CLI 用 `github.com/spf13/cobra`（G1a-2 引入 `v1.10.2`）。命令构造集中在 `cmd/plume/{main,chat,setup,config,version}.go`，每个命令一个 `newXxxCmd()`；运行时装配辅助在 `runtime_tools.go`/`runtime_soul.go`，`-c` 恢复装配在 `session_resume.go`。`SilenceErrors`/`SilenceUsage` 都开着，错误只由 `main` 打印一次。
+- `plume` 与 `plume chat` 支持 `-c/--continue`（G4a.1）：恢复当前工作区最近有 run 的本地会话；与 `--offline` 互斥，禁用历史或模型引用不匹配（`resume_incompatible`）时明确报错，不静默开新会话或换模型。裸启动仍开新会话。
 - **业务逻辑不写进 cobra 的 `RunE`**：`RunE` 只做参数取值与转发（`cmd.InOrStdin()` / `cmd.OutOrStdout()`），实现留在 `internal/`。
 
 ### 交互层
@@ -275,6 +281,8 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 
 **G3.2 人格初始化与拼装**：`agent.soul` 默认 enabled:true/path:soul.md/max_bytes:65536 完整落盘，缺失/null 补默认，false/自定义及未知字段保留。路径相对配置目录；setup 模型保存成功后、渠道前无覆盖初始化0600文件，已有空文件也保留，不增加问题。在线每 run preparing 读取一次，当前工具循环固定、下一 run 更新；禁用/缺失/空白跳过，非法文件/读取失败/超限发送前失败。唯一system按基础规则→人格→工作目录拼装，版本plume-workspace-v2，人格不授予工具许可，正文不进trace；offline不读配置/人格。交付状态与完整限制见 `docs/reviews/G3.2.md` 及 `docs/specs/agent/soul.md`。
 
+**G4a.1 持久历史与显式继续（2026-10-11 交付，含全部修复于 2026-10-12 通过）**：`internal/store` SQLite 持久层（`modernc.org/sqlite`，默认 `<配置目录>/sessions/history.db`，新目录0700、库/辅助/锁文件0600；自定义已有父目录不擅改权限）。整库锁按真实规范库路径识别符号链接别名，拒绝硬链接库/辅助/锁文件；非 unix 拒绝持久化。user_version 前向迁移，新 schema 拒绝。run 起点/调用起点先落盘，用量按 call ID 替换去重、NULL 保持未知；完整成功轮次与终态同事务。提交返回错误后按 run ID 核查：完整提交则同步内存，明确未提交则 failed，仍未知则禁止新 run/切换，重开校验，不重放工具。trace 在保存结果确定后分别记录 run_status/save_status，整体 status 不将保存失败当成功。恢复消息使用独立 v1 DTO，兼容初版数组但严格校验角色/完整工具组，拒绝旧 system 来源；读取前限制每类载荷8MiB/10000记录及单JSON数组总元素10000，可按当前请求预算收紧，超限明确拒绝不截断。`plume -c` 按最终tools.workspace规范根查最近历史；同ConfigID也校验provider/协议/模型/endpoint指纹，不匹配报resume_incompatible。恢复成功轮数精确、保留历史创建时间，状态栏从本次打开计时；TUI预置净化转录，草稿不恢复。Ctrl+N新ID并清工具read摘要，切换失败保留原会话与草稿。完整退出共用总deadline，执行未确认停止不释放库锁，由进程退出回收；遗留running下次标记interrupted。`--offline`与`-c`互斥，禁用历史不建库。交付与修复记录见`docs/reviews/G4a.1.md`；用户于2026-10-12授权提交推送后实施G4a.2，当前尚未交付。
+
 各单元的改动范围、实际证据与限制以 `docs/reviews/Gx.md` 为准，本文件不重复——状态只在 review 文档 frontmatter 维护，`roadmap.html` 与 `docs/index.md` 是可读快照，冲突时以 review 为准。
 
 **尚未实现，不要假设存在**：
@@ -284,7 +292,7 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 - **记忆/MCP/skill 仅规划**：按 `docs/plans/agent-context.md` 预留来源；人格仅由 G3.2 的配置目录 soul.md 提供，不发现项目内同名文件。不提前创建记忆/MCP/skill 加载器、空包或配置字段。
 - Shift+Enter 在真实 kitty 终端（WezTerm/iTerm2）的**人工**验证与 Windows 实测（G-win 单元）——G1b.2.1 只在 pty 里用 CSI u 编码验证过解析路径。
 - 模型独立就绪探测（启动只校验配置与凭据，不发付费探测请求）。
-- `internal/store/`。
+- 公共 `/` 指令（`/resume`、`/new`、`/history` 等）、历史浏览分页与 fake gateway（G4a.2 于 2026-10-12 已获实施授权，待 G4a.1 提交推送后开始编码，尚未交付；G4a.1 的 `plume -c` 与持久历史已审核通过，跨进程并发所有权留给 G2b）。
 - 微信扫码登录与收发；网关命令 `plume gateway …`（第二阶段 G2a）。向导里微信只记录为"待登录"。
 - 根目录 `README.md` 已于 G1b.2 建立；`.claude/` 下**没有**规则文件。
 
@@ -304,6 +312,7 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 | `github.com/mattn/go-isatty` | v0.0.24 | 判断 stdin/stdout 是否为真正的终端 |
 | `charm.land/glamour/v2` | v2.0.1 | G1b.3 Markdown，沿用 v2 终端栈；含 Goldmark/Chroma |
 | `github.com/charmbracelet/x/ansi` | v0.11.9 | G1b.3 直接使用 Unicode/ANSI 可见宽度、裁剪与换行 |
+| `modernc.org/sqlite` | v1.60.1 | G4a.1 会话历史存储（纯 Go 转译无 CGO，`database/sql` 接口） |
 
 v1 栈（`github.com/charmbracelet/{bubbletea,bubbles,lipgloss,huh}`）已于 G1b.2.1 全部移除，`rg 'github.com/charmbracelet/(bubbletea|bubbles|lipgloss|huh)'` 应为空。
 

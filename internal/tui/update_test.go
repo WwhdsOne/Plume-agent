@@ -168,7 +168,7 @@ func TestCancelRequestedWhileRunning(t *testing.T) {
 // 守住：Ctrl+N 触发重置钩子，清空消息/草稿/历史，只留新会话提示。
 func TestCtrlNResetsSession(t *testing.T) {
 	var resets atomic.Int64
-	m := newTestModel(t, Hooks{ResetSession: func() { resets.Add(1) }})
+	m := newTestModel(t, Hooks{ResetSession: func() error { resets.Add(1); return nil }})
 	m.appendLine(lineUser, "old context")
 	m.input.SetValue("draft to be cleared")
 
@@ -192,7 +192,7 @@ func TestCtrlNResetsSession(t *testing.T) {
 // 守住：run 进行中 Ctrl+N 被拒绝并提示，不触发重置。
 func TestCtrlNWhileRunningIsRejected(t *testing.T) {
 	var resets atomic.Int64
-	m := newTestModel(t, Hooks{ResetSession: func() { resets.Add(1) }})
+	m := newTestModel(t, Hooks{ResetSession: func() error { resets.Add(1); return nil }})
 	m.startRun("run-000001")
 
 	updated, _ := m.Update(ctrlKey('n'))

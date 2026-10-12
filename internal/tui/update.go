@@ -300,11 +300,13 @@ func (m *Model) pushHistory(text string) {
 	m.draft = ""
 }
 
-// sessionReset 实现 Ctrl+N：清空上下文、聊天记录与输入草稿历史。
-// 新会话不串上下文。
+// sessionReset 实现 Ctrl+N：后端成功创建后再清记录与草稿；失败时保留原会话。
 func (m *Model) sessionReset() {
 	if m.hooks.ResetSession != nil {
-		m.hooks.ResetSession()
+		if err := m.hooks.ResetSession(); err != nil {
+			m.setNotice("Could not start a new session: " + sanitize(err.Error()))
+			return
+		}
 	}
 	m.lines = nil
 	m.readingFrozen = false

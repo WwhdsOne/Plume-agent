@@ -1,21 +1,21 @@
 ---
 title: 第一阶段：TUI Agent 开发计划
 status: active
-updated: 2026-10-10
-summary: 第一阶段审核计划：G3/G3.1/G3.2 已通过，后续记忆/技能独立推进
+updated: 2026-10-12
+summary: 第一阶段审核计划：G4a.1 含修复已通过，G4a.2 已授权实施；后续记忆/技能独立推进
 ---
 
 # 第一阶段：TUI Agent 开发计划
 
 > 日期：2026-10-06。范围：终端聊天、OpenAI SDK 模型适配、自研 Agent 循环、trace 和基线评测；微信登录不属于本阶段。
-> 状态（2026-10-10）：G0 至 G1b.4、G3/G3.1/G3.2 已通过。用户已审核通过开发工具、可配置预算及人格初始化与拼装；后续渠道、记忆、技能仍待独立授权。单元状态以 [审核记录](../reviews/) 为准。原微信优先/Eino 方案由 [决策 0003](../decisions/0003-model-runtime.md) 替代；模型传输采用 OpenAI 官方 SDK。
+> 状态（2026-10-12）：G0 至 G1b.4、G3/G3.1/G3.2 已通过；G4a.1 持久历史与显式继续含全部修复已审核通过，用户授权提交推送，并在此后实施 G4a.2；G4a.2 尚未编码或交付。后续渠道、记忆、技能仍待独立授权。单元状态以 [审核记录](../reviews/) 为准。原微信优先/Eino 方案由 [决策 0003](../decisions/0003-model-runtime.md) 替代；模型传输采用 OpenAI 官方 SDK。
 > 执行约定：使用 executing-plans 按审核单元推进；每个单元完成即停，用户明确通过后才进入下一单元，不使用默认批量执行。本文是阶段计划，各单元开工前再细化测试与实现步骤。
 
 **Goal：** 用 Go 构建可在 TUI 中多轮聊天、执行受控工具、解释每一步执行过程的个人 Agent，并用固定任务集衡量后续改造的收益与退步。
 
 **Architecture：** TUI 通过应用层调用自研 Agent；Agent 只依赖自有模型接口和工具接口。模型层用 OpenAI 官方 Go SDK（openai-go）完成 HTTP 发送与协议/SSE 解析，经端点安全校验与事件归一化，通过协议适配器和注册工厂扩展模型 API。trace 与评测从第一条调用链开始建设。
 
-**Tech Stack：** Go、`github.com/openai/openai-go` v1.12.0、cobra、charm.land v2 终端栈（Bubble Tea / Bubbles / Lip Gloss / huh）、Glamour v2.0.1、zap/JSONL。OpenTelemetry、SQLite 留后续单元，不使用 Eino。
+**Tech Stack：** Go、`github.com/openai/openai-go` v1.12.0、cobra、charm.land v2 终端栈（Bubble Tea / Bubbles / Lip Gloss / huh）、Glamour v2.0.1、zap/JSONL；G4a.1 引入 `modernc.org/sqlite` v1.60.1。OpenTelemetry 留后续单元，不使用 Eino。
 
 ## 1. 项目定位、现状与范围
 
@@ -115,7 +115,7 @@ TUI → app（会话/run）→ agent（循环/预算）→ 模型接口 / 受控
 | provider | 保留供应商预设；通过注册工厂解析凭据、装配适配器；不向 Agent 暴露密钥 |
 | model（已建） | 自有消息/请求/响应/能力/错误契约；端点安全、协议适配与 SDK 装配；G1b.3 扩展流式 |
 | tui（已建） | 输入、状态更新、渲染、取消意图；不拼 HTTP、prompt 或执行工具 |
-| app（已建） | 会话历史、run 生命周期、串行限制；后续扩展持久化与渠道调度 |
+| app（已建） | 会话历史、run 生命周期、串行限制；G4a.1 集成持久化与恢复，后续扩展渠道调度 |
 | agent（已建最小单轮） | G1b.3 流消费；G3 扩展统一请求拼装、工具循环、prompt 版本、轮数与执行预算 |
 | tools（拟新增） | 参数校验与确定性计算，遵守 context 取消；不直接控制 UI/渠道 |
 | telemetry | 已有 setup/模型 trace；计划扩展流式计量、应用与工具事件 |
@@ -214,6 +214,8 @@ G1b.1/G1b.2 的清单保留原规划口径，实际通过状态及限制以对�
 G1b.1、G1b.2、G1b.3、插入的 G1b.4、G3 各自通过审核；用户在**不配置微信、不扫码**的情况下完成配置、真实 TUI 多轮/流式聊天、可配置状态栏与一次工具调用；fake 可独立演示成功、失败、超时、取消。交付逐步 trace 和首份绝对值基线，无任何收益承诺。
 
 第一阶段通过后，另行确认是否开始 [第二阶段渠道计划](phase-02-channel.md)。G4a（持久历史/记忆）、G4b（上下文压缩）、G5（已审核技能）、G6（实验与简历整理）作为后续路线储备；具体实现各自另建阶段计划，不提前搭空框架。
+
+2026-10-12 补充：按 [历史会话与统一指令方案](2026-10-10-session-history-commands.md) 逐单元推进；G4a.1（持久历史与 `-c`）含全部修复已审核通过，用户授权提交推送。G4a.2（公共 `/` 指令与 TUI）已获同日实施授权，待 G4a.1 提交推送后开始编码，尚未交付；已确认裸启动新会话、`-c` 继续最近历史、保留 `/resume`。长期记忆及真实渠道均未随之启动。
 
 ### G3.2：人格初始化与上下文拼装
 

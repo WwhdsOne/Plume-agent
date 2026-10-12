@@ -27,6 +27,10 @@ func (c *Config) fillDefaults() bool {
 		c.Tools = DefaultTools()
 		changed = true
 	}
+	if c.Sessions == nil {
+		c.Sessions = DefaultSessions()
+		changed = true
+	}
 	if c.TUI == nil {
 		c.TUI = &TUIConfig{}
 		changed = true

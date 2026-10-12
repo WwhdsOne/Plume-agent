@@ -95,10 +95,10 @@ func TestG3ToolsDataset(t *testing.T) {
 			rec := telemetry.NewModelRecorder(&trace)
 			runtime.SetRecorder(rec, "fake", telemetry.ReasoningInfo{Source: "fixture"})
 			start := time.Now()
-			rec.RunStart(c.ID, start)
+			rec.RunStart("eval", c.ID, start)
 			result, runErr := runtime.RunStream(ctx, nil, "G3 secret prompt", nil, nil)
 			duration := time.Since(start)
-			rec.RunEnd(c.ID, telemetry.RunMetrics{Duration: duration}, runErr)
+			rec.RunEnd("eval", c.ID, telemetry.RunMetrics{Duration: duration}, runErr)
 			_ = rec.Close()
 			code := ""
 			if e, ok := errors.AsType[*model.Error](runErr); ok {
