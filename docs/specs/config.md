@@ -1,7 +1,7 @@
 ---
 title: 配置契约（schema v1）
 status: active
-updated: 2026-10-12
+updated: 2026-10-24
 summary: 配置目录解析、原子持久化、凭据边界与 v1 字段总览；含人格与持久历史默认配置
 ---
 
@@ -146,3 +146,5 @@ enabled:false 不创建数据库，`-c` 明确报禁用错误；offline 不读�
 恢复加载受两类安全上限约束：每个加载结果最多 min(agent.budget.request_bytes,8MiB) 正文字节、10000 条记录；每份消息 JSON 展开前累计数组元素最多 10000，旧格式同样受限。超限拒绝恢复，不截断工具组或静默开新会话；这不是自动上下文压缩。消息使用独立 v1 DTO，兼容旧数组时校验角色、完整工具组与终态关联。使用与报错排查见 [TUI runbook](../runbooks/tui.md)，修复与验证见 [G4a.1 修复复审](../reviews/G4a.1-fixes-2026-10-11.md)。
 
 G4a.2 的目录、历史与收据采用 SQLite user_version=2，与 config schema v1 分开管理；没有新增配置段。历史关闭后使用内存后端管理本进程会话，退出后不保留；公共指令、恢复模型、默认空会话与可信作用域规则见 [会话指令契约](session-commands.md)。
+
+G4a.3.1 将同一私密库前向迁移到 user_version=3，新增显式记忆账本，旧数据保留；config schema 仍为 v1，没有 memory 配置项。当前聊天没有记忆消费者，启用历史不等于启用自动记忆或请求召回；账本限制与回滚说明见 [记忆契约](agent/memory.md)。

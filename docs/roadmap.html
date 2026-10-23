@@ -2,8 +2,8 @@
 <!--
 title: plume-agent 路线图
 status: active
-updated: 2026-10-23
-summary: G4a.1 与 G4a.2 已通过；公共指令、历史选择与正式验证完成，后续需求待明确
+updated: 2026-10-24
+summary: G4a.1/G4a.2 已通过；长期记忆已立项，G4a.3.1 私密账本交付待审，后续召回待授权
 -->
 
 <html lang="zh-CN">
@@ -254,7 +254,10 @@ const ROADMAP = [
     nodes: [],
     branches: [
       [
-        { id: "G4a", title: "长期记忆（剩余范围）", status: "deferred", desc: "历史部分已拆成 G4a.1/G4a.2，均已通过；长期记忆仍未立项", updated: "2026-10-23" },
+        { id: "G4a", title: "长期记忆（剩余范围）", status: "review", desc: "已立项：docs/plans/2026-10-23-g4a3-memory.md；G4a.3.1 账本待审，管理入口和请求召回尚未实现", updated: "2026-10-24" },
+        { id: "G4a.3.1", title: "私密记忆账本与有界读取", status: "review", desc: "SQLite v3、双后端显式写入、版本幂等/CAS、主体/工作区/会话隔离与字节超限拒绝；独立演示，不改变模型请求", updated: "2026-10-24" },
+        { id: "G4a.3.2", title: "显式记忆管理与遗忘", status: "todo", desc: "待另行授权：公共指令、删除与幂等收据，不调用模型", updated: "2026-10-24" },
+        { id: "G4a.3.3", title: "按任务召回与请求快照", status: "todo", desc: "待另行授权：确定性选择、来源标记、条数/字节预算与 PromptBuilder 快照", updated: "2026-10-24" },
         { id: "G4b", title: "上下文压缩", status: "deferred", desc: "实验 E01 候选", updated: "2026-10-06" },
         { id: "G5", title: "已审核技能", status: "deferred", desc: "", updated: "2026-10-06" },
         { id: "G6", title: "实验与简历整理", status: "deferred", desc: "量化改造对比报告", updated: "2026-10-06" },

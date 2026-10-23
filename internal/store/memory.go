@@ -22,6 +22,7 @@ type MemoryStore struct {
 	runOrder  []string // run 起点插入序，解决串行调用也可能同毫秒的 tie-break。
 	bindings  map[string]string
 	receipts  map[string]Receipt
+	memories  map[memoryIdentity]MemoryRecord // 长期记忆契约的易失后端，不自动学习历史。
 }
 
 type memorySession struct {
@@ -33,7 +34,7 @@ type memorySession struct {
 
 // NewMemory 构造内存后端。
 func NewMemory() *MemoryStore {
-	return &MemoryStore{sessions: make(map[string]*memorySession), runs: make(map[string]*RunRecord), calls: make(map[string]*ModelCallRecord), bindings: make(map[string]string), receipts: make(map[string]Receipt)}
+	return &MemoryStore{sessions: make(map[string]*memorySession), runs: make(map[string]*RunRecord), calls: make(map[string]*ModelCallRecord), bindings: make(map[string]string), receipts: make(map[string]Receipt), memories: make(map[memoryIdentity]MemoryRecord)}
 }
 
 // StartRun 幂等创建会话并登记起点；活动时间取起点与现存值的较大者。

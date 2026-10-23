@@ -18,7 +18,7 @@ import (
 
 // schemaVersion 是当前迁移版本，与 config schema 分开管理；只允许前向迁移，
 // 遇到比程序更新的版本拒绝写入。
-const schemaVersion = 2
+const schemaVersion = 3
 
 // SQLiteStore 是本机文件后端：一个 history.db 承载会话、run、轮次与调用，
 // 打开时持有整库进程独占锁直至 Close。单进程独占下不启用 WAL，事务使用
@@ -107,6 +107,13 @@ func (s *SQLiteStore) migrate() error {
 	}
 	if version < 2 {
 		for _, statement := range managementSchemaStatements {
+			if _, err = tx.Exec(statement); err != nil {
+				return err
+			}
+		}
+	}
+	if version < 3 {
+		for _, statement := range memorySchemaStatements {
 			if _, err = tx.Exec(statement); err != nil {
 				return err
 			}

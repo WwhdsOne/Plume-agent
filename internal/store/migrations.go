@@ -68,3 +68,25 @@ var managementSchemaStatements = []string{
 		PRIMARY KEY (scope_key, workspace, request_id)
 	)`,
 }
+
+// memorySchemaStatements 在同一事务扩展 v3，不重写 v1/v2 历史。作用域
+// CHECK 是第二道数据边界，session 的可信归属由读写事务核对，不能用
+// 外键替代主体/工作区过滤；迁移故障测试守住 DDL 与 user_version 同回滚。
+var memorySchemaStatements = []string{
+	`CREATE TABLE memory_entries (
+		scope_key TEXT NOT NULL CHECK(scope_key <> ''),
+		scope_type TEXT NOT NULL CHECK(scope_type IN ('global','workspace','session')),
+		workspace TEXT NOT NULL,
+		session_id TEXT NOT NULL,
+		memory_key TEXT NOT NULL CHECK(memory_key <> ''),
+		content TEXT NOT NULL CHECK(content <> ''),
+		source TEXT NOT NULL CHECK(source = 'user'),
+		revision INTEGER NOT NULL CHECK(typeof(revision) = 'integer' AND revision > 0),
+		created_at INTEGER NOT NULL CHECK(typeof(created_at) = 'integer'),
+		updated_at INTEGER NOT NULL CHECK(typeof(updated_at) = 'integer' AND updated_at >= created_at),
+		PRIMARY KEY(scope_key, scope_type, workspace, session_id, memory_key),
+		CHECK((scope_type = 'global' AND workspace = '' AND session_id = '') OR
+			(scope_type = 'workspace' AND workspace <> '' AND session_id = '') OR
+			(scope_type = 'session' AND workspace <> '' AND session_id <> ''))
+	)`,
+}

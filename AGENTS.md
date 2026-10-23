@@ -1,7 +1,7 @@
 ---
 title: AGENTS.md
 status: active
-updated: 2026-10-23
+updated: 2026-10-24
 summary: 仓库长期快照：语言约定、审核制度、架构边界、codegraph MCP、依赖与文档维护规则；动手前必读
 ---
 
@@ -129,13 +129,13 @@ codegraph uninit        # 删 .codegraph/
 
 审核证据（终端 pty 产物、评测输出等）只在单元待审期间保留，**通过时随该提交一并删除**；保存、复现与取回规则见 [`docs/runbooks/tui.md`](docs/runbooks/tui.md)「证据治理：通过即删」。
 
-实施顺序：已通过 `G0` / `G1a` / `G1b.1` / `G1b.2`（含 .1/.2.1/.2.2）/ `G1b.3` / `G1b.4` / `G3` / `G3.1` / `G3.2` / `G4a.1` / `G4a.2`。G4a.1 含全部修复于 2026-10-12 通过并提交推送，G4a.2 于 2026-10-23 获用户提交并继续授权。下一项具体需求待明确；不把这项授权扩展为同时实施渠道、长期记忆和技能。
+实施顺序：已通过 `G0` / `G1a` / `G1b.1` / `G1b.2`（含 .1/.2.1/.2.2）/ `G1b.3` / `G1b.4` / `G3` / `G3.1` / `G3.2` / `G4a.1` / `G4a.2`。G4a.1 含全部修复于 2026-10-12 通过并提交推送，G4a.2 于 2026-10-23 获用户提交并继续授权。用户随后明确授权长期记忆立项及 G4a.3.1；本单元交付即停，G4a.3.2 及渠道/MCP/技能仍须另行授权。
 
 G3.1 交付六种开发工具与可配置宽松预算（含其基础 G3 工具循环），G3.2 交付 soul.md 初始化与上下文拼装；两者的实施计划已归档至 `docs/archive/plans/`，审核窗口证据按 runbook 删除。
 
 之后另行授权第二阶段：`G2a.1`（扫码登录）→ `G2a.2`（真实收发）→ `G2b`（可靠性）。保留原编号含义，G3 前移，不按数字自动推进。`G4a/G4b/G5/G6` 作为后续记忆、压缩、技能与实验路线储备。没有微信配置不得阻塞未来 TUI 启动。
 
-用户于 2026-10-10 规划历史会话与统一 `/` 指令，2026-10-11 授权 G4a.1（持久历史与显式继续），2026-10-12 通过其全部修复并授权 G4a.2（公共指令与 TUI 历史选择）。2026-10-23 用户要求提交后开始下一个需求，G4a.2 完成验证后随通过提交。当前行为见 `docs/specs/session-commands.md`，设计见 `docs/plans/2026-10-10-session-history-commands.md`；下一项具体目标待明确。
+用户于 2026-10-10 规划历史会话与统一 `/` 指令，2026-10-11 授权 G4a.1（持久历史与显式继续），2026-10-12 通过其全部修复并授权 G4a.2（公共指令与 TUI 历史选择）。2026-10-23 用户要求提交后开始下一个需求，G4a.2 完成验证后随通过提交。当前行为见 `docs/specs/session-commands.md`，设计见 `docs/plans/2026-10-10-session-history-commands.md`；随后明确授权长期记忆立项及首个子单元，按 `docs/plans/2026-10-23-g4a3-memory.md` 执行并在 G4a.3.1 交付后停止。
 
 指标与比较协议见 `docs/specs/metrics.md`：基线阶段只报绝对值、变化列 N/A，不得为了填表编造"提升"；数据缺失记 `N/A`/`unknown`，不得当 0。
 
@@ -224,7 +224,7 @@ summary: 一句话简介，不超过 80 字，说明这份文档是什么、解�
 | `internal/app/` | 会话历史、run 生命周期（串行、取消、有界事件流）与调用用量去重统计；G4a.1 持久化/会话恢复，G4a.2 公共指令纯解析、可信 Scope、结构化回执、分页管理与收据固定取消目标，CompletionProvider 仅候选来源边界；不导入终端或平台 SDK，真实渠道调度后移 |
 | `internal/agent/` | G3 统一请求拼装、Generate/Stream 工具循环与预算；规则/声明快照、完整工具组与失败隔离 |
 | `internal/tools/` | 不可变许可注册表、严格参数校验；G3.1 os.Root 工作区读写/搜索与本地 Shell，计算器/时钟可选 |
-| `internal/store/` | 会话/run/调用/轮次的 SQLite 持久化（modernc.org/sqlite）、三段式落盘、整库进程锁与前向迁移；G4a.2 迁移 user_version=2，增加同域分页、手工标题、bindings/command_receipts 原子事务；内存后端同契约，不承载长期记忆或真实平台 inbox/outbox |
+| `internal/store/` | 会话/run/调用/轮次的 SQLite 持久化（modernc.org/sqlite）、三段式落盘、整库进程锁与前向迁移；G4a.2 同域分页、手工标题、bindings/command_receipts 原子事务；G4a.3.1 迁移 user_version=3，增加显式记忆账本及精确作用域有界读取，内存后端同契约；不做任务召回/prompt 拼装或真实平台 inbox/outbox |
 | `internal/soul/` | G3.2 默认人格模板、无覆盖原子初始化与有界 UTF-8 读取；不管工具许可或长期记忆 |
 | `internal/telemetry/` | setup、模型及 run 生命周期 trace，首思考/首答案/准备计量；不记录正文或展示文案 |
 | `internal/eval/` | G1b.1 已建：12 个离线种子数据集（`eval/datasets/smoke.v1.jsonl`）与运行器；后续评分、统计、比较报告 |
@@ -286,13 +286,15 @@ G4a.1 新增 `sessions` 段（schema v1 兼容扩展，段与标量缺失/null �
 
 **G4a.2 公共指令与历史选择（2026-10-23 通过并获提交授权）**：公共路由、TUI 补全/选择/预览/分页及 fake gateway 已交付，全仓普通与竞态测试各 1638 项、两组共 12 个 PTY 场景通过，详见 [审核记录](docs/reviews/G4a.2.md)。指令错误和管理操作不调用模型、不写成功上下文；`//` 转义普通消息；Ctrl+N 复用 `/new`。权限域与规范工作区先过滤再解短 ID，不存在/不可见均 session_not_found。SQLite v1→v2 保留旧 local 历史，绑定/命名/收据同事务确认后才改内存；取消收据固定首次 run 或无目标，重投不取消后来任务。默认未命名无 run 空会话只驻内存，手工命名后落元数据，首次已登记 run 固定自动标题（失败也算）。fake 只证明管理收据复用，不承诺真实平台 exactly-once。真实终端人工体验、kitty/Windows 实测仍未完成；真实渠道、跨进程并发所有权、记忆/MCP/skill 加载仍未实现。
 
+**G4a.3.1 长期记忆账本（2026-10-24 交付待审）**：长期记忆已立项，首单元仅实现 internal/store 的 LongTermMemoryStore：显式 user 来源、主体内 global/workspace/session 精确隔离、稳定键去重、版本 CAS/首次重投幂等、UTC 毫秒时间、有界完整读取。SQLite user_version=3 与原历史同库同锁；迁移失败回滚，旧记录保留；单条8192字节、单次100条/65536字节，可收紧，超限整体拒绝无残片。正文和驱动原文不进日志/trace，演示用临时私密库。没有新增依赖、包目录、配置字段或 plume 指令；聊天记忆槽仍为空，删除和管理入口/召回待后续授权。契约见 `docs/specs/agent/memory.md`，审核见 `docs/reviews/G4a.3.1.md`，交付后停止，不 push。
+
 各单元的改动范围、实际证据与限制以 `docs/reviews/Gx.md` 为准，本文件不重复——状态只在 review 文档 frontmatter 维护，`roadmap.html` 与 `docs/index.md` 是可读快照，冲突时以 review 为准。
 
 **尚未实现，不要假设存在**：
 
 - **发送前上下文 token 估算与自动压缩**：目前仅使用供应商实际 usage 与用户配置的展示容量；没有估算器时保留 last/unknown，不猜模型容量或输入 token。
 - `cmd/eval` 比较命令、工具自动重试与并行工具。
-- **记忆/MCP/skill 仅规划**：按 `docs/plans/agent-context.md` 预留来源；人格仅由 G3.2 的配置目录 soul.md 提供，不发现项目内同名文件。不提前创建记忆/MCP/skill 加载器、空包或配置字段。
+- **记忆请求召回/MCP/skill 仍未接入**：G4a.3.1 只交付 store 私密账本与独立演示，当前聊天不会写入或召回；管理指令/遗忘/任务召回见 `docs/plans/2026-10-23-g4a3-memory.md` 后续单元。人格仍只读配置目录 soul.md，不发现项目同名文件；不提前创建 memory/MCP/skill 加载器、空包或配置字段。
 - Shift+Enter 在真实 kitty 终端（WezTerm/iTerm2）的**人工**验证与 Windows 实测（G-win 单元）——G1b.2.1 只在 pty 里用 CSI u 编码验证过解析路径。
 - 模型独立就绪探测（启动只校验配置与凭据，不发付费探测请求）。
 - 公共指令的 MCP/skill 动态来源、`/model <ref>` 跨模型迁移、`/think` 与自动压缩（G4a.2 已交付内置公共指令和 CompletionProvider 候选边界；跨进程并发所有权留给 G2b）。

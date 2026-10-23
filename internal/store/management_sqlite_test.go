@@ -39,7 +39,7 @@ func TestManagementSQLiteMigrationV1(t *testing.T) {
 		t.Fatalf("migrated record = %+v err=%v", record, err)
 	}
 	var version int
-	if err := s.db.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != 2 {
+	if err := s.db.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != schemaVersion {
 		t.Fatalf("schema = %d err=%v", version, err)
 	}
 }
