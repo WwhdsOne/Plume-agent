@@ -16,7 +16,6 @@ import (
 	"plume-agent/internal/agent"
 	"plume-agent/internal/app"
 	"plume-agent/internal/config"
-	"plume-agent/internal/model"
 	"plume-agent/internal/provider"
 	"plume-agent/internal/store"
 	"plume-agent/internal/telemetry"
@@ -94,13 +93,16 @@ func startChat(out io.Writer, opts chatOptions) (resultErr error) {
 	var selected *config.ModelConfig
 	var workspace string
 	if offline {
-		runtime = agent.New(model.NewToolDemo(), "offline")
-		defaults := config.DefaultTools()
-		defaults.Enabled = append(defaults.Enabled, "calculate", "current_time")
-		if err := configureRuntimeTools(runtime, &config.Config{Tools: defaults, Agent: config.DefaultAgent()}); err != nil {
+		var err error
+		runtime, err = buildOfflineRuntime()
+		if err != nil {
 			return err
 		}
 		resources.runtime = runtime
+		workspace, err = workspaceDir(nil)
+		if err != nil {
+			return err
+		}
 	} else {
 		var err error
 		cfg, err = config.Load()
@@ -163,17 +165,10 @@ func startChat(out io.Writer, opts chatOptions) (resultErr error) {
 		resources.runtime = runtime
 		options.StatusMessages = cfg.TUI.MessageOverrides()
 		options.StatusLine = cfg.TUI.StatusLine
-		policy, _ := provider.ResolveReasoning(provider.ModelSpec{Provider: selected.Provider, Protocol: selected.Protocol, BaseURL: selected.BaseURL, Model: selected.Model, ReasoningEffort: selected.ReasoningEffort})
 		providerID = selected.Provider
-		info = telemetry.ReasoningInfo{Requested: string(policy.Requested), Source: policy.Source, Effective: string(policy.Effective), Capability: policy.Capability}
+		info, options.Reasoning = reasoningInfoOf(selected)
 		options.Provider, options.ModelID = selected.Provider, selected.Model
 		options.ContextWindowTokens = selected.ContextWindowTokens
-		if policy.Capability == "verified" {
-			options.Reasoning = string(policy.Effective)
-			if policy.Requested != policy.Effective {
-				options.Reasoning = string(policy.Requested) + "→" + string(policy.Effective)
-			}
-		}
 	}
 
 	trace, err := openChatTrace()
@@ -205,7 +200,7 @@ func startChat(out io.Writer, opts chatOptions) (resultErr error) {
 	// 持久层绑定：此后每个 run 的起点、用量与终态先落盘再进内存。
 	if history != nil {
 		shutdown := time.Duration(config.DefaultSessions().ShutdownTimeoutMS) * time.Millisecond
-		if cfg.Sessions != nil {
+		if cfg != nil && cfg.Sessions != nil {
 			shutdown = time.Duration(cfg.Sessions.ShutdownTimeoutMS) * time.Millisecond
 		}
 		service.EnablePersistence(history, workspace, modelRefOf(selected), shutdown)
@@ -217,15 +212,23 @@ func startChat(out io.Writer, opts chatOptions) (resultErr error) {
 		}
 		options.InitialTranscript = resume.transcript
 	}
+	// 历史关闭与离线模式同样能浏览本进程会话，但从不打开已有私密数据库。
+	if history == nil {
+		history = store.NewMemory()
+		resources.history = history
+	}
+	if err := configureServiceCommands(service, cfg, selected, history, offline, workspace, recorder); err != nil {
+		return fmt.Errorf("configure commands: %w", err)
+	}
+	resources.runtime = serviceRuntimeCloser{service: service}
+	options.InitialSessionID = service.SessionID()
 	stats := service.Session().Statistics()
 	options.InitialStats = &stats
 
 	chatModel := tui.NewWithOptions(label, tui.Hooks{
-		Submit: func(input string) (string, error) { return service.Submit(ctx, input) },
-		Cancel: service.Cancel,
-		// Ctrl+N 仅在执行状态重建成功后建立新 ID；失败由 TUI 保留原界面。
-		ResetSession: service.NewSession,
-		FirstAnswer:  recorder.UIAnswer,
+		Command:     func(input string) app.CommandResult { return handleTUIInput(ctx, service, offline, input) },
+		Cancel:      service.Cancel,
+		FirstAnswer: recorder.UIAnswer,
 	}, options)
 
 	// 开屏（docs/specs/tui/splash.md）：方框 + 羽毛 LOGO + 键位提示 + 真实信息，
@@ -418,9 +421,11 @@ func buildRuntimeFrom(cfg *config.Config, selected *config.ModelConfig) (*agent.
 	}
 	runtime := agent.New(client, selected.Model)
 	if err := configureRuntimeSoul(runtime, cfg.Agent); err != nil {
+		_ = runtime.Close()
 		return nil, "", fmt.Errorf("configure soul: %w", err)
 	}
 	if err := configureRuntimeTools(runtime, cfg); err != nil {
+		_ = runtime.Close()
 		return nil, "", fmt.Errorf("configure tools: %w", err)
 	}
 	return runtime, fmt.Sprintf("%s/%s", selected.Provider, selected.Model), nil

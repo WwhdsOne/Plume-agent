@@ -2,8 +2,8 @@
 <!--
 title: plume-agent 路线图
 status: active
-updated: 2026-10-12
-summary: G4a.1 含全部修复已通过；G4a.2 已授权，待 G4a.1 提交推送后开始编码
+updated: 2026-10-23
+summary: G4a.1 与 G4a.2 已通过；公共指令、历史选择与正式验证完成，后续需求待明确
 -->
 
 <html lang="zh-CN">
@@ -224,14 +224,14 @@ const ROADMAP = [
     ],
   },
   {
-    stage: "历史会话与统一指令（G4a.1 已通过，G4a.2 已授权待实施）",
+    stage: "历史会话与统一指令（G4a.1、G4a.2 均已通过）",
     nodes: [],
     branches: [
       [
         { id: "G4a.1", title: "持久历史与显式继续", status: "passed",
           desc: "2026-10-12 含全部修复审核通过：SQLite 历史、plume -c、Ctrl+N、三段式落盘与失败隔离、恢复校验及整库锁；最新审核验证 1440 项竞态与 6 场景 PTY 通过", updated: "2026-10-12" },
-        { id: "G4a.2", title: "公共指令与 TUI 历史选择", status: "todo",
-          desc: "2026-10-12 已获授权，待 G4a.1 提交推送后开始编码：/resume、/new、/history 等公共路由、TUI 选择器与 fake gateway 隔离；尚未交付，真实渠道另审", updated: "2026-10-12" },
+        { id: "G4a.2", title: "公共指令与 TUI 历史选择", status: "passed",
+          desc: "2026-10-23 通过并获提交授权：公共路由、store v2 同域分页与收据事务、TUI 补全/选择/预览和 fake gateway；普通与竞态各 1638 项、两组共 12 场景 PTY 通过，真实渠道未实现", updated: "2026-10-23" },
       ],
     ],
   },
@@ -254,7 +254,7 @@ const ROADMAP = [
     nodes: [],
     branches: [
       [
-        { id: "G4a", title: "长期记忆（剩余范围）", status: "deferred", desc: "历史部分已拆成 G4a.1/G4a.2，前者已通过、后者已授权实施；长期记忆仍未立项", updated: "2026-10-12" },
+        { id: "G4a", title: "长期记忆（剩余范围）", status: "deferred", desc: "历史部分已拆成 G4a.1/G4a.2，均已通过；长期记忆仍未立项", updated: "2026-10-23" },
         { id: "G4b", title: "上下文压缩", status: "deferred", desc: "实验 E01 候选", updated: "2026-10-06" },
         { id: "G5", title: "已审核技能", status: "deferred", desc: "", updated: "2026-10-06" },
         { id: "G6", title: "实验与简历整理", status: "deferred", desc: "量化改造对比报告", updated: "2026-10-06" },

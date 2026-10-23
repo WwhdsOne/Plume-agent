@@ -45,6 +45,7 @@ const (
 // Event 是一次 run 的生命周期事件。Reply 只在 completed 时有值
 // （G1b.2 非流式整段回答；流式增量由 G1b.3 的事件扩展承载）。
 type Event struct {
+	SessionID      string
 	RunID          string
 	Kind           EventKind
 	Reply          string
@@ -84,6 +85,7 @@ type Service struct {
 
 	mu               sync.Mutex
 	busy             bool
+	activeRunID      string // 取消收据锁定的执行身份，不以“当前”任务重放取消。
 	cancel           context.CancelFunc
 	pending          string // 提交时暂存的用户输入，成功后随回复一起入历史
 	sessionID        string
@@ -92,10 +94,14 @@ type Service struct {
 	workspace        string
 	modelRef         store.ModelRef
 	shutdownTimeout  atomic.Int64
-	historyUncertain bool // 提交无法核查时冻结执行权，直到进程重开校验。
+	historyUncertain bool   // 提交无法核查时冻结执行权，直到进程重开校验。
+	lastSaveStatus   string // 最近 run 的实际保存结果，供只读 /status 区分失败与未知。
 	shutdownContext  context.Context
 	cancelShutdown   context.CancelFunc
 	stopped          chan struct{}
+	commandMu        sync.Mutex // 串行处理命令关联，普通输入仍沿用 mu 的准入边界。
+	commands         *commandState
+	retiredRuntimes  []*agent.Runtime // 切换后集中释放；执行停止前不能关闭当前工具根。
 
 	wg        sync.WaitGroup
 	done      chan struct{}
@@ -128,7 +134,11 @@ func NewService(runtime *agent.Runtime, recorders ...*telemetry.ModelRecorder) *
 func (s *Service) Events() <-chan Event { return s.events }
 
 // Session 暴露会话（历史查询、重置）。
-func (s *Service) Session() *Session { return s.session }
+func (s *Service) Session() *Session {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.session
+}
 
 // Busy 报告是否有 run 在执行。
 func (s *Service) Busy() bool {
@@ -164,10 +174,21 @@ func (s *Service) Submit(ctx context.Context, input string) (string, error) {
 	}
 	runID := newRunID()
 	accepted := time.Now()
+	oldTitle := ""
+	oldHasRun := false
+	if s.commands != nil {
+		oldTitle = s.commands.title
+		oldHasRun = s.commands.hasRun
+		s.commands.autoTitleLocked(input)
+	}
 	if s.history != nil {
 		// 起点事务（含会话按 ID 幂等落盘）失败时不发请求：见方案 §4.2 顺序 1。
 		start := store.RunRecord{ID: runID, Input: input, StartedAt: accepted}
 		if err := s.history.StartRun(ctx, s.sessionRecordLocked(accepted), start); err != nil {
+			if s.commands != nil {
+				s.commands.title = oldTitle
+				s.commands.hasRun = oldHasRun
+			}
 			s.mu.Unlock()
 			return "", fmt.Errorf("history storage: %w", err)
 		}
@@ -184,9 +205,11 @@ func (s *Service) Submit(ctx context.Context, input string) (string, error) {
 	}
 	runCtx = telemetry.WithRunID(runCtx, runID)
 	s.busy = true
+	s.activeRunID = runID
 	s.cancel = cancel
 	s.pending = input
 	sessionID := s.sessionID
+	runtime, session := s.runtime, s.session
 	if s.recorder != nil {
 		s.recorder.RunStart(sessionID, runID, accepted)
 	}
@@ -201,13 +224,13 @@ func (s *Service) Submit(ctx context.Context, input string) (string, error) {
 		var storageErr error
 		storageStage := ""
 		var toolEvents []store.ToolEventRecord
-		s.emit(Event{Kind: EventRunStarted, RunID: runID, Phase: PhasePreparing, AcceptedAt: accepted}, runCtx)
+		s.emit(Event{SessionID: sessionID, Kind: EventRunStarted, RunID: runID, Phase: PhasePreparing, AcceptedAt: accepted}, runCtx)
 		phase := PhasePreparing
 		var callingAt time.Time
 		var preparation, firstReasoning, firstAnswer time.Duration
 		modelCall := 0
 		callID := func() string { return fmt.Sprintf("%s/model-%d", runID, modelCall) }
-		result, err := s.runtime.RunStreamWithTools(runCtx, s.session.History(), input, func(stepCtx context.Context) {
+		result, err := runtime.RunStreamWithTools(runCtx, session.History(), input, func(stepCtx context.Context) {
 			modelCall++
 			callingAt = time.Now()
 			if modelCall == 1 {
@@ -224,15 +247,15 @@ func (s *Service) Submit(ctx context.Context, input string) (string, error) {
 					return
 				}
 			}
-			s.session.ObserveUsage(callID(), model.Usage{})
-			s.emit(Event{Kind: EventRunPhase, RunID: runID, Phase: phase, ModelCall: modelCall, Stats: s.session.Statistics()}, stepCtx)
+			session.ObserveUsage(callID(), model.Usage{})
+			s.emit(Event{SessionID: sessionID, Kind: EventRunPhase, RunID: runID, Phase: phase, ModelCall: modelCall, Stats: session.Statistics()}, stepCtx)
 		}, func(stepCtx context.Context, e model.Event) error {
 			next := phase
-			ev := Event{RunID: runID}
+			ev := Event{SessionID: sessionID, RunID: runID}
 			switch e.Kind {
 			case model.EventUsageUpdate:
-				s.session.ObserveUsage(callID(), e.Usage)
-				returnStatus := s.emit(Event{Kind: EventUsageUpdate, RunID: runID, Usage: e.Usage, Stats: s.session.Statistics()}, stepCtx)
+				session.ObserveUsage(callID(), e.Usage)
+				returnStatus := s.emit(Event{SessionID: sessionID, Kind: EventUsageUpdate, RunID: runID, Usage: e.Usage, Stats: session.Statistics()}, stepCtx)
 				// 快照保存失败时停止后续模型/工具步骤（方案 §4.2 顺序 2）；
 				// 替换语义天然去重，不影响已展示的统计。
 				if s.history != nil && storageErr == nil {
@@ -271,7 +294,7 @@ func (s *Service) Submit(ctx context.Context, input string) (string, error) {
 			}
 			if next != phase {
 				phase = next
-				if !s.emit(Event{Kind: EventRunPhase, RunID: runID, Phase: phase}, stepCtx) {
+				if !s.emit(Event{SessionID: sessionID, Kind: EventRunPhase, RunID: runID, Phase: phase}, stepCtx) {
 					return stepCtx.Err()
 				}
 			}
@@ -281,7 +304,7 @@ func (s *Service) Submit(ctx context.Context, input string) (string, error) {
 			return nil
 		}, func(stepCtx context.Context, e agent.ToolEvent) error {
 			toolEvents = append(toolEvents, store.ToolEventRecord{Name: e.Name, Status: e.Status, Summary: e.Summary, DurationMS: e.Duration.Milliseconds()})
-			if !s.emit(Event{Kind: EventToolUpdate, RunID: runID, Tool: e}, stepCtx) {
+			if !s.emit(Event{SessionID: sessionID, Kind: EventToolUpdate, RunID: runID, Tool: e}, stepCtx) {
 				return stepCtx.Err()
 			}
 			return nil
@@ -311,9 +334,10 @@ func (s *Service) finish(ctx context.Context, runID, sessionID string, accepted 
 		err = storageErr
 	}
 	ev := Event{
-		Kind:  EventRunCompleted,
-		RunID: runID,
-		Err:   err, Duration: total, Preparation: preparation, FirstReasoning: firstReasoning, FirstAnswer: firstAnswer,
+		SessionID: sessionID,
+		Kind:      EventRunCompleted,
+		RunID:     runID,
+		Err:       err, Duration: total, Preparation: preparation, FirstReasoning: firstReasoning, FirstAnswer: firstAnswer,
 	}
 	if result != nil {
 		ev.Reply = result.LastMessage.Content
@@ -389,9 +413,11 @@ func (s *Service) finish(ctx context.Context, runID, sessionID string, accepted 
 		}
 		s.recorder.RunEnd(sessionID, runID, telemetry.RunMetrics{Duration: total, Preparation: preparation, FirstReasoning: firstReasoning, FirstAnswer: firstAnswer, ReasoningBytes: reasoningBytes, AnswerBytes: answerBytes, SaveStatus: saveStatus, SaveErrorStage: storageStage}, runErr)
 	}
+	s.lastSaveStatus = saveStatus
 	// 非终态最多占八格，最后一格保留给当前终态；取消不依赖消费者继续读取。
 	s.emit(ev, context.Background())
 	s.busy = false
+	s.activeRunID = ""
 	s.cancel = nil
 	s.pending = ""
 	s.mu.Unlock()

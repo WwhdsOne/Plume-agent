@@ -1,7 +1,7 @@
 ---
 title: G3.2 人格初始化与上下文拼装契约
 status: active
-updated: 2026-10-10
+updated: 2026-10-12
 summary: soul.md 默认配置、setup 无覆盖初始化、每 run 快照、读取失败与人格执行边界
 ---
 
@@ -66,6 +66,8 @@ tools = {tool} + {mcp}
 人格不能授予删除、推送、发布、发消息等执行权限，不能修改工具 allowlist、预算或取消行为。来源标记不保证模型绝对服从，因此执行许可仍由现有代码与用户指令约束；人格文件不作为普通工具结果数据混入。
 
 Generate 与 Stream 共用准备和循环，消息语义一致。提示词版本更新为 `plume-workspace-v2`；人格正文计入完整请求的 JSON 字节预算与现有请求 hash。只延续原有版本/hash/bytes/消息数 trace，不增加人格正文或单独人格裸哈希日志。
+
+G4a.1/G4a.2 的 `-c`、`/resume` 只恢复成功结构化 user/assistant/tool 历史，拒绝将旧 system 当作指令来源；下一 run 仍按当前模板、本次启动配置中的 soul 选项与当次文件快照构造唯一 system。新建/选择/预览不读取人格以发模型请求，历史曾有的人格不授予当前工具许可。配置不因 `/resume` 热加载，soul.md 正文仍按每 run 更新；公共恢复边界见 [会话指令契约](../session-commands.md)。
 
 ## 验收与限制
 

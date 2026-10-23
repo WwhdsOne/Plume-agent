@@ -16,6 +16,8 @@ type Options struct {
 	Provider, ModelID, Reasoning, Dir, HomeDir string
 	ContextWindowTokens                        *int64
 	InitialStats                               *app.SessionStats
+	// InitialSessionID 绑定启动会话身份；之后只接受该会话与当前 run 的事件。
+	InitialSessionID string
 	// InitialTranscript 是恢复会话时预置进聊天记录的展示行（`-c` 路径）；
 	// 输入草稿与 Up/Down 草稿历史不从磁盘恢复。
 	InitialTranscript []TranscriptLine

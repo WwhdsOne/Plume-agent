@@ -18,7 +18,7 @@ import (
 
 // schemaVersion 是当前迁移版本，与 config schema 分开管理；只允许前向迁移，
 // 遇到比程序更新的版本拒绝写入。
-const schemaVersion = 1
+const schemaVersion = 2
 
 // SQLiteStore 是本机文件后端：一个 history.db 承载会话、run、轮次与调用，
 // 打开时持有整库进程独占锁直至 Close。单进程独占下不启用 WAL，事务使用
@@ -80,7 +80,7 @@ func OpenSQLite(path string) (*SQLiteStore, error) {
 	return s, nil
 }
 
-// migrate 用 PRAGMA user_version 前向迁移；只建表不改既有列。
+// migrate 用 PRAGMA user_version 前向迁移；每步 DDL 与版本发布同事务。
 // 版本比程序新时拒绝，保留文件不删库。
 func (s *SQLiteStore) migrate() error {
 	var version int
@@ -98,9 +98,18 @@ func (s *SQLiteStore) migrate() error {
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
-	for _, statement := range schemaStatements {
-		if _, err = tx.Exec(statement); err != nil {
-			return err
+	if version < 1 {
+		for _, statement := range schemaStatements {
+			if _, err = tx.Exec(statement); err != nil {
+				return err
+			}
+		}
+	}
+	if version < 2 {
+		for _, statement := range managementSchemaStatements {
+			if _, err = tx.Exec(statement); err != nil {
+				return err
+			}
 		}
 	}
 	if _, err = tx.Exec(fmt.Sprintf("PRAGMA user_version = %d", schemaVersion)); err != nil {
@@ -111,25 +120,30 @@ func (s *SQLiteStore) migrate() error {
 
 // StartRun 幂等建会话并登记 run 起点，全部在一个事务内。
 func (s *SQLiteStore) StartRun(ctx context.Context, session SessionRecord, run RunRecord) error {
-	var exists int
-	if err := s.db.QueryRowContext(ctx, "SELECT 1 FROM runs WHERE id = ?", run.ID).Scan(&exists); err == nil {
-		return ErrDuplicateRun
-	} else if !errors.Is(err, sql.ErrNoRows) {
-		return err
-	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
+	var exists int
+	if err := tx.QueryRowContext(ctx, "SELECT 1 FROM runs WHERE id = ?", run.ID).Scan(&exists); err == nil {
+		return ErrDuplicateRun
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	session = normalizeSession(session)
+	scope := Scope{ScopeKey: session.ScopeKey, Workspace: session.Workspace}
+	if err := checkSQLiteOwner(ctx, tx, scope, session.ID, false); err != nil {
+		return err
+	}
 	ref, err := json.Marshal(session.ModelRef)
 	if err != nil {
 		return err
 	}
-	if _, err = tx.ExecContext(ctx, `INSERT INTO sessions (id, workspace, title, model_ref, created_at, last_run_at)
-		VALUES (?, ?, ?, ?, ?, ?)
+	if _, err = tx.ExecContext(ctx, `INSERT INTO sessions (id, scope_key, workspace, title, title_manual, model_ref, created_at, last_run_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET last_run_at = MAX(last_run_at, excluded.last_run_at)`,
-		session.ID, session.Workspace, session.Title, string(ref), unixMS(session.CreatedAt), unixMS(run.StartedAt)); err != nil {
+		session.ID, session.ScopeKey, session.Workspace, session.Title, session.TitleManual, string(ref), unixMS(session.CreatedAt), unixMS(run.StartedAt)); err != nil {
 		return err
 	}
 	tools, err := json.Marshal(run.ToolEvents)
@@ -139,6 +153,10 @@ func (s *SQLiteStore) StartRun(ctx context.Context, session SessionRecord, run R
 	if _, err = tx.ExecContext(ctx, `INSERT INTO runs (id, session_id, input, status, error, started_at, reply, reasoning, tool_events)
 		VALUES (?, ?, ?, 'running', '', ?, '', '', ?)`,
 		run.ID, session.ID, run.Input, unixMS(run.StartedAt), string(tools)); err != nil {
+		return err
+	}
+	// 首条普通消息也必须原子更新绑定，否则 gateway 重启会忘记当前会话。
+	if err := bindSQLiteSession(ctx, tx, scope, session.ID); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -315,9 +333,9 @@ func (s *SQLiteStore) InterruptRunning(ctx context.Context, at time.Time) (int, 
 
 // LatestSession 返回工作区最近有 run 的会话（按 last_run_at 降序取一）。
 func (s *SQLiteStore) LatestSession(ctx context.Context, workspace string) (SessionRecord, bool, error) {
-	row := s.db.QueryRowContext(ctx, `SELECT id, workspace, title, model_ref, created_at, last_run_at
-		FROM sessions WHERE workspace = ? ORDER BY last_run_at DESC,
-		(SELECT MAX(rowid) FROM runs WHERE runs.session_id = sessions.id) DESC LIMIT 1`, workspace)
+	row := s.db.QueryRowContext(ctx, sessionSelect+`
+		WHERE workspace = ? AND scope_key = 'local' AND EXISTS(SELECT 1 FROM runs WHERE runs.session_id = sessions.id)
+		ORDER BY last_run_at DESC, (SELECT MAX(rowid) FROM runs WHERE runs.session_id = sessions.id) DESC LIMIT 1`, workspace)
 	return scanSession(row.Scan)
 }
 
@@ -468,17 +486,25 @@ func scanSession(scan rowScanner) (SessionRecord, bool, error) {
 	var record SessionRecord
 	var createdMS, runMS int64
 	var encoded string
-	if err := scan(&record.ID, &record.Workspace, &record.Title, &encoded, &createdMS, &runMS); err != nil {
+	if err := scan(&record.ID, &record.ScopeKey, &record.Workspace, &record.Title, &record.TitleManual, &encoded, &createdMS, &runMS, &record.RunCount, &record.TurnCount); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return SessionRecord{}, false, nil
 		}
+		return SessionRecord{}, false, err
+	}
+	if err := checkLoadSize(1, int64(len(encoded)+len(record.ID)+len(record.Title)+len(record.ScopeKey)+len(record.Workspace)), normalizeLoadLimits(nil)); err != nil {
+		return SessionRecord{}, false, err
+	}
+	if err := checkJSONExpansion([]byte(encoded)); err != nil {
 		return SessionRecord{}, false, err
 	}
 	if err := json.Unmarshal([]byte(encoded), &record.ModelRef); err != nil {
 		return SessionRecord{}, false, fmt.Errorf("corrupt model ref: %w", err)
 	}
 	record.CreatedAt = fromUnixMS(createdMS)
-	record.LastRunAt = fromUnixMS(runMS)
+	if runMS != 0 {
+		record.LastRunAt = fromUnixMS(runMS)
+	}
 	return record, true, nil
 }
 

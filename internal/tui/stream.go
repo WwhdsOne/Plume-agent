@@ -47,6 +47,11 @@ func (m *Model) flushStream() {
 // reportFirstAnswer 是 View 帧钩子；滚动区外的答案不计入可见首帧。
 // 它表示 renderer 构建了可见帧，不能证明物理终端已经刷新。
 func (m *Model) reportFirstAnswer() {
+	// 管理面板覆盖整块转录区域；底下 viewport 的答案位置不能证明这帧可见。
+	// 面板关闭后的实际 View 会沿同一路径首次计量，时间包含被遮挡的等待。
+	if m.panel != nil {
+		return
+	}
 	if m.width <= bodyOffset() || m.firstAnswerRun == "" || m.firstAnswerReported || m.answerStart < 0 {
 		return
 	}

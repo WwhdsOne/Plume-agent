@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -106,6 +107,17 @@ func (s *Service) SessionID() string {
 // NewSession 建立新会话：新的随机 ID 与空内存历史，旧会话保留在持久层，
 // 不会被新会话复活（Ctrl+N 的 G4a.1 语义）。busy 或已关闭时拒绝。
 func (s *Service) NewSession() error {
+	// G4a.2 装配后键位与 /new 共用事务和启动模型；旧入口保持兼容。
+	s.mu.Lock()
+	configured := s.commands != nil
+	s.mu.Unlock()
+	if configured {
+		result := s.HandleInput(context.Background(), CommandRequest{Text: "/new", Entrance: EntranceTUI})
+		if result.Code != "ok" {
+			return fmt.Errorf("%s: %s", result.Code, result.Message)
+		}
+		return nil
+	}
 	if s.isClosing() {
 		return fmt.Errorf("service is closed")
 	}
@@ -131,13 +143,13 @@ func (s *Service) NewSession() error {
 }
 
 // sessionRecordLocked 构造当前会话的落盘记录；调用方须持有 s.mu。
-// 标题首版固定（/rename 属 G4a.2），默认标题且没有 run 的会话不落盘。
+// 标题取公共指令状态；未手工命名且没有 run 的默认空会话不落盘。
 func (s *Service) sessionRecordLocked(now time.Time) store.SessionRecord {
 	createdAt := s.sessionCreatedAt
 	if createdAt.IsZero() {
 		createdAt = now
 	}
-	return store.SessionRecord{
+	record := store.SessionRecord{
 		ID:        s.sessionID,
 		Workspace: s.workspace,
 		Title:     "New conversation",
@@ -145,4 +157,9 @@ func (s *Service) sessionRecordLocked(now time.Time) store.SessionRecord {
 		CreatedAt: createdAt,
 		LastRunAt: now,
 	}
+	if s.commands != nil {
+		record.ScopeKey = s.commands.key
+		record.Title, record.TitleManual = s.commands.title, s.commands.manualTitle
+	}
+	return record
 }

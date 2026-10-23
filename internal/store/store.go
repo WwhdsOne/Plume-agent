@@ -1,7 +1,7 @@
 // Package store 持久化会话、run 与模型调用的结构化历史：一个事务提交
 // 完整成功轮次，起点先于模型请求落盘，崩溃遗留的 running 记录在下次打开时
-// 标记 interrupted。它不做展示分页、不做渠道绑定（G4a.2 扩展），也不承载
-// 长期记忆；数据库文件归属配置目录，绝不在工作区写隐含库。
+// 标记 interrupted；管理查询按权限域分页，绑定与命令收据原子提交。
+// 它不承载长期记忆或渠道传输；数据库文件归属配置目录，绝不在工作区写隐含库。
 package store
 
 import (
@@ -100,12 +100,16 @@ func (r ModelRef) Fingerprint() string {
 // SessionRecord 是会话元数据。默认标题且没有 run 的会话不落盘，
 // 首次 run 起点事务内按 ID 幂等创建。
 type SessionRecord struct {
-	ID        string
-	Workspace string // 工具工作目录的规范绝对路径（EvalSymlinks 后）
-	Title     string
-	ModelRef  ModelRef
-	CreatedAt time.Time
-	LastRunAt time.Time // 最近一次 run 起点时间；仅浏览或空会话不更新
+	ID          string
+	ScopeKey    string // 空值兼容旧调用，存储时规范为 local；与工作区共同界定可见集合。
+	Workspace   string // 工具工作目录的规范绝对路径（EvalSymlinks 后）
+	Title       string
+	TitleManual bool // 手工标题不能被首次普通输入的自动标题覆盖。
+	ModelRef    ModelRef
+	CreatedAt   time.Time
+	LastRunAt   time.Time // 最近一次 run 起点时间；仅浏览或空会话不更新
+	RunCount    int       // 查询派生值，不单独持久化。
+	TurnCount   int       // 完整成功轮次数，查询时从 turns 派生。
 }
 
 // RunRecord 是一次 run 的起点与终态数据。Input/Reply/Reasoning 是展示与

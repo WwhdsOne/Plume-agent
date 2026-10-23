@@ -19,6 +19,10 @@ import (
 // 不调用网络、不阻塞等待模型——模型 run 的结果以 AppEvent 到达。
 func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case commandResultMsg:
+		cmd := m.applyCommandResult(msg)
+		m.syncLayout()
+		return *m, cmd
 	case statusClockTick:
 		if !msg.sessionStarted.Equal(m.status.sessionStarted) {
 			return *m, nil
@@ -42,10 +46,31 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			m.lastCtrlC = time.Time{}
 		}
 		updated, cmd := m.handleKey(msg)
+		updated.refreshCompletions()
 		updated.syncLayout()
 		return updated, cmd
 
 	case tea.MouseWheelMsg:
+		if m.panel != nil {
+			// 覆盖面板只消费自己的滚动，底下转录的自动跟随/冻结状态保持不变。
+			delta := 0
+			switch msg.Mouse().Button {
+			case tea.MouseWheelUp:
+				delta = -3
+			case tea.MouseWheelDown:
+				delta = 3
+			}
+			if m.panel.sessions != nil && m.panel.history == nil {
+				previous := m.panel.selected
+				m.panel.selected = min(max(m.panel.selected+delta, 0), max(len(m.panel.sessions.Items)-1, 0))
+				if m.panel.selected != previous {
+					m.presentationGeneration++
+				}
+			} else {
+				m.panel.scroll = max(m.panel.scroll+delta, 0)
+			}
+			return *m, nil
+		}
 		// 滚轮滚动聊天记录（v2 MouseModeCellMotion，见 TeaModel.View）。
 		switch msg.Mouse().Button {
 		case tea.MouseWheelUp:
@@ -58,6 +83,19 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		return *m, nil
 
 	case AppEvent:
+		// 极快 fixture 的事件可能先于异步 Submit 回执到达；保留到 run ID 已知后
+		// 再按 session/run 双身份应用，不能把首帧或终态丢在空闲检查之前。
+		if m.commandPending && m.state == stateIdle && (m.sessionID == "" || msg.Event.SessionID == m.sessionID) {
+			m.pendingEvents = append(m.pendingEvents, msg.Event)
+			if m.pendingMessage && msg.Event.Kind == app.EventRunStarted {
+				m.pendingAcceptedRunID = msg.Event.RunID
+				if m.pendingCancel && !m.pendingCancelSent {
+					m.pendingCancelSent = true
+					return *m, cancelCmd(m.hooks.Cancel, msg.Event.RunID)
+				}
+			}
+			return *m, nil
+		}
 		wasIdle := m.state == stateIdle
 		m.applyEvent(msg.Event)
 		m.syncLayout()
@@ -100,10 +138,33 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 // 语义不走 Binding（契约的 KeyMap 字段表不含它），在此用键名判定。
 func (m *Model) handleKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	km := m.keys
-	switch {
-	case msg.String() == "ctrl+c":
+	if msg.String() == "ctrl+c" {
 		return m.handleCtrlC()
-
+	}
+	if m.panel != nil {
+		return m.handlePanelKey(msg)
+	}
+	if key.Matches(msg, km.Cancel) && len(m.completions) > 0 {
+		m.completionDismissed = m.input.Value()
+		m.completions = nil
+		m.resize()
+		return *m, nil
+	}
+	if len(m.completions) > 0 {
+		switch {
+		case key.Matches(msg, km.HistoryUp):
+			m.completionIndex = (m.completionIndex + len(m.completions) - 1) % len(m.completions)
+			return *m, nil
+		case key.Matches(msg, km.HistoryDown):
+			m.completionIndex = (m.completionIndex + 1) % len(m.completions)
+			return *m, nil
+		case key.Matches(msg, km.Complete):
+			m.input.SetValue(m.completions[m.completionIndex].Replacement)
+			m.completionDismissed = ""
+			return *m, nil
+		}
+	}
+	switch {
 	case key.Matches(msg, km.NewlineShift, km.NewlineAlt):
 		// 层级 1/2：kitty 协议识别 Shift+Enter；Meta 终端识别 Alt+Enter。
 		m.input.InsertString("\n")
@@ -123,6 +184,9 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return *m, nil
 
 	case key.Matches(msg, km.Cancel):
+		if m.commandPending && m.pendingMessage {
+			return *m, m.cancelPendingInput()
+		}
 		if m.state == stateRunning {
 			return *m, cancelCmd(m.hooks.Cancel, m.runID)
 		}
@@ -159,6 +223,9 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.historyNext()
 
 	case key.Matches(msg, km.NewSession):
+		if m.hooks.Command != nil {
+			return *m, m.routeInput("/new", false)
+		}
 		if m.state == stateRunning {
 			m.setNotice("A run is in progress; cancel it first (Esc), then press Ctrl+N.")
 			return *m, nil
@@ -190,6 +257,10 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 // handleCtrlC 实现三段语义：running 取消 run；空闲有草稿清空草稿；
 // 空草稿 1s 内两次退出（契约 §3.2）。
 func (m *Model) handleCtrlC() (Model, tea.Cmd) {
+	if m.commandPending && m.pendingMessage && m.state != stateRunning {
+		m.lastCtrlC = time.Time{}
+		return *m, m.cancelPendingInput()
+	}
 	if m.state == stateRunning {
 		m.lastCtrlC = time.Time{}
 		return *m, cancelCmd(m.hooks.Cancel, m.runID)
@@ -207,6 +278,17 @@ func (m *Model) handleCtrlC() (Model, tea.Cmd) {
 	return *m, nil
 }
 
+// cancelPendingInput 先记本次普通输入的取消意图；只在看到准入事件或成功
+// 回执后调用取消钩子，防止尚未接受的请求或只读操作误伤别的任务。
+func (m *Model) cancelPendingInput() tea.Cmd {
+	m.pendingCancel = true
+	if m.pendingAcceptedRunID != "" && !m.pendingCancelSent {
+		m.pendingCancelSent = true
+		return cancelCmd(m.hooks.Cancel, m.pendingAcceptedRunID)
+	}
+	return nil
+}
+
 type cancelRequestedMsg struct{ runID string }
 
 // cancelCmd 触发取消钩子并返回一条本地确认消息（不依赖 app 事件到达）。
@@ -220,10 +302,6 @@ func cancelCmd(cancel func(), runID string) tea.Cmd {
 }
 
 func (m *Model) submitInput() (Model, tea.Cmd) {
-	if m.state == stateRunning {
-		m.setNotice("A run is in progress; wait for it to finish or press Esc to cancel.")
-		return *m, nil
-	}
 	raw := m.input.Value()
 	// 续行兜底（契约 §3.1 层级 3）：行尾 `\` 的 Enter 不发送，
 	// 去掉 `\` 换行。判定只看原始值末尾，不做 trim。
@@ -235,6 +313,14 @@ func (m *Model) submitInput() (Model, tea.Cmd) {
 	text := strings.TrimSpace(raw)
 	if text == "" {
 		return *m, nil // 空输入不产生请求
+	}
+	// 统一路由先于 busy；运行时 /cancel 与只读命令仍能到应用层。
+	if m.hooks.Command != nil {
+		return *m, m.routeInput(text, true)
+	}
+	if m.state == stateRunning {
+		m.setNotice("A run is in progress; wait for it to finish or press Esc to cancel.")
+		return *m, nil
 	}
 	if m.hooks.Submit == nil {
 		m.setNotice("chat is not wired to a backend")
@@ -327,6 +413,9 @@ func (m *Model) sessionReset() {
 // applyEvent 把 app 事件落到界面状态。终态事件让 run 收尾；
 // 失败不污染聊天历史，只追加错误行。
 func (m *Model) applyEvent(event app.Event) {
+	if m.sessionID != "" && event.SessionID != m.sessionID {
+		return
+	}
 	if event.Kind == app.EventRunStarted {
 		if m.state == stateIdle {
 			return
@@ -484,9 +573,9 @@ func (m *Model) resize() {
 	follow := !m.readingFrozen
 	offset := m.viewport.YOffset()
 	layout := func(rows int) {
-		m.input.MaxHeight = max(min(maxInputLines, m.height-3-rows), 1)
+		m.input.MaxHeight = max(min(maxInputLines, m.height-3-rows-m.suggestionRows()), 1)
 		m.input.SetWidth(m.width)
-		logHeight := max(m.height-m.input.Height()-2-rows, 1)
+		logHeight := max(m.height-m.input.Height()-2-rows-m.suggestionRows(), 1)
 		m.viewport = viewport.New(viewport.WithWidth(m.width), viewport.WithHeight(logHeight))
 		m.viewport.SetContent(m.renderHistory())
 		if follow {

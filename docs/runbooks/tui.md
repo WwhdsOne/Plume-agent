@@ -1,13 +1,15 @@
 ---
 title: TUI 聊天 runbook
 status: active
-updated: 2026-10-12
-summary: plume chat 的启动（含 -c 继续）、流式思考和状态栏配置、键位、持久历史、隔离演示与 trace 排查
+updated: 2026-10-23
+summary: plume chat 启动、公共指令与历史选择、流式/状态栏、持久恢复、隔离演示与 trace 排查
 ---
 
 # TUI 聊天 runbook
 
 G1b.2.1 起使用 v2 终端栈；G1b.3 流式与思考展示已通过审核；G1b.4 可配置状态栏已于 2026-10-09 通过。
+
+G4a.2 公共指令和历史选择已于 2026-10-23 完成正式验证并获提交授权；当前行为见 [会话指令契约](../specs/session-commands.md)，实际验证与平台限制见 [审核记录](../reviews/G4a.2.md)。
 
 ## 启动方式
 
@@ -40,23 +42,47 @@ PLUME_HOME=$(mktemp -d) go run ./cmd/plume chat --offline
 
 | 键 | 行为 |
 | --- | --- |
-| `Enter` | 发送输入（空输入不产生请求） |
+| `Enter` | 发送实际输入或执行完整命令；建议首项不会自动执行，空输入不产生请求 |
 | `Shift+Enter` | 换行（kitty 协议终端：iTerm2 3.5+、WezTerm、Ghostty、kitty、Alacritty） |
 | `Option/Alt+Enter` | 换行（终端把 Option 设为 Meta 时） |
 | `\` + `Enter` | 换行兜底：行尾 `\` 被去掉并换行，全部终端可用 |
-| `Up` / `Down` | 边缘导航：光标在输入第一行时 Up 翻草稿历史、最后一行时 Down 翻回；多行输入中间则先移动光标（回到最新恢复编辑中草稿） |
-| `PgUp` / `PgDn` | 滚动聊天记录 |
-| `Esc` | 取消当前 run（取消的轮次不进入历史） |
+| `Up` / `Down` | 建议选候选、目录选会话、历史面板滚动；普通输入仍按第一/最后行边缘导航草稿历史 |
+| `PgUp` / `PgDn` | 普通界面滚动聊天记录；目录/历史面板翻页 |
+| `Tab` | 建议补全但不执行；目录预览会话、预览返回目录 |
+| `Esc` | 先关建议/面板并保留草稿；未开面板时取消 run，取消不进入成功模型历史 |
 | `Ctrl+C` | 三段：运行中取消；空闲有草稿清空草稿；空草稿 1s 内两次退出 |
 | `Ctrl+D` | 退出（仅空输入时；有草稿时忽略） |
 | `Ctrl+L` | 清屏并回到聊天记录底部 |
-| `Ctrl+N` | 新会话（清空上下文与草稿历史；运行中会先被拒绝并提示） |
-| `Ctrl+O` | 展开/收起当前轮或空闲时最近一轮的思考；无内容时忽略 |
+| `Ctrl+N` | 复用 `/new` 建新 ID，清上下文与草稿历史；运行中或保存不确定时拒绝 |
+| `Ctrl+O` | 普通界面展开/收起当前或最近思考；历史预览展开/折叠 Thought 与工具摘要 |
 | 鼠标滚轮 | 滚动聊天记录（与终端文本选择冲突时按住 Shift 选择） |
 
 输入区高度随换行/折行自动长高，一次最多可见 4 行，超出在输入框内滚动。
 
-同一会话串行：运行中再次 Enter 被拒绝并提示，不排队、不并发。
+同一会话串行：运行中普通输入再次 Enter 被拒绝并提示，不排队、不并发；公共只读指令与 `/cancel` 仍可路由。
+
+## 公共指令与历史选择（G4a.2）
+
+在输入区键入 `/help` 或 `/` 查看帮助。输入小写前缀会显示候选，Up/Down 选择、Tab 填入候选，Enter 使用实际文本；`/res` 仍是未知命令。要发送以 `/` 开头的普通正文，写成 `//`，例如 `//tmp/a.txt` 会把 `/tmp/a.txt` 交给模型。
+
+| 输入 | 用途 |
+| --- | --- |
+| `/new [标题]` | 新会话，保留旧历史；Ctrl+N 相同 |
+| `/rename <标题>` | 手工标题，1–120 个 Unicode 字符，不能换行/含控制字符 |
+| `/sessions [页码]` | 当前本地工作区会话目录 |
+| `/resume` / `/resume <id>` | 选择或按至少 8 位、可见集合内唯一的十六进制 ID 恢复 |
+| `/history [页码] [--session <id>]` | 看已保存 run，不切换，不要求历史模型引用仍可用 |
+| `/status` | ID/标题/创建时间、状态、已完成 run 与总耗时、usage、持久化/保存状态 |
+| `/model` | 当前和已配置的可见模型引用；只读 |
+| `/cancel` / `/stop` | 请求取消；等 run 终态后才能切换 |
+| `/clear` | 清屏重绘并保留历史 |
+| `/exit` / `/quit` | 退出并执行取消/收尾 |
+
+`/resume` 或 `/sessions` 列表用 Up/Down 选会话、Tab 预览、Enter 恢复、PgUp/PgDn 翻页，Esc 返回原记录和草稿；预览中 Tab 返回目录，Ctrl+O 显示 Thought/工具摘要。会话模型不兼容时可以预览，但恢复报 `resume_incompatible`。恢复失败保留原记录和草稿；成功后替换转录、模型标签、统计并清空草稿历史。所有保存过的文本仍会净化，不执行正文中的 `/new`。
+
+`/new` 使用本次实际启动选定模型：裸启动用 default_model，显式 `--model` 用该引用，`-c` 成功恢复用启动恢复选定引用；随后 `/resume` 到其他模型历史不会改变这个新建基准。`/resume` 按启动配置快照中的兼容历史引用装配，不热加载 config、不联网探测，工具权限用当前快照且 read 证明不恢复。
+
+默认未命名且无 run 空会话不列入目录；首次 run 写起点或手工命名后才保存元数据。目录/历史页大小取 `sessions.page_size`（默认20、范围1–100），第一页历史含最近 run，页内按发生顺序展示；分页不能代替完整模型恢复。关闭历史时这些指令使用进程内存后端，退出后不保留、不读旧库；offline 同样不读真实配置/历史/人格，保留已有 `/demo ...` 演示。在线 `/demo` 返回未知命令。
 
 ## 流式输出与配置（G1b.3，已通过）
 
@@ -160,7 +186,17 @@ rtk proxy python3 scripts/pty_demo_g4a1.py --output /tmp/plume-g4a1-pty
 
 六场景：持久恢复（第二轮请求携带旧上下文）、模型引用匹配（default_model 改 B 仍恢复 A）、Ctrl+N 新旧会话分开、运行中 kill -9 后 interrupted 标记、同库第二进程被拒后可取锁、参数互斥与禁用历史报错。原审核窗口产物位于 `docs/reviews/evidence/G4a.1/pty/`，已按通过即删规则随通过提交删除；后续复跑写入临时目录。
 
-2026-10-11 审核修复的原产物位于 `docs/reviews/evidence/G4a.1/fixes/pty/` 和 `fixes/ctx-resume/pty/`，随通过提交删除；此前未提交，没有 Git 历史副本。补充反例已转为仓库正式回归测试，当前复跑命令、独立子 agent 复审和原始全仓验证汇总见 [修复复审](../reviews/G4a.1-fixes-2026-10-11.md)。G4a.2 公共指令与历史选择已于 2026-10-12 获授权，尚未交付，本手册不提前将其列为可用命令。
+2026-10-11 审核修复的原产物位于 `docs/reviews/evidence/G4a.1/fixes/pty/` 和 `fixes/ctx-resume/pty/`，随通过提交删除；此前未提交，没有 Git 历史副本。补充反例已转为仓库正式回归测试，当前复跑命令、独立子 agent 复审和原始全仓验证汇总见 [修复复审](../reviews/G4a.1-fixes-2026-10-11.md)。G4a.1 已提交推送 `97568ec`；G4a.2 已于 2026-10-23 完成正式验证并获提交授权，结果和未实测的平台限制见 [审核记录](../reviews/G4a.2.md)。
+
+G4a.2 的六组场景覆盖命令/选择/恢复、窄屏分页、运行中取消、内存/offline、三种启动模型基准与不兼容恢复保留草稿；使用临时配置和本地 HTTP fixture：
+
+```bash
+rtk proxy python3 -m pip install --target /tmp/plume-g4a2-pty-deps pyte==0.8.2 wcwidth==0.2.13
+rtk proxy env PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=/tmp/plume-g4a2-pty-deps python3 scripts/pty_demo_g4a2.py --output /tmp/plume-g4a2-pty
+# 期望：G4A2_PTY_OK cases=6
+```
+
+输出目录包含终端帧、生命周期 trace 摘录、数据库断言和 results.json；复跑结果不加入仓库，不能将本地 fixture 延迟用于推断真实供应商性能。
 
 ## pty 演示脚本
 

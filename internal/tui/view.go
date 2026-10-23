@@ -33,7 +33,15 @@ func inputSeparator(width int) string {
 // 状态栏。
 func (m *Model) View() string {
 	var b strings.Builder
-	b.WriteString(m.viewport.View())
+	if m.panel != nil {
+		b.WriteString(m.panelView())
+	} else {
+		b.WriteString(m.viewport.View())
+	}
+	if m.suggestionRows() > 0 {
+		b.WriteString("\n")
+		b.WriteString(m.suggestionsView())
+	}
 	b.WriteString("\n")
 	b.WriteString(inputSeparator(m.width))
 	b.WriteString("\n")

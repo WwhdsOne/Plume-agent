@@ -1,7 +1,7 @@
 ---
 title: G3 受控工具循环契约
 status: active
-updated: 2026-10-10
+updated: 2026-10-12
 summary: 六种开发工具、完整默认配置、宽松预算、协议关联、历史提交与脱敏展示契约
 ---
 
@@ -54,7 +54,9 @@ DeepSeek 携带 tools 时回传所有 assistant 的 reasoning_content（包含�
 
 参考 [Hermes 配置示例](https://github.com/NousResearch/hermes-agent/blob/main/cli-config.yaml.example) 与 [官方预算说明](https://hermes-agent.nousresearch.com/docs/user-guide/configuration/#iteration-budget)：当前 max_turns 默认无限，terminal.timeout=180，非流式 API 超时量级 1800。Plume 的 1800s 是完整调用期限，未复制 Hermes 的空闲检测、自恢复、压缩和重试。8 MiB/64 KiB 等字节数与单步 64 项是本项目选择，非 Hermes 原样默认。
 
-成功提交 user → assistant-tool → tool → final assistant 整组，且保留实际思考字段。失败/取消只展示部分内容，不写入成功历史；新 run 不重放失败轨迹。Ctrl+N 清空会话；历史查询及提交都深拷贝 ToolCalls。每次模型步骤有独立 call ID；usage 更新与终态替换同一步快照，ctx 取最近实际输入，cache 根据已有 session/last_call 设置统计。
+成功提交 user → assistant-tool → tool → final assistant 整组，且保留实际思考字段。失败/取消只展示部分内容，不写入成功历史；新 run 不重放失败轨迹。Ctrl+N 与 `/new` 新建会话 ID，保留旧持久历史；历史查询及提交都深拷贝 ToolCalls。每次模型步骤有独立 call ID；usage 更新与终态替换同一步快照，ctx 取最近实际输入，cache 根据已有 session/last_call 设置统计。
+
+G4a.2 `/resume` 按历史兼容模型、当前启动配置快照的工具许可和预算装配全新运行时，历史 `read` 文本不恢复先读后改的证明，edit/write 必须重新实际读取。新建/恢复不执行模型或工具；准备失败保持原会话与草稿，切换确认后立即关闭旧工具根，关闭失败才交整体退出收尾。分页 `/history` 只供展示，不能作为不完整模型上下文。详情见 [会话指令契约](../session-commands.md)。
 
 ## TUI 与 trace
 

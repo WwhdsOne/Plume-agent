@@ -20,6 +20,8 @@ type MemoryStore struct {
 	calls     map[string]*ModelCallRecord
 	callOrder []string // 调用起点插入序，LoadCalls 按此稳定输出
 	runOrder  []string // run 起点插入序，解决串行调用也可能同毫秒的 tie-break。
+	bindings  map[string]string
+	receipts  map[string]Receipt
 }
 
 type memorySession struct {
@@ -31,7 +33,7 @@ type memorySession struct {
 
 // NewMemory 构造内存后端。
 func NewMemory() *MemoryStore {
-	return &MemoryStore{sessions: make(map[string]*memorySession), runs: make(map[string]*RunRecord), calls: make(map[string]*ModelCallRecord)}
+	return &MemoryStore{sessions: make(map[string]*memorySession), runs: make(map[string]*RunRecord), calls: make(map[string]*ModelCallRecord), bindings: make(map[string]string), receipts: make(map[string]Receipt)}
 }
 
 // StartRun 幂等创建会话并登记起点；活动时间取起点与现存值的较大者。
@@ -41,10 +43,18 @@ func (m *MemoryStore) StartRun(_ context.Context, session SessionRecord, run Run
 	if _, ok := m.runs[run.ID]; ok {
 		return ErrDuplicateRun
 	}
+	session = normalizeSession(session)
+	scope := Scope{ScopeKey: session.ScopeKey, Workspace: session.Workspace}
+	if err := m.checkBindingOwner(scope, session.ID); err != nil {
+		return err
+	}
 	if run.Status != RunRunning {
 		run.Status = RunRunning
 	}
 	s, ok := m.sessions[session.ID]
+	if ok && !scopeMatches(s.record, scope) {
+		return ErrSessionNotFound
+	}
 	if !ok {
 		if session.CreatedAt.IsZero() {
 			session.CreatedAt = run.StartedAt
@@ -58,6 +68,8 @@ func (m *MemoryStore) StartRun(_ context.Context, session SessionRecord, run Run
 	run.SessionID = session.ID
 	m.runs[run.ID] = &run
 	m.runOrder = append(m.runOrder, run.ID)
+	// 起点与当前绑定在同一把锁下发布，起点失败不会切走原绑定。
+	m.bindings[receiptKey(scope, "")] = session.ID
 	return nil
 }
 
@@ -216,7 +228,7 @@ func (m *MemoryStore) LatestSession(_ context.Context, workspace string) (Sessio
 	var best *SessionRecord
 	for i := len(m.runOrder) - 1; i >= 0; i-- {
 		s := m.sessions[m.runs[m.runOrder[i]].SessionID]
-		if s.record.Workspace != workspace {
+		if s.record.Workspace != workspace || normalizedScope(s.record.ScopeKey) != "local" {
 			continue
 		}
 		if best == nil || s.record.LastRunAt.After(best.LastRunAt) {

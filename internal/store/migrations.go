@@ -43,3 +43,28 @@ var schemaStatements = []string{
 		PRIMARY KEY (session_id, seq)
 	)`,
 }
+
+// managementSchemaStatements 在同一迁移事务内扩展 v2。旧历史明确归属
+// local；绑定故意没有 session 外键，允许默认空会话先绑定、首次 run 才落盘。
+var managementSchemaStatements = []string{
+	`ALTER TABLE sessions ADD COLUMN scope_key TEXT NOT NULL DEFAULT 'local'`,
+	`ALTER TABLE sessions ADD COLUMN title_manual INTEGER NOT NULL DEFAULT 0`,
+	`CREATE INDEX idx_sessions_scope_workspace ON sessions(scope_key, workspace, last_run_at)`,
+	`CREATE TABLE bindings (
+		scope_key TEXT NOT NULL,
+		workspace TEXT NOT NULL,
+		session_id TEXT NOT NULL,
+		PRIMARY KEY (scope_key, workspace)
+	)`,
+	`CREATE INDEX idx_bindings_session ON bindings(session_id)`,
+	`CREATE TABLE command_receipts (
+		scope_key TEXT NOT NULL,
+		workspace TEXT NOT NULL,
+		request_id TEXT NOT NULL,
+		fingerprint TEXT NOT NULL,
+		command TEXT NOT NULL,
+		payload TEXT NOT NULL,
+		created_at INTEGER NOT NULL,
+		PRIMARY KEY (scope_key, workspace, request_id)
+	)`,
+}

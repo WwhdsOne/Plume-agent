@@ -1,4 +1,4 @@
-// Package tui 是聊天终端界面（Bubble Tea v2）。它只做输入、状态与渲染：
+// Package tui 是聊天终端界面（Bubble Tea v2）。它只做输入、状态、指令建议与管理面板渲染：
 // 不发送模型 HTTP、不执行工具、不解析日志——一切运行状态来自 app.Service
 // 的事件（阶段计划 §2/§4）。
 package tui
@@ -60,8 +60,10 @@ const (
 )
 
 // Hooks 把 TUI 连接到 app 层，由 cmd 装配注入。Update 是纯状态转移，
-// 副作用只经这三个函数离开界面层。
+// 副作用只经钩子离开界面层。
 type Hooks struct {
+	// Command 路由所有主动输入；TUI 以 tea.Cmd 异步调用，不在 Update 中等待存储或装配。
+	Command func(input string) app.CommandResult
 	// Submit 提交一条用户输入（app.Service.Submit）；返回 run ID 或拒绝错误。
 	Submit func(input string) (runID string, err error)
 	// Cancel 打断当前 run（app.Service.Cancel）。
@@ -87,6 +89,7 @@ type Model struct {
 	startedAt  time.Time
 	lastUsage  string // 状态栏展示的已知 usage（unknown 不显示为 0）
 	modelLabel string // 状态栏展示的模型/供应商标识
+	sessionID  string // 与 run ID 一同过滤迟到事件，避免旧会话污染当前显示。
 
 	notice string // 需要用户看到的一次性提示（如 busy 拒绝）
 	hooks  Hooks
@@ -124,6 +127,22 @@ type Model struct {
 	firstAnswerAt            time.Time
 	firstAnswerReported      bool
 	status                   statusState
+	// 命令面板只覆盖展示，不改 lines；切换成功才由快照原子替换当前转录。
+	panel               *commandPanel
+	completions         []app.CompletionCandidate
+	completionIndex     int
+	completionDismissed string
+	commandPending      bool
+	commandSequence     uint64
+	pendingEvents       []app.Event
+	// 普通输入的准入回执与生命周期事件可以乱序；取消意图只属于这次输入，
+	// 不能借只读命令的等待状态取消未来 run。
+	pendingMessage       bool
+	pendingAcceptedRunID string
+	pendingCancel        bool
+	pendingCancelSent    bool
+	// 展示代际独立于真实会话事务：关闭/换选后忽略迟到预览，但仍应用已提交切换。
+	presentationGeneration uint64
 }
 
 // AppEvent 包装一条 app.Service 事件供 Update 消费。cmd 层的桥接
@@ -159,6 +178,7 @@ func NewWithOptions(modelLabel string, hooks Hooks, options Options) Model {
 	m := Model{
 		state:           stateIdle,
 		modelLabel:      modelLabel,
+		sessionID:       options.InitialSessionID,
 		input:           input,
 		hooks:           hooks,
 		keys:            newKeyMap(runtime.GOOS),
@@ -268,7 +288,7 @@ func (m *Model) inputCursor() *tea.Cursor {
 	}
 	info := m.input.LineInfo()
 	c.X += max(info.ColumnOffset-info.CharOffset, 0)
-	c.Y += m.viewport.Height() + 1
+	c.Y += m.viewport.Height() + m.suggestionRows() + 1
 	return c
 }
 

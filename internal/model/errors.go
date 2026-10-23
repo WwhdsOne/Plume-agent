@@ -68,6 +68,13 @@ func (e *Error) Error() string {
 	return b.String()
 }
 
+// Is 保留归一化后的标准取消/期限身份，使持久化和 trace 可用 errors.Is
+// 一致判定终态；不暴露可能包含敏感信息的 SDK 原始错误或将超时当作用户取消。
+func (e *Error) Is(target error) bool {
+	return e != nil && ((e.Code == ErrCancelled && target == context.Canceled) ||
+		(e.Code == ErrTimeout && target == context.DeadlineExceeded))
+}
+
 // NewError 构造一个分类错误，随后可用 With* 方法补齐上下文。
 func NewError(code ErrCode) *Error { return &Error{Code: code} }
 

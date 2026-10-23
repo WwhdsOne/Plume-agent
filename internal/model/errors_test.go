@@ -59,3 +59,34 @@ func TestClassifyContext(t *testing.T) {
 		t.Errorf("plain error classified as %q, want empty", code)
 	}
 }
+
+// 统一错误保留标准取消/期限身份；包装后仍可判断，其他分类不能冒充取消。
+func TestErrorPreservesContextIdentity(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		code   ErrCode
+		target error
+		want   bool
+	}{
+		// case: 取消与期限分别匹配对应的标准错误。
+		{"cancelled", ErrCancelled, context.Canceled, true},
+		{"timeout", ErrTimeout, context.DeadlineExceeded, true},
+		// case: 超时不能被误判为用户取消，取消也不是期限耗尽。
+		{"timeout_not_cancelled", ErrTimeout, context.Canceled, false},
+		{"cancelled_not_timeout", ErrCancelled, context.DeadlineExceeded, false},
+		// case: 其他模型分类及任意普通错误都不能凭错误文本匹配。
+		{"transport_not_cancelled", ErrTransport, context.Canceled, false},
+		{"upstream_not_timeout", ErrUpstream, context.DeadlineExceeded, false},
+		{"unrelated_target", ErrCancelled, errors.New("context canceled"), false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			classified := NewError(tc.code).WithSummary("redacted failure")
+			for _, err := range []error{classified, fmt.Errorf("model call: %w", classified)} {
+				// case: 直接错误和调用方附加上下文的包装都遵守相同身份。
+				if got := errors.Is(err, tc.target); got != tc.want {
+					t.Errorf("errors.Is(%v, %v) = %v, want %v", err, tc.target, got, tc.want)
+				}
+			}
+		})
+	}
+}
