@@ -34,6 +34,7 @@ docs/
 │   ├── agent-context.md       Agent 上下文与 tools 拼装规划
 │   ├── 2026-10-10-session-history-commands.md  历史会话与统一指令设计
 │   ├── 2026-10-23-g4a3-memory.md             长期记忆立项与分单元计划
+│   ├── 2026-10-24-tui-recovery.md            同库检查点与中断恢复（设计已通过，未实施）
 │   └── 2026-10-12-g4a2-implementation.md      G4a.2 当前实施与验收步骤
 ├── decisions/          决策记录（ADR，编号不复用）
 │   ├── 0001-scope.md
@@ -63,6 +64,7 @@ docs/
 | 审核历史保存、`-c`、`/resume` 及跨入口指令方案 | [历史会话与统一指令方案](plans/2026-10-10-session-history-commands.md)；G4a.1 交付状态见 [审核记录](reviews/G4a.1.md) |
 | 使用公共指令、历史选择与只读分页 | [会话指令契约](specs/session-commands.md) + [TUI 手册](runbooks/tui.md)；G4a.2 交付与验证见 [审核记录](reviews/G4a.2.md) |
 | 审核长期记忆的范围、迁移与首个闭环 | [立项计划](plans/2026-10-23-g4a3-memory.md)、[账本契约](specs/agent/memory.md)、[G4a.3.1 审核](reviews/G4a.3.1.md)；尚未接入聊天请求 |
+| 查看中途保存与退出恢复的设计 | [G4a.2.1 检查点与恢复方案](plans/2026-10-24-tui-recovery.md)；设计已通过，本轮先提交文档，未实施 |
 | 回看某天发生了什么 | `daily/` |
 | 找历史快照或已完成的计划 | `archive/` |
 
@@ -77,7 +79,7 @@ docs/
 
 **G4a.2 公共指令与 TUI 历史选择于 2026-10-23 通过并获提交授权**：公共路由、store v2 管理事务、TUI 补全/选择/预览和 fake gateway 已交付；全仓普通/竞态各 1638 项、两组共 12 个 PTY 场景通过。当前行为见 [契约](specs/session-commands.md)，完成步骤见 [实施计划](plans/2026-10-12-g4a2-implementation.md)，结果与限制见 [审核记录](reviews/G4a.2.md)，收尾与修复见 [2026-10-23 流水](daily/2026-10-23.md)。一次性审核证据按 runbook 随通过提交删除，复现脚本保留。后续明确授权的长期记忆见下一段；真实 gateway、压缩和 MCP/skill 加载仍未启动。
 
-**G4a.3.1 长期记忆账本于 2026-10-24 通过并获推送授权**：已提交 `6ef124b`，首单元交付私密历史库 v3 的显式账本、CAS/幂等、作用域隔离、有界读取与可运行演示，见 [立项](plans/2026-10-23-g4a3-memory.md)、[契约](specs/agent/memory.md) 和 [审核](reviews/G4a.3.1.md)。待审证据随通过提交删除，复现入口保留。记忆管理/召回仍未实施；用户下一步只要求设计 TUI 指令显示和 skills，文档审核前不实施。
+**G4a.3.1 长期记忆账本于 2026-10-24 通过并获推送授权**：已提交 `6ef124b`，首单元交付私密历史库 v3 的显式账本、CAS/幂等、作用域隔离、有界读取与可运行演示，见 [立项](plans/2026-10-23-g4a3-memory.md)、[契约](specs/agent/memory.md) 和 [审核](reviews/G4a.3.1.md)。待审证据随通过提交删除，复现入口保留。记忆管理/召回仍未实施；用户随后将 [退出后恢复方案](plans/2026-10-24-tui-recovery.md) 提到 TUI 指令/skills 之前，方案已通过，本轮先提交推送文档，实现尚未开始。
 
 单一事实来源：已交付单元状态只在 `reviews/Gx.md` 的 frontmatter 维护；`roadmap.html` 是可读快照，两者冲突时以 reviews 为准。未开工提案在 `plans/` 中明确待批准，不为它虚建实现审核记录；`specs/` 仅描述现行行为。
 
