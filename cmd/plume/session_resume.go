@@ -15,13 +15,15 @@ import (
 	"plume-agent/internal/tui"
 )
 
-// resumedSession 是 `-c` 定位到的可恢复会话：记录、匹配的模型配置与
-// 预构建的展示转录。
+// resumedSession 是 `-c` 定位到的可恢复会话：记录、匹配的模型配置、
+// 预构建的展示转录、恢复信息（最后未完成任务的检查点视图与回填候选）。
 type resumedSession struct {
-	record     store.SessionRecord
-	selected   *config.ModelConfig
-	transcript []tui.TranscriptLine
-	limits     store.LoadLimits
+	record         store.SessionRecord
+	selected       *config.ModelConfig
+	transcript     []tui.TranscriptLine
+	limits         store.LoadLimits
+	recovery       *app.SessionRecovery
+	completedTurns int
 }
 
 // workspaceDir 按启动目录解析 tools.workspace，并返回符号链接规范绝对路径。
@@ -89,26 +91,29 @@ func findResumableSession(ctx context.Context, history store.Store, cfg *config.
 	if err != nil {
 		return nil, fmt.Errorf("load runs: %w", err)
 	}
+	// 所有中断 run 补齐已保存进度；回填仍只面向最后未完成任务。
+	runs, recovery, err := app.LoadRecovery(ctx, history, record.ID, runs, limits)
+	if err != nil {
+		return nil, fmt.Errorf("load recovery: %w", err)
+	}
+	completed := 0
+	for _, run := range runs {
+		if run.Status == store.RunCompleted {
+			completed++
+		}
+	}
 	transcript := []tui.TranscriptLine{{
 		Kind: tui.TranscriptSystem,
 		Text: fmt.Sprintf("Resumed session %s · %d runs · model %s/%s", shortID(record.ID), len(runs), selected.Provider, selected.Model),
 	}}
-	for _, run := range runs {
-		transcript = append(transcript, tui.TranscriptLine{Kind: tui.TranscriptUser, Text: run.Input})
-		if run.Reply != "" || run.Reasoning != "" || run.Status != store.RunCompleted {
-			line := tui.TranscriptLine{Kind: tui.TranscriptAssistant, Text: run.Reply, Reasoning: run.Reasoning}
-			switch run.Status {
-			case store.RunCancelled:
-				line.Terminal = "cancelled"
-			case store.RunInterrupted:
-				line.Terminal = "interrupted"
-			case store.RunFailed:
-				line.Terminal = "failed"
-			}
-			transcript = append(transcript, line)
-		}
+	// 转录经 RunTranscriptLines 统一生成（含工具摘要映射与未确认标记），
+	// 与 `/resume` 切换后的转录一致。
+	transcript = append(transcript, tui.RunTranscriptLines(runs, recovery)...)
+	for _, hint := range tui.RecoveryHints(recovery, completed) {
+		transcript = append(transcript, tui.TranscriptLine{Kind: tui.TranscriptSystem, Text: hint})
 	}
-	return &resumedSession{record: record, selected: selected, transcript: transcript, limits: limits}, nil
+	return &resumedSession{record: record, selected: selected, transcript: transcript, limits: limits,
+		recovery: recovery, completedTurns: completed}, nil
 }
 
 // matchModelRef 用 ID 定位并验证 provider/协议/模型/端点指纹；同 ID 被修改

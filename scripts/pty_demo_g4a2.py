@@ -287,10 +287,11 @@ def case_commands(binary, output, home, work):
         assert terminal.process.returncode == 0
         assert server.calls == 2 and len(query(home, "SELECT id FROM sessions")) == 2
         assert not server.errors, server.errors
-        assert query(home, "PRAGMA user_version")[0][0] == 2
+        # 历史库当前迁移到 v4；公共指令回归同时守住检查点迁移后的兼容性。
+        assert query(home, "PRAGMA user_version")[0][0] == 4
         capture_trace(home, output, "commands-success")
         return {"case": "commands-selector-resume", "status": "passed", "model_calls": 2, "sessions": 2,
-                "schema": 2, "empty_named_id": second, "error_commands_model_calls": 0, "escaped_message": "/tmp/a.txt"}
+                "schema": 4, "empty_named_id": second, "error_commands_model_calls": 0, "escaped_message": "/tmp/a.txt"}
     finally:
         if terminal: cleanup_terminal(terminal)
         server.gate.set()

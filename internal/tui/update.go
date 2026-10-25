@@ -338,7 +338,10 @@ func (m *Model) submitInput() (Model, tea.Cmd) {
 	return *m, nextStreamTick(m.runID)
 }
 
-// historyPrev 实现 Up：从编辑中草稿进入历史最末一条，再往旧翻。
+// historyPrev 实现 Up：从编辑中草稿进入历史最末一条，再往旧翻。历史候选
+// 统一表示已接受的消息正文；放回输入框前转义（净化 + 还原 slash 转义），
+// 确保再次 Enter 仍解析为普通消息。转义后超限则拒绝本次回填，原草稿与
+// 游标保持不变。
 func (m *Model) historyPrev() (Model, tea.Cmd) {
 	if len(m.history) == 0 {
 		return *m, nil
@@ -351,18 +354,38 @@ func (m *Model) historyPrev() (Model, tea.Cmd) {
 	} else {
 		return *m, nil // 已到最旧一条
 	}
-	m.input.SetValue(m.history[m.historyIdx])
+	escaped, ok := escapeHistoryInput(m.history[m.historyIdx])
+	if !ok {
+		// 超限拒绝：回滚本次游标移动，不动输入框，明确提示。
+		if m.historyIdx == len(m.history)-1 {
+			m.historyIdx = -1
+			m.draft = ""
+		} else {
+			m.historyIdx++
+		}
+		m.setNotice("history item exceeds the 4096-character input limit; not backfilled")
+		return *m, nil
+	}
+	m.input.SetValue(escaped)
 	return *m, nil
 }
 
-// historyNext 实现 Down：往新翻，翻过最新一条时恢复编辑中的草稿。
+// historyNext 实现 Down：往新翻，翻过最新一条时恢复编辑中的草稿。历史
+// 条目回填与 ↑ 走同一转换（含指令字面量转义）；草稿是用户原本正在编辑
+// 的可编辑输入，原样恢复、不再转义一次。
 func (m *Model) historyNext() (Model, tea.Cmd) {
 	if m.historyIdx == -1 {
 		return *m, nil
 	}
 	if m.historyIdx < len(m.history)-1 {
 		m.historyIdx++
-		m.input.SetValue(m.history[m.historyIdx])
+		escaped, ok := escapeHistoryInput(m.history[m.historyIdx])
+		if !ok {
+			m.historyIdx--
+			m.setNotice("history item exceeds the 4096-character input limit; not backfilled")
+			return *m, nil
+		}
+		m.input.SetValue(escaped)
 		return *m, nil
 	}
 	m.historyIdx = -1

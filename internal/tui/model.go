@@ -219,7 +219,8 @@ func NewWithOptions(modelLabel string, hooks Hooks, options Options) Model {
 	}
 	m.initializeEmptyContext()
 	// 恢复转录直接预置进记录区：文本沿用运行时的净化路径，assistant 行的
-	// 终态标记（cancelled/incomplete）映射到 chatLine.terminal。
+	// 终态标记（cancelled/incomplete）映射到 chatLine.terminal，工具摘要
+	// 行在 RunTranscriptLines 统一生成（-c 与 /resume 同一转换）。
 	for _, line := range options.InitialTranscript {
 		entry := chatLine{text: sanitize(line.Text)}
 		switch line.Kind {
@@ -229,6 +230,8 @@ func NewWithOptions(modelLabel string, hooks Hooks, options Options) Model {
 			entry.kind = lineAssistant
 			entry.reasoning = sanitize(line.Reasoning)
 			entry.terminal = sanitize(line.Terminal)
+		case TranscriptTool:
+			entry.kind = lineTool
 		default:
 			entry.kind = lineSystem
 		}
@@ -236,6 +239,16 @@ func NewWithOptions(modelLabel string, hooks Hooks, options Options) Model {
 	}
 	if len(options.InitialTranscript) > 0 {
 		m.syncViewport()
+	}
+	// 恢复回填候选：只进输入历史供 ↑ 取回，不自动填入输入框。历史统一
+	// 存已接受的消息正文（与同进程历史一致），取出时才转换为可编辑输入；
+	// 无法安全转义的正文（超限）不产生死条目。
+	if options.InitialResend != "" {
+		if _, ok := escapeHistoryInput(options.InitialResend); ok {
+			m.history = []string{options.InitialResend}
+		} else {
+			m.appendLine(lineSystem, "Last task input exceeds the 4096-character limit; ↑ backfill is unavailable.")
+		}
 	}
 	return m
 }

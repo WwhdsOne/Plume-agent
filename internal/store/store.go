@@ -46,7 +46,8 @@ type LoadLimits struct {
 }
 
 // RunState 是确认终态事务是否完整提交的最小快照。Completed 只有在
-// HasTurn=true 且成功轮次的角色、工具关联和 session ID 校验通过时可确认。
+// HasTurn=true、成功轮次关联有效且检查点已清理时可确认；GetRunState
+// 在同一读取快照内校验三者，interrupted 是允许保留检查点的终态例外。
 type RunState struct {
 	SessionID string
 	Status    RunStatus
@@ -181,8 +182,11 @@ type ModelCallRecord struct {
 
 // Store 是历史持久化契约。实现必须并发安全；网络发送与本地事务无法原子化，
 // 起点、快照与终态分三次提交，恢复侧按唯一 ID 幂等合并。G4a.1 只覆盖本机
-// 单进程独占使用；跨进程并发所有权留给 G2b。
+// 单进程独占使用；跨进程并发所有权留给 G2b。G4a.2.1 起同一契约承载运行
+// 检查点（CheckpointStore）：终态提交与检查点清理同事务，崩溃遗留的
+// 检查点在 run 被标记 interrupted 时保留供恢复展示。
 type Store interface {
+	CheckpointStore
 	// StartRun 原子登记 run 起点与用户输入；会话记录按 ID 幂等创建并
 	// 刷新最近活动时间。失败时调用方不得发送模型请求。run ID 重复返回
 	// ErrDuplicateRun。
@@ -201,8 +205,9 @@ type Store interface {
 	// 同一 run 是幂等空操作。turnSeq 从 1 起在事务内递增编号。
 	CompleteRun(ctx context.Context, run RunRecord, turn []model.Message) error
 
-	// GetRunState 查询事务结果；成功终态但缺失/损坏轮次返回错误，未找到
-	// 返回 ErrUnknownRun。调用方查询也失败时必须阻止内存与磁盘分叉。
+	// GetRunState 查询事务结果；成功终态缺失/损坏轮次，或非 interrupted
+	// 终态残留检查点时返回错误，未找到返回 ErrUnknownRun。调用方查询
+	// 也失败时必须阻止内存与磁盘分叉。
 	GetRunState(ctx context.Context, runID string) (RunState, error)
 
 	// FinishRun 提交失败/取消/中断终态与已展示内容；不写成功轮次。

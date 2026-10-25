@@ -1,7 +1,7 @@
 ---
 title: TUI 键位契约与平台适配（G1b.2.1）
 status: active
-updated: 2026-10-24
+updated: 2026-10-25
 summary: TUI 键位：渐进换行、草稿导航、思考展开与 G4a.2 指令补全/历史面板优先级
 ---
 
@@ -124,7 +124,7 @@ Ctrl+C 的运行中取消优先于建议和面板，不能被管理 UI 吞掉；
 
 1. v2 的键盘增强协商是自动的；`KeyboardEnhancementsMsg` 用于感知终端能力，仅影响提示文案（不支持 kitty 的终端不提示 Shift+Enter），不引入能力分支的界面差异。
 2. Ctrl+C 双击窗口 1s，实现放 tui.Model（`lastCtrlC time.Time`），不引入 timer 消息。
-3. 输入草稿历史属 UI 层状态（tui.Model），不进 app 会话历史。
+3. 输入草稿历史属 UI 层状态（tui.Model），未发送草稿不持久化。G4a.2.1 恢复时仅把最后未完成 run 的已接受输入加为候选；Up 回填而不发送，Down 原样返回当前草稿。历史正文先净化并去掉首尾空白，仅整段开头的 `/` 补一个转义符，行中与后续行保持原文；最终超过 4096 字符明确拒绝且保留草稿/游标。详见[恢复契约](../session-commands.md#运行检查点与中断恢复)。
 4. 输入区 1→4 行动态高度：在按键/事件处理后按输入内容行数 `SetHeight(min(lines, 4))`，空输入回到 1 行；resize 与之联动。
 5. v2 渲染管线变化可能导致帧输出与 v1 不同——pty 演示判据复跑时以**去控制序列后的纯文本**判定，不比对原始 ANSI。
 6. 依赖增量实测（G1b.2 基线 10.70 MB）；v1 栈（bubbletea/bubbles/lipgloss/huh v1）应全部移除，若增量异常（v1/v2 并存残留）以 `go mod why` 排查。

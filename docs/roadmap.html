@@ -2,8 +2,8 @@
 <!--
 title: plume-agent 路线图
 status: active
-updated: 2026-10-24
-summary: G4a.1/G4a.2/G4a.3.1 已通过；G4a.2.1 检查点恢复设计已通过，代码尚未实施
+updated: 2026-10-25
+summary: G4a.2.1 检查点恢复已验收通过；下一步先设计 TUI 交互与 skills
 -->
 
 <html lang="zh-CN">
@@ -232,8 +232,8 @@ const ROADMAP = [
           desc: "2026-10-12 含全部修复审核通过：SQLite 历史、plume -c、Ctrl+N、三段式落盘与失败隔离、恢复校验及整库锁；最新审核验证 1440 项竞态与 6 场景 PTY 通过", updated: "2026-10-12" },
         { id: "G4a.2", title: "公共指令与 TUI 历史选择", status: "passed",
           desc: "2026-10-23 通过并获提交授权：公共路由、store v2 同域分页与收据事务、TUI 补全/选择/预览和 fake gateway；普通与竞态各 1638 项、两组共 12 场景 PTY 通过，真实渠道未实现", updated: "2026-10-23" },
-        { id: "G4a.2.1", title: "对话检查点与中断恢复", status: "todo",
-          desc: "2026-10-24 设计已通过：同库检查点、流式合并保存、工具边界保存及显式恢复；本轮仅提交文档，v4迁移与代码未实施", updated: "2026-10-24" },
+        { id: "G4a.2.1", title: "对话检查点与中断恢复", status: "passed",
+          desc: "2026-10-25 按用户授权代理验收通过：store v4 检查点、工具边界同步保存、1 秒事件合并、旧中断进度保留、显式恢复与回填、退出摘要；普通与竞态各 1810 项、PTY 19/19，下一步先设计 TUI 交互与 skills", updated: "2026-10-25" },
       ],
     ],
   },

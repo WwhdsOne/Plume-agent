@@ -11,7 +11,6 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"plume-agent/internal/app"
-	"plume-agent/internal/store"
 )
 
 // commandResultMsg 将慢存储/运行时装配的回执带回主循环。sequence 防止旧回执
@@ -216,7 +215,8 @@ func (m *Model) applyCommandResult(msg commandResultMsg) tea.Cmd {
 }
 
 // replaceSession 在应用层已经确认切换后重建全部显示状态；工具摘要与旧时钟
-// 消息不复用。保留工作区采集快照，但开屏永远不会随会话恢复重新出现。
+// 消息不复用，转录经 RunTranscriptLines 与 `-c` 共用转换。保留工作区采集
+// 快照，但开屏永远不会随会话恢复重新出现。
 func (m *Model) replaceSession(snapshot *app.SessionSnapshot) {
 	m.sessionID = snapshot.SessionID
 	m.options.Provider, m.options.ModelID = snapshot.Model.Provider, snapshot.Model.Model
@@ -253,21 +253,37 @@ func (m *Model) replaceSession(snapshot *app.SessionSnapshot) {
 		}
 	}
 	m.initializeEmptyContext()
-	for _, run := range snapshot.Runs {
-		m.lines = append(m.lines, chatLine{kind: lineUser, text: sanitize(run.Input)})
-		for _, tool := range run.ToolEvents {
-			text := tool.Name + " · " + tool.Status
-			if tool.Summary != "" {
-				text += " · " + tool.Summary
-			}
-			m.lines = append(m.lines, chatLine{kind: lineTool, text: sanitize(text)})
+	for _, line := range RunTranscriptLines(snapshot.Runs, snapshot.Recovery) {
+		entry := chatLine{text: sanitize(line.Text)}
+		switch line.Kind {
+		case TranscriptUser:
+			entry.kind = lineUser
+		case TranscriptAssistant:
+			entry.kind = lineAssistant
+			entry.reasoning = sanitize(line.Reasoning)
+			entry.terminal = sanitize(line.Terminal)
+		case TranscriptTool:
+			entry.kind = lineTool
+		default:
+			entry.kind = lineSystem
 		}
-		if run.Reply != "" || run.Reasoning != "" || run.Status != store.RunCompleted {
-			line := chatLine{kind: lineAssistant, text: sanitize(run.Reply), reasoning: sanitize(run.Reasoning)}
-			if run.Status != store.RunCompleted {
-				line.terminal = string(run.Status)
-			}
-			m.lines = append(m.lines, line)
+		m.lines = append(m.lines, entry)
+	}
+	// 恢复提示与回填候选只在恢复切换时出现；/new 只清空转录，不冒充恢复。
+	// 提示是 system 展示行，不占状态栏；候选只进输入历史，用户编辑后按
+	// Enter 才创建新 run。
+	if snapshot.Resumed {
+		for _, hint := range RecoveryHints(snapshot.Recovery, snapshot.Turns) {
+			m.lines = append(m.lines, chatLine{kind: lineSystem, text: sanitize(hint)})
+		}
+	}
+	if snapshot.Recovery != nil && snapshot.Recovery.ResendInput != "" {
+		// 与 InitialResend 同一语义：历史存解码正文，取出时转换；超限
+		// 丢弃候选时明确说明，不静默。
+		if _, ok := escapeHistoryInput(snapshot.Recovery.ResendInput); ok {
+			m.history = []string{snapshot.Recovery.ResendInput}
+		} else {
+			m.lines = append(m.lines, chatLine{kind: lineSystem, text: "Last task input exceeds the 4096-character limit; ↑ backfill is unavailable."})
 		}
 	}
 	m.resize()

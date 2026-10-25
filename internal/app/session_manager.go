@@ -91,6 +91,7 @@ func (s *Service) AdoptSession(id string, session *Session, createdAt ...time.Ti
 	s.session = session
 	s.sessionID = id
 	s.sessionCreatedAt = session.startedAt
+	s.recordExitSession()
 	if len(createdAt) > 0 && !createdAt[0].IsZero() {
 		s.sessionCreatedAt = createdAt[0]
 	}

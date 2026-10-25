@@ -76,12 +76,35 @@ type CommandStatusInfo struct {
 	SaveStatus           string
 }
 
+// RecoveryToolView 是恢复展示的工具条目；Unconfirmed 表示只有准备/运行
+// 记录而无完成结果，不能猜成未执行或已成功。
+type RecoveryToolView struct {
+	Name, Status, Summary string
+	Unconfirmed           bool
+}
+
+// SessionRecovery 是恢复会话的最后未完成任务展示信息：合并最后有效检查点
+// 与终态记录后的正文/Thought/工具摘要，以及回填候选输入。它只服务展示与
+// 输入候选，不进入模型历史；恢复成功本身不产生模型或工具调用。
+type SessionRecovery struct {
+	LastRunID   string
+	LastStatus  store.RunStatus // 仅 failed/cancelled/interrupted 提供
+	Reply       string
+	Reasoning   string
+	Tools       []RecoveryToolView
+	ResendInput string // 最后未完成 run 的已接受输入；TUI 转义后作为 ↑ 候选
+}
+
 // SessionSnapshot 只在切换成功后交给 TUI；保存失败不会先清空原界面。
+// Resumed 区分恢复（展示恢复提示与回填候选）与新建（清空转录即可）。
 type SessionSnapshot struct {
 	SessionID string
 	Model     CommandModelInfo
 	Stats     SessionStats
+	Turns     int
 	Runs      []store.RunRecord
+	Recovery  *SessionRecovery
+	Resumed   bool
 }
 
 // CommandResult 是共享处理器的结构化回执；Code 为稳定英文状态码。

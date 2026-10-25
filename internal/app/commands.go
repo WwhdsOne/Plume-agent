@@ -74,7 +74,8 @@ func (s *Service) executeCommandLocked(ctx context.Context, command Command, ent
 		result.SessionID, result.Message = record.ID, "Session resumed."
 		if entrance == EntranceTUI {
 			result.Action = ActionSwitchSession
-			result.Switch = &SessionSnapshot{SessionID: record.ID, Model: s.displayModel(record.ModelRef), Stats: prepared.session.Statistics(), Runs: prepared.runs}
+			result.Switch = &SessionSnapshot{SessionID: record.ID, Model: s.displayModel(record.ModelRef),
+				Stats: prepared.session.Statistics(), Turns: prepared.session.Turns(), Runs: prepared.runs, Recovery: prepared.recovery, Resumed: true}
 		}
 		return commandExecution{result: result, record: record, prepared: prepared, mutation: &store.CommandMutation{BindSessionID: record.ID}}
 	case CommandNew:

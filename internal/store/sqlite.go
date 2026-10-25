@@ -18,7 +18,7 @@ import (
 
 // schemaVersion 是当前迁移版本，与 config schema 分开管理；只允许前向迁移，
 // 遇到比程序更新的版本拒绝写入。
-const schemaVersion = 3
+const schemaVersion = 4
 
 // SQLiteStore 是本机文件后端：一个 history.db 承载会话、run、轮次与调用，
 // 打开时持有整库进程独占锁直至 Close。单进程独占下不启用 WAL，事务使用
@@ -114,6 +114,13 @@ func (s *SQLiteStore) migrate() error {
 	}
 	if version < 3 {
 		for _, statement := range memorySchemaStatements {
+			if _, err = tx.Exec(statement); err != nil {
+				return err
+			}
+		}
+	}
+	if version < 4 {
+		for _, statement := range checkpointSchemaStatements {
 			if _, err = tx.Exec(statement); err != nil {
 				return err
 			}
@@ -253,14 +260,19 @@ func (s *SQLiteStore) finishTx(ctx context.Context, run RunRecord, status RunSta
 		string(status), run.Error, unixMS(run.FinishedAt), run.Reply, run.Reasoning, string(tools), run.ID); err != nil {
 		return err
 	}
+	// 终态与检查点清理同事务：展示并入 runs 后检查点失去意义；强杀路径
+	// 走不到这里（run 保持 running），检查点由启动标记 interrupted 时保留。
+	if _, err = tx.ExecContext(ctx, "DELETE FROM run_checkpoints WHERE run_id = ?", run.ID); err != nil {
+		return err
+	}
 	if _, err = tx.ExecContext(ctx, "UPDATE sessions SET last_run_at = MAX(last_run_at, ?) WHERE id = ?", unixMS(run.FinishedAt), run.SessionID); err != nil {
 		return err
 	}
 	return tx.Commit()
 }
 
-// GetRunState 在一个读取事务内确认 run 与唯一完整成功轮次，先计量再解码，
-// 不能把 completed 标记本身当成事务完整提交的证据。
+// GetRunState 在一个读取事务内确认 run、唯一完整成功轮次与检查点清理，
+// 先计量再解码，不能把 completed 标记本身当成事务完整提交的证据。
 func (s *SQLiteStore) GetRunState(ctx context.Context, runID string) (RunState, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -277,6 +289,17 @@ func (s *SQLiteStore) GetRunState(ctx context.Context, runID string) (RunState, 
 	}
 	if !validRunStatus(state.Status) {
 		return state, fmt.Errorf("%w: invalid run status", ErrCorruptHistory)
+	}
+	// 正常终态必须与检查点清理同事务完成；只查存在性，不读取正文。
+	// interrupted 由启动标记产生，按契约保留检查点供展示。
+	if state.Status != RunRunning && state.Status != RunInterrupted {
+		var hasCheckpoint bool
+		if err := tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM run_checkpoints WHERE run_id = ?)", runID).Scan(&hasCheckpoint); err != nil {
+			return state, err
+		}
+		if hasCheckpoint {
+			return state, fmt.Errorf("%w: terminal run retains checkpoint", ErrCorruptHistory)
+		}
 	}
 	var count, size int64
 	if err := tx.QueryRowContext(ctx, "SELECT COUNT(*), COALESCE(SUM(length(CAST(messages AS BLOB))), 0) FROM turns WHERE run_id = ?", runID).Scan(&count, &size); err != nil {
@@ -476,6 +499,136 @@ func (s *SQLiteStore) LoadCalls(ctx context.Context, sessionID string, limits ..
 		out = append(out, record)
 	}
 	return out, rows.Err()
+}
+
+// SaveCheckpoint 在一个事务内校验 run 归属与 running 状态、序号单调后
+// 保存最新快照。终态后的写入（含正常 finish 的同事务清理之后）被拒绝，
+// 迟到快照不能覆盖较新快照或复活已清理记录。
+func (s *SQLiteStore) SaveCheckpoint(ctx context.Context, runID string, sequence int64, payload CheckpointPayload, savedAt time.Time) error {
+	encoded, err := validateCheckpoint(sequence, payload)
+	if err != nil {
+		return err
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	var status string
+	if err = tx.QueryRowContext(ctx, "SELECT status FROM runs WHERE id = ?", runID).Scan(&status); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrUnknownRun
+		}
+		return err
+	}
+	if status != string(RunRunning) {
+		return ErrCheckpointFinalized
+	}
+	var previousSeq int64
+	var samePayload bool
+	// 幂等比较留在 SQLite 内，外部损坏的已有大载荷不应被复制到 Go 堆。
+	err = tx.QueryRowContext(ctx, "SELECT sequence, payload = ? FROM run_checkpoints WHERE run_id = ?", encoded, runID).Scan(&previousSeq, &samePayload)
+	switch {
+	case err == nil:
+		switch {
+		case previousSeq > sequence:
+			return ErrCheckpointStale
+		case previousSeq == sequence:
+			if !samePayload {
+				return ErrCheckpointConflict
+			}
+			return tx.Commit() // 幂等：同序号同载荷的重放。
+		}
+		// 条件更新守住序号只升不降；单进程独占下无并发写，防御性保留。
+		_, err = tx.ExecContext(ctx, "UPDATE run_checkpoints SET sequence = ?, format_version = ?, payload = ?, saved_at = ? WHERE run_id = ? AND sequence = ?",
+			sequence, CheckpointFormatVersion, encoded, unixMS(savedAt), runID, previousSeq)
+	case errors.Is(err, sql.ErrNoRows):
+		_, err = tx.ExecContext(ctx, "INSERT INTO run_checkpoints (run_id, sequence, format_version, payload, saved_at) VALUES (?, ?, ?, ?, ?)",
+			runID, sequence, CheckpointFormatVersion, encoded, unixMS(savedAt))
+	}
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// LoadCheckpoint 读取 run 最新检查点并核对 runs 关联的会话归属；损坏、
+// 超限或未来版本整次拒绝，不返回残片。
+func (s *SQLiteStore) LoadCheckpoint(ctx context.Context, runID string) (CheckpointRecord, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return CheckpointRecord{}, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	var record CheckpointRecord
+	var sessionID string
+	if err = tx.QueryRowContext(ctx, "SELECT session_id FROM runs WHERE id = ?", runID).Scan(&sessionID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return record, ErrUnknownRun
+		}
+		return record, err
+	}
+	var encoded string
+	var savedMS int64
+	// 先在同一事务预检载荷大小再读正文：外部改写的超大记录不能先占内存。
+	var payloadBytes int64
+	if err = tx.QueryRowContext(ctx, "SELECT length(CAST(payload AS BLOB)) FROM run_checkpoints WHERE run_id = ?", runID).Scan(&payloadBytes); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return record, ErrCheckpointNotFound
+		}
+		return record, err
+	}
+	if payloadBytes > CheckpointMaxBytes {
+		return record, ErrHistoryLimit
+	}
+	if err = tx.QueryRowContext(ctx, "SELECT sequence, format_version, payload, saved_at FROM run_checkpoints WHERE run_id = ?", runID).
+		Scan(&record.Sequence, &record.FormatVersion, &encoded, &savedMS); err != nil {
+		return record, err
+	}
+	payload, err := decodeCheckpointPayload(record.FormatVersion, []byte(encoded))
+	if err != nil {
+		return CheckpointRecord{}, err
+	}
+	record.RunID, record.SessionID = runID, sessionID
+	record.Payload, record.SavedAt = payload, fromUnixMS(savedMS)
+	return record, nil
+}
+
+// LatestCheckpoint 返回会话最新 run（按起点时间与插入序）的检查点；最新
+// run 没有检查点时不回退到旧 run，与内存后端语义一致。
+func (s *SQLiteStore) LatestCheckpoint(ctx context.Context, sessionID string) (CheckpointRecord, bool, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return CheckpointRecord{}, false, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	var record CheckpointRecord
+	var encoded string
+	var savedMS int64
+	var payloadBytes int64
+	// 与按 run 读取相同，先在同一事务内查询长度，通过边界后才读取正文。
+	err = tx.QueryRowContext(ctx, `SELECT c.run_id, c.sequence, c.format_version, length(CAST(c.payload AS BLOB)), c.saved_at
+		FROM run_checkpoints c
+		WHERE c.run_id = (SELECT id FROM runs WHERE session_id = ? ORDER BY started_at DESC, rowid DESC LIMIT 1)`, sessionID).
+		Scan(&record.RunID, &record.Sequence, &record.FormatVersion, &payloadBytes, &savedMS)
+	if errors.Is(err, sql.ErrNoRows) {
+		return CheckpointRecord{}, false, nil
+	}
+	if err != nil {
+		return CheckpointRecord{}, false, err
+	}
+	if payloadBytes > CheckpointMaxBytes {
+		return CheckpointRecord{}, false, ErrHistoryLimit
+	}
+	if err = tx.QueryRowContext(ctx, "SELECT payload FROM run_checkpoints WHERE run_id = ?", record.RunID).Scan(&encoded); err != nil {
+		return CheckpointRecord{}, false, err
+	}
+	payload, err := decodeCheckpointPayload(record.FormatVersion, []byte(encoded))
+	if err != nil {
+		return CheckpointRecord{}, false, err
+	}
+	record.SessionID, record.Payload, record.SavedAt = sessionID, payload, fromUnixMS(savedMS)
+	return record, true, nil
 }
 
 // Close 关闭数据库并释放整库锁；重复关闭安全。

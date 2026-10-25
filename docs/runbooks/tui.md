@@ -1,7 +1,7 @@
 ---
 title: TUI 聊天 runbook
 status: active
-updated: 2026-10-23
+updated: 2026-10-25
 summary: plume chat 启动、公共指令与历史选择、流式/状态栏、持久恢复、隔离演示与 trace 排查
 ---
 
@@ -213,6 +213,21 @@ PLUME_HOME=$(mktemp -d) python3 scripts/pty_demo_g1b221.py
 判据：输出包含各次输入回显、offline 固定回答，进程干净退出。kitty 协议的
 Shift+Enter（CSI u `\x1b[13;2u`）已在 G1b.2.1 证据中单独验证；真实终端里按
 iTerm2/WezTerm 手测（Terminal.app 不支持 kitty，走层级 2/3）。
+
+## 检查点与中断恢复（G4a.2.1）
+
+运行中的输入和已确认检查点存于原私密历史库，不另建恢复文件。正文按事件到达每 1 秒合并，工具准备与完成边界同步保存；强退可能丢失最后未确认片段。重开 `plume -c` 可查看当前工作区最近会话，精确恢复则启动 `plume` 后输入 `/resume <完整会话ID>`。恢复不会请求模型或自动执行工具；最后任务未完成时按 Up 回填，编辑后 Enter 开始新任务，Down 返回原草稿。
+
+正常退出后出现 `Session`、`History` 摘要：saved 表示对应任务终态已确认保存；failed/unknown 应先重开核对，不能自动重试工具。没有完成记录的工具标记 `result unconfirmed`，应先检查文件或命令结果。进程锁已释放不证明旧 Shell 子进程已停止。数据库升级到 v4，旧二进制不能直接打开；需要回退时使用升级前备份，勿修改 user_version 冒充旧库。
+
+隔离复现（仅本地 fixture，不读取真实配置）：
+
+```bash
+rtk proxy ./scripts/build.sh
+rtk proxy env PYTHONDONTWRITEBYTECODE=1 python3 scripts/pty_demo_g4a21.py --output /tmp/plume-g4a21-pty
+```
+
+脚本依赖 `pyte`/`wcwidth`，可用临时目录安装并通过 `PYTHONPATH` 引用。七场景覆盖取消退出恢复与回填、SIGKILL 检查点、字面斜杠重发、空会话退出、断流失败后恢复、运行中 `/exit` 与 SIGTERM；同时复跑 `pty_demo_g4a1.py`、`pty_demo_g4a2.py` 可验证原历史/管理行为。成功/失败 trace 摘要与未实测边界见[审核记录](../reviews/G4a.2.1.md)。
 
 ## 证据治理：通过即删
 

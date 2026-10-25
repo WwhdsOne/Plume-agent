@@ -111,18 +111,27 @@ func TestSessionSwitchReplacesStateAfterSuccess(t *testing.T) {
 	m.history = []string{"old input"}
 	snapshot := &app.SessionSnapshot{SessionID: "new-session", Model: app.CommandModelInfo{Provider: "new", Model: "restored", Reasoning: "high", ContextWindowTokens: &capacity},
 		Stats: app.SessionStats{StartedAt: now, Calls: 1, KnownCalls: 1, LastUsage: model.Usage{OK: true, PromptTokens: 7}},
-		Runs:  []store.RunRecord{{Input: "/new is saved text", Reply: "```go\nfmt.Println(1)\n```\x1b]0;evil\x07", Reasoning: "thought", Status: store.RunCancelled}}}
+		Runs:  []store.RunRecord{{Input: "/new is saved text", Reply: "```go\nfmt.Println(1)\n```\x1b]0;evil\x07", Reasoning: "thought", Status: store.RunCancelled}}, Resumed: true}
 	m, _ = m.Update(commandResultMsg{result: app.CommandResult{Code: "ok", Action: app.ActionSwitchSession, Switch: snapshot}})
 	if m.sessionID != "new-session" || m.input.Value() != "" || len(m.history) != 0 || m.splash != nil || m.options.ModelID != "restored" || m.status.stats.Calls != 1 {
 		t.Fatalf("switch did not replace complete display state: %+v", m)
 	}
-	if len(m.lines) != 2 || m.lines[0].text != "/new is saved text" || m.lines[1].reasoning != "thought" || m.lines[1].terminal != "cancelled" || strings.Contains(m.lines[1].text, "\x1b") {
+	if len(m.lines) != 3 || m.lines[0].text != "/new is saved text" || m.lines[1].reasoning != "thought" || m.lines[1].terminal != "cancelled" || strings.Contains(m.lines[1].text, "\x1b") {
 		t.Fatalf("restored transcript = %+v", m.lines)
+	}
+	if m.lines[2].kind != lineSystem || !strings.Contains(m.lines[2].text, "Session restored") {
+		t.Fatalf("restore hint missing: %+v", m.lines)
 	}
 	m.startRun("same-run")
 	m, _ = m.Update(AppEvent{Event: app.Event{SessionID: "old-session", RunID: "same-run", Kind: app.EventTextDelta, TextDelta: "stale"}})
-	if len(m.lines) != 2 {
+	if len(m.lines) != 3 {
 		t.Fatal("old session event mutated restored transcript")
+	}
+	// case: /new 新建会话不冒充恢复，转录保持干净。
+	fresh := &app.SessionSnapshot{SessionID: "fresh-session", Model: app.CommandModelInfo{Provider: "new", Model: "restored"}}
+	m.replaceSession(fresh)
+	if len(m.lines) != 0 {
+		t.Fatalf("new session must stay clean of restore hints: %+v", m.lines)
 	}
 }
 

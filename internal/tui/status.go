@@ -21,18 +21,23 @@ type Options struct {
 	// InitialTranscript 是恢复会话时预置进聊天记录的展示行（`-c` 路径）；
 	// 输入草稿与 Up/Down 草稿历史不从磁盘恢复。
 	InitialTranscript []TranscriptLine
-	Clock             func() time.Time
-	Choose            func(int) int
+	// InitialResend 是恢复会话的最后未完成输入候选：转义后只放入本进程
+	// 输入历史（↑ 取回），不自动填入输入框，也不发送。
+	InitialResend string
+	Clock         func() time.Time
+	Choose        func(int) int
 }
 
 // TranscriptKind 是恢复转录行的展示类别。
 type TranscriptKind int
 
-// 转录行类别：user/assistant 对应聊天记录，system 用于恢复提示。
+// 转录行类别：user/assistant 对应聊天记录，system 用于恢复提示，
+// tool 是脱敏工具摘要行。
 const (
 	TranscriptUser TranscriptKind = iota
 	TranscriptAssistant
 	TranscriptSystem
+	TranscriptTool
 )
 
 // TranscriptLine 是持久历史的一行展示文本；Terminal 携带取消/中断等

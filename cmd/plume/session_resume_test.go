@@ -52,6 +52,74 @@ func testResumeConfig(baseURL string) *config.Config {
 	}
 }
 
+// TestResumeRetainsEarlierInterruptedCheckpoint 守住跨进程展示：R1 中断后
+// 显式恢复，再成功完成 R2，重开仍展示 R1 已保存进度；成功尾不回填旧任务。
+func TestResumeRetainsEarlierInterruptedCheckpoint(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "history.db")
+	history, err := store.OpenSQLite(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = history.Close() })
+	reopen := func() {
+		t.Helper()
+		if err := history.Close(); err != nil {
+			t.Fatal(err)
+		}
+		history, err = store.OpenSQLite(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := history.InterruptRunning(ctx, time.Now()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cfg := testResumeConfig("https://api.example/v1")
+	now := time.Now()
+	session := store.SessionRecord{ID: "checkpoint-session", Workspace: "/ws", Title: "task", ModelRef: modelRefOf(&cfg.Models[0]), CreatedAt: now}
+	if err := history.StartRun(ctx, session, store.RunRecord{ID: "run-crashed", Input: "old task", StartedAt: now}); err != nil {
+		t.Fatal(err)
+	}
+	if err := history.SaveCheckpoint(ctx, "run-crashed", 1, store.CheckpointPayload{Reply: "saved partial reply", Reasoning: "saved thought",
+		Tools: []store.CheckpointToolState{{CallID: "tool-1", Name: "bash", Status: "running"}}}, now); err != nil {
+		t.Fatal(err)
+	}
+	reopen()
+	first, err := findResumableSession(ctx, history, cfg, "", "/ws")
+	if err != nil || first == nil || first.recovery == nil || first.recovery.ResendInput != "old task" {
+		t.Fatalf("first recovery = %+v err=%v", first, err)
+	}
+	// 首次显式恢复后用户发送新任务；新任务成功不会清理旧中断检查点。
+	if err := history.StartRun(ctx, session, store.RunRecord{ID: "run-success", Input: "new task", StartedAt: now.Add(time.Second)}); err != nil {
+		t.Fatal(err)
+	}
+	if err := history.CompleteRun(ctx, store.RunRecord{ID: "run-success", SessionID: session.ID, Reply: "new answer", FinishedAt: now.Add(2 * time.Second)},
+		[]model.Message{{Role: model.RoleUser, Content: "new task"}, {Role: model.RoleAssistant, Content: "new answer"}}); err != nil {
+		t.Fatal(err)
+	}
+	reopen()
+	resume, err := findResumableSession(ctx, history, cfg, "", "/ws")
+	if err != nil || resume == nil {
+		t.Fatalf("second recovery = %+v err=%v", resume, err)
+	}
+	if resume.recovery != nil {
+		t.Fatalf("completed tail exposed old resend candidate: %+v", resume.recovery)
+	}
+	partial, tool := false, false
+	for _, line := range resume.transcript {
+		if line.Kind == tui.TranscriptAssistant && line.Text == "saved partial reply" && line.Reasoning == "saved thought" && line.Terminal == "interrupted" {
+			partial = true
+		}
+		if line.Kind == tui.TranscriptTool && strings.Contains(line.Text, "bash · running · result unconfirmed") {
+			tool = true
+		}
+	}
+	if !partial || !tool {
+		t.Fatalf("old checkpoint disappeared after newer success: %+v", resume.transcript)
+	}
+}
+
 // TestFindResumableSessionByConfigIDAndFingerprint 守住模型引用匹配：
 // 配置 ID 与指纹一致才恢复；ID 丢失但端点指纹一致也恢复，不静默换模型。
 func TestFindResumableSessionByConfigIDAndFingerprint(t *testing.T) {
@@ -353,8 +421,8 @@ func TestFindResumableSessionBuildsTranscript(t *testing.T) {
 		t.Fatalf("resume = %v, err = %v", resume, err)
 	}
 	got := resume.transcript
-	if len(got) != 5 {
-		t.Fatalf("transcript lines = %d, want 5 (system + user/assistant + user/assistant): %+v", len(got), got)
+	if len(got) != 8 {
+		t.Fatalf("transcript lines = %d, want 8 (system + user/assistant + user/assistant + 3 restore hints): %+v", len(got), got)
 	}
 	if got[0].Kind != tui.TranscriptSystem || !strings.Contains(got[0].Text, "sess-tr") || !strings.Contains(got[0].Text, "2 runs") {
 		t.Fatalf("system line = %+v", got[0])
@@ -364,6 +432,15 @@ func TestFindResumableSessionBuildsTranscript(t *testing.T) {
 	}
 	if got[3].Kind != tui.TranscriptUser || got[3].Text != "q2" || got[4].Terminal != "cancelled" {
 		t.Fatalf("cancelled run lines = %+v %+v", got[3], got[4])
+	}
+	// 恢复提示与回填候选：最后 run 未完成（cancelled），提示行进转录、
+	// 输入作为候选携带但不自动发送。
+	if resume.recovery == nil || resume.recovery.LastStatus != store.RunCancelled || resume.recovery.ResendInput != "q2" {
+		t.Fatalf("recovery = %+v", resume.recovery)
+	}
+	if got[5].Kind != tui.TranscriptSystem || !strings.Contains(got[5].Text, "1 completed turns") ||
+		!strings.Contains(got[6].Text, "Last task: cancelled") || !strings.Contains(got[7].Text, "↑") {
+		t.Fatalf("restore hints = %+v", got[5:])
 	}
 }
 
@@ -404,12 +481,16 @@ func TestFindResumableSessionPreservesThoughtAndTerminal(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if resume == nil || len(resume.transcript) != 3 {
-				t.Fatalf("transcript = %+v, want system/user/assistant", resume)
+			if resume == nil || len(resume.transcript) != 6 {
+				t.Fatalf("transcript = %+v, want system/user/assistant + 3 restore hints", resume)
 			}
 			got := resume.transcript[2]
 			if got.Kind != tui.TranscriptAssistant || got.Text != tc.reply || got.Reasoning != tc.reasoning || got.Terminal != tc.terminal {
 				t.Fatalf("assistant transcript = %+v, want reply %q, reasoning %q, terminal %q", got, tc.reply, tc.reasoning, tc.terminal)
+			}
+			// 未完成 run 的输入作为回填候选携带，不自动重发。
+			if resume.recovery == nil || resume.recovery.ResendInput != "question" {
+				t.Fatalf("resend candidate = %+v", resume.recovery)
 			}
 			fake := model.NewFake(model.FakeScript{})
 			service := app.NewService(agent.New(fake, "m"))

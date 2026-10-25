@@ -85,6 +85,9 @@ func (s *Service) ConfigureCommands(options CommandOptions) error {
 		}
 	}
 	state.rememberEmptyLocked(s)
+	// -c 在配置指令前已接管会话；确认当前会话是否已有登记任务后再拍
+	// 退出快照，避免无新任务直接退出时漏掉恢复提示。
+	s.recordExitSession()
 	return nil
 }
 
@@ -185,9 +188,10 @@ func (s *Service) HandleInput(ctx context.Context, request CommandRequest) (resp
 }
 
 type preparedSession struct {
-	runtime *agent.Runtime
-	session *Session
-	runs    []store.RunRecord
+	runtime  *agent.Runtime
+	session  *Session
+	runs     []store.RunRecord
+	recovery *SessionRecovery
 }
 
 // commandExecution 暂存准备好的切换；只有收据及业务事务提交确认后才安装。
@@ -314,6 +318,8 @@ func (s *Service) installSessionLocked(record store.SessionRecord, prepared *pre
 	s.sessionCreatedAt, s.modelRef = record.CreatedAt, record.ModelRef
 	s.commands.title, s.commands.manualTitle = record.Title, record.TitleManual
 	s.commands.hasRun = record.RunCount > 0
+	// 会话身份与 hasRun 必须同时来自新会话，不能沿用切换前的登记状态。
+	s.recordExitSession()
 	s.commands.rememberEmptyLocked(s)
 	// 切换只允许 idle；旧工具根已无人执行，应立即释放，不能让长期 TUI
 	// 每次 /new 都累积一个 os.Root。关闭失败才留给整体退出期限内再试。
@@ -359,6 +365,10 @@ func (s *Service) prepareSessionLocked(ctx context.Context, record store.Session
 		}
 		prepared.runs, err = s.history.ListRuns(ctx, record.ID, s.commands.options.LoadLimits)
 		if err != nil {
+			return nil, err
+		}
+		// 与 -c 共用有界展示合并：旧中断进度保留，尾候选不越过新成功 run。
+		if prepared.runs, prepared.recovery, err = LoadRecovery(ctx, s.history, record.ID, prepared.runs, s.commands.options.LoadLimits); err != nil {
 			return nil, err
 		}
 		usage, lastCall := make(map[string]model.Usage), ""

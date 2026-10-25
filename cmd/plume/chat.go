@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -205,12 +206,16 @@ func startChat(out io.Writer, opts chatOptions) (resultErr error) {
 		}
 		service.EnablePersistence(history, workspace, modelRefOf(selected), shutdown)
 	}
-	// `-c` 恢复：预灌成功历史与用量统计，转录进 TUI 记录区。
+	// `-c` 恢复：预灌成功历史与用量统计，转录进 TUI 记录区；最后未完成
+	// 任务的输入作为 ↑ 回填候选，不自动填入、不发送。
 	if resume != nil {
 		if err := adoptResumedSession(ctx, service, history, resume); err != nil {
 			return err
 		}
 		options.InitialTranscript = resume.transcript
+		if resume.recovery != nil {
+			options.InitialResend = resume.recovery.ResendInput
+		}
 	}
 	// 历史关闭与离线模式同样能浏览本进程会话，但从不打开已有私密数据库。
 	if history == nil {
@@ -282,7 +287,27 @@ func startChat(out io.Writer, opts chatOptions) (resultErr error) {
 	if _, err := program.Run(); err != nil {
 		return fmt.Errorf("chat ui: %w", err)
 	}
-	return nil
+	// alt screen 已退出：先冻结会话身份（此时不得阻塞收尾），再在总期限
+	// 内收尾，最后按本轮 run 的真实保存结论打印恢复方法；defer 的 close
+	// 幂等，只执行一次。
+	captured := service.CaptureExitState()
+	closeErr := resources.close()
+	printExitSummary(out, service, captured, closeErr == nil, cfg)
+	return closeErr
+}
+
+// printExitSummary 在 TUI 正常退出后打印保存结论与恢复方法。只在在线、
+// 历史开启且会话确有已登记 run 时输出；offline/禁用历史明确没有跨进程
+// 恢复，不给成功承诺。结论绑定本轮 run（shutdownOK=false 或核查不一致
+// 如实 unknown），保留原退出错误由调用方返回。
+func printExitSummary(out io.Writer, service *app.Service, captured app.ExitSnapshot, shutdownOK bool, cfg *config.Config) {
+	if cfg == nil || !cfg.HistoryEnabled() || !captured.HasRun {
+		return
+	}
+	status := service.ExitSummary(captured, shutdownOK)
+	_, _ = fmt.Fprintf(out, "\nSession: %s\nHistory: %s\n", captured.SessionID, status)
+	_, _ = fmt.Fprintln(out, "Latest conversation in this workspace: run plume -c in this workspace")
+	_, _ = fmt.Fprintf(out, "This conversation: start plume, then /resume %s\n", captured.SessionID)
 }
 
 // chatResources 集中持有启动过程已经获得的资源。执行停止确认前，不能
@@ -297,9 +322,18 @@ type chatResources struct {
 	cancelWorkspace context.CancelFunc
 	workspaceEvents <-chan app.WorkspaceStatus
 	bridgeDone      chan struct{}
+	closeOnce       sync.Once
+	closeResult     error
 }
 
+// close 幂等执行一次收尾；正常退出路径先冻结快照再显式调用，defer 兜底
+// 覆盖装配失败的早期返回，两条路径不会重复关闭 bridge 通道。
 func (r *chatResources) close() error {
+	r.closeOnce.Do(func() { r.closeResult = r.shutdown() })
+	return r.closeResult
+}
+
+func (r *chatResources) shutdown() error {
 	timeout := r.timeout
 	if timeout <= 0 {
 		timeout = time.Duration(config.DefaultSessions().ShutdownTimeoutMS) * time.Millisecond

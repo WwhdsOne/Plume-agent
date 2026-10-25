@@ -83,25 +83,27 @@ type Service struct {
 	session *Session
 	events  chan Event
 
-	mu               sync.Mutex
-	busy             bool
-	activeRunID      string // 取消收据锁定的执行身份，不以“当前”任务重放取消。
-	cancel           context.CancelFunc
-	pending          string // 提交时暂存的用户输入，成功后随回复一起入历史
-	sessionID        string
-	sessionCreatedAt time.Time
-	history          store.Store // nil 表示进程内存模式（offline/禁用持久化）
-	workspace        string
-	modelRef         store.ModelRef
-	shutdownTimeout  atomic.Int64
-	historyUncertain bool   // 提交无法核查时冻结执行权，直到进程重开校验。
-	lastSaveStatus   string // 最近 run 的实际保存结果，供只读 /status 区分失败与未知。
-	shutdownContext  context.Context
-	cancelShutdown   context.CancelFunc
-	stopped          chan struct{}
-	commandMu        sync.Mutex // 串行处理命令关联，普通输入仍沿用 mu 的准入边界。
-	commands         *commandState
-	retiredRuntimes  []*agent.Runtime // 切换后集中释放；执行停止前不能关闭当前工具根。
+	mu                 sync.Mutex
+	busy               bool
+	activeRunID        string // 取消收据锁定的执行身份，不以“当前”任务重放取消。
+	cancel             context.CancelFunc
+	pending            string // 提交时暂存的用户输入，成功后随回复一起入历史
+	sessionID          string
+	sessionCreatedAt   time.Time
+	history            store.Store // nil 表示进程内存模式（offline/禁用持久化）
+	workspace          string
+	modelRef           store.ModelRef
+	shutdownTimeout    atomic.Int64
+	checkpointInterval time.Duration             // 检查点合并写盘间隔；测试注入，零值用默认 1s。
+	historyUncertain   bool                      // 提交无法核查时冻结执行权，直到进程重开校验。
+	lastSaveStatus     string                    // 最近 run 的实际保存结果，供只读 /status 区分失败与未知。
+	exitSnapshot       atomic.Pointer[exitState] // 退出摘要专用原子快照；收尾超时后不等待 Service.mu。
+	shutdownContext    context.Context
+	cancelShutdown     context.CancelFunc
+	stopped            chan struct{}
+	commandMu          sync.Mutex // 串行处理命令关联，普通输入仍沿用 mu 的准入边界。
+	commands           *commandState
+	retiredRuntimes    []*agent.Runtime // 切换后集中释放；执行停止前不能关闭当前工具根。
 
 	wg        sync.WaitGroup
 	done      chan struct{}
@@ -114,19 +116,23 @@ type Service struct {
 func NewService(runtime *agent.Runtime, recorders ...*telemetry.ModelRecorder) *Service {
 	shutdownContext, cancelShutdown := context.WithCancel(context.Background())
 	s := &Service{
-		runtime:          runtime,
-		session:          NewSession(),
-		events:           make(chan Event, eventBuffer+1),
-		done:             make(chan struct{}),
-		sessionID:        newSessionID(),
-		sessionCreatedAt: time.Now(),
-		shutdownContext:  shutdownContext,
-		cancelShutdown:   cancelShutdown,
-		stopped:          make(chan struct{}),
+		runtime:            runtime,
+		session:            NewSession(),
+		events:             make(chan Event, eventBuffer+1),
+		done:               make(chan struct{}),
+		sessionID:          newSessionID(),
+		sessionCreatedAt:   time.Now(),
+		shutdownContext:    shutdownContext,
+		cancelShutdown:     cancelShutdown,
+		stopped:            make(chan struct{}),
+		checkpointInterval: defaultCheckpointInterval,
 	}
 	if len(recorders) > 0 {
 		s.recorder = recorders[0]
 	}
+	// 退出摘要快照从构造起携带会话身份；之后只在 mu 下随 run/切换更新，
+	// 捕获路径永远不等待锁。
+	s.exitSnapshot.Store(&exitState{sessionID: s.sessionID})
 	return s
 }
 
@@ -193,6 +199,9 @@ func (s *Service) Submit(ctx context.Context, input string) (string, error) {
 			return "", fmt.Errorf("history storage: %w", err)
 		}
 	}
+	// 起点已确认即绑定退出摘要身份：此后即便因退出开始而拒绝执行，摘要
+	// 也指向本轮 run（running→unknown），不能沿用上一轮的保存结论。
+	s.recordExitRun(runID, "running")
 	// 起点事务可能等待磁盘；退出已开始时不得再发起模型请求。
 	if s.isClosing() {
 		s.mu.Unlock()
@@ -210,11 +219,22 @@ func (s *Service) Submit(ctx context.Context, input string) (string, error) {
 	s.pending = input
 	sessionID := s.sessionID
 	runtime, session := s.runtime, s.session
+	interval := s.checkpointInterval
 	if s.recorder != nil {
 		s.recorder.RunStart(sessionID, runID, accepted)
 	}
 	s.wg.Add(1)
 	s.mu.Unlock()
+
+	// 检查点协调器只在持久层存在时工作；interval 在持锁时捕获，测试可
+	// 注入更小值验证合并节流。
+	var checkpoint *checkpointCoordinator
+	if s.history != nil {
+		if interval <= 0 {
+			interval = defaultCheckpointInterval
+		}
+		checkpoint = &checkpointCoordinator{history: s.history, runID: runID, interval: interval, now: time.Now}
+	}
 
 	go func() {
 		defer s.wg.Done()
@@ -280,6 +300,19 @@ func (s *Service) Submit(ctx context.Context, input string) (string, error) {
 					next = PhaseThinking
 				}
 				ev.Kind, ev.ReasoningDelta = EventReasoningDelta, e.ReasoningDelta
+				// 正文/Thought 进入检查点快照槽；保存失败按周期写失败语义
+				// 中止后续生成（首错锁存由 storageErr 承担）。
+				if checkpoint != nil && storageErr == nil {
+					checkpoint.observeReasoning(e.ReasoningDelta)
+					if err := checkpoint.flush(stepCtx, false); err != nil {
+						if errors.Is(err, context.Canceled) {
+							return err // 取消不是存储故障，不锁存 storageErr。
+						}
+						storageErr = fmt.Errorf("history storage: %w", err)
+						storageStage = "checkpoint"
+						return storageErr
+					}
+				}
 			case model.EventTextDelta:
 				if e.TextDelta == "" {
 					return nil
@@ -289,6 +322,17 @@ func (s *Service) Submit(ctx context.Context, input string) (string, error) {
 				}
 				next = PhaseResponding
 				ev.Kind, ev.TextDelta = EventTextDelta, e.TextDelta
+				if checkpoint != nil && storageErr == nil {
+					checkpoint.observeText(e.TextDelta)
+					if err := checkpoint.flush(stepCtx, false); err != nil {
+						if errors.Is(err, context.Canceled) {
+							return err // 取消不是存储故障，不锁存 storageErr。
+						}
+						storageErr = fmt.Errorf("history storage: %w", err)
+						storageStage = "checkpoint"
+						return storageErr
+					}
+				}
 			default:
 				return nil
 			}
@@ -304,6 +348,27 @@ func (s *Service) Submit(ctx context.Context, input string) (string, error) {
 			return nil
 		}, func(stepCtx context.Context, e agent.ToolEvent) error {
 			toolEvents = append(toolEvents, store.ToolEventRecord{Name: e.Name, Status: e.Status, Summary: e.Summary, DurationMS: e.Duration.Milliseconds()})
+			// 关键工具边界：准备记录（running）确认落盘后才返回 nil，agent
+			// 循环随后才执行工具副作用；完成/失败摘要同样立即保存。保存失败
+			// 返回错误中止循环——尚未开始的工具不执行。
+			if checkpoint != nil && storageErr == nil {
+				// 取消只跳过当前写盘，不能跳过内存状态更新；独立收尾刷盘
+				// 必须拿到工具真实终态，尤其最终 runs 合并失败时仍可核对。
+				checkpoint.noteTool(store.CheckpointToolState{CallID: e.CallID, Name: e.Name, Status: e.Status, Summary: e.Summary})
+				if stepCtx.Err() != nil {
+					// 取消已生效：不再用已取消的 ctx 写库（会被驱动当存储
+					// 故障）；收尾 flush 用独立期限补写工具终态。
+					return stepCtx.Err()
+				}
+				if err := checkpoint.flush(stepCtx, true); err != nil {
+					if errors.Is(err, context.Canceled) {
+						return err // 取消不是存储故障，不锁存 storageErr。
+					}
+					storageErr = fmt.Errorf("history storage: %w", err)
+					storageStage = "checkpoint"
+					return err
+				}
+			}
 			if !s.emit(Event{SessionID: sessionID, Kind: EventToolUpdate, RunID: runID, Tool: e}, stepCtx) {
 				return stepCtx.Err()
 			}
@@ -313,7 +378,7 @@ func (s *Service) Submit(ctx context.Context, input string) (string, error) {
 		if callingAt.IsZero() {
 			preparation = total
 		}
-		s.finish(runCtx, runID, sessionID, accepted, result, err, total, preparation, firstReasoning, firstAnswer, toolEvents, storageErr, storageStage)
+		s.finish(runCtx, runID, sessionID, accepted, result, err, total, preparation, firstReasoning, firstAnswer, toolEvents, storageErr, storageStage, checkpoint)
 	}()
 	return runID, nil
 }
@@ -322,7 +387,9 @@ func (s *Service) Submit(ctx context.Context, input string) (string, error) {
 // 成功后才把 user/assistant 原子提交进内存历史。持久化失败不得伪称
 // completed：事件降级为失败并标记存储错误，内存历史保持不变。
 // 终态保存使用独立的有截止收尾 context，不把已取消的请求 ctx 传给数据库。
-func (s *Service) finish(ctx context.Context, runID, sessionID string, accepted time.Time, result *agent.RunResult, err error, total, preparation, firstReasoning, firstAnswer time.Duration, toolEvents []store.ToolEventRecord, storageErr error, storageStage string) {
+// 终态事务前先按收尾期限强制刷盘最新检查点：取消/崩溃窗口内已确认的
+// 进度先落检查点，终态事务随后把展示并入 runs 并同事务清理检查点。
+func (s *Service) finish(ctx context.Context, runID, sessionID string, accepted time.Time, result *agent.RunResult, err error, total, preparation, firstReasoning, firstAnswer time.Duration, toolEvents []store.ToolEventRecord, storageErr error, storageStage string, checkpoint *checkpointCoordinator) {
 	s.mu.Lock()
 	// 取消与历史提交以同一把锁确定先后，覆盖模型收完后关闭流的时间窗口。
 	if err == nil {
@@ -356,6 +423,15 @@ func (s *Service) finish(ctx context.Context, runID, sessionID string, accepted 
 		saveCtx, cancelSave := s.finishContext()
 		defer cancelSave()
 		saveStatus = "saved"
+		// 收尾刷盘：已有内容时强制保存最新快照；失败只记录阶段，终态事务
+		// 仍按原语义尽力保存展示并清理检查点。
+		if checkpoint != nil && storageErr == nil && checkpoint.hasContent() {
+			flushCtx, cancelFlush := s.finishContext()
+			if flushErr := checkpoint.flush(flushCtx, true); flushErr != nil {
+				storageStage = "checkpoint_flush"
+			}
+			cancelFlush()
+		}
 		if err == nil {
 			// 成功路径：先落盘再改内存；失败时事件降级，不伪称已保存完成。
 			record := s.terminalRecord(runID, sessionID, accepted, store.RunCompleted, "", result, toolEvents)
@@ -414,6 +490,7 @@ func (s *Service) finish(ctx context.Context, runID, sessionID string, accepted 
 		s.recorder.RunEnd(sessionID, runID, telemetry.RunMetrics{Duration: total, Preparation: preparation, FirstReasoning: firstReasoning, FirstAnswer: firstAnswer, ReasoningBytes: reasoningBytes, AnswerBytes: answerBytes, SaveStatus: saveStatus, SaveErrorStage: storageStage}, runErr)
 	}
 	s.lastSaveStatus = saveStatus
+	s.recordExitRun(runID, saveStatus)
 	// 非终态最多占八格，最后一格保留给当前终态；取消不依赖消费者继续读取。
 	s.emit(ev, context.Background())
 	s.busy = false

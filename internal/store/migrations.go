@@ -69,6 +69,20 @@ var managementSchemaStatements = []string{
 	)`,
 }
 
+// checkpointSchemaStatements 在同一事务扩展 v4：run_checkpoints 按 run
+// 保存最新快照（run_id 主键，每个 run 至多一行），会话归属经 runs 关联
+// 核对，不复制可由调用方指定的第二份权限事实；迁移故障测试守住 DDL
+// 与 user_version 同回滚。
+var checkpointSchemaStatements = []string{
+	`CREATE TABLE run_checkpoints (
+		run_id TEXT PRIMARY KEY REFERENCES runs(id),
+		sequence INTEGER NOT NULL CHECK(typeof(sequence) = 'integer' AND sequence > 0),
+		format_version INTEGER NOT NULL CHECK(typeof(format_version) = 'integer' AND format_version > 0),
+		payload TEXT NOT NULL,
+		saved_at INTEGER NOT NULL CHECK(typeof(saved_at) = 'integer')
+	)`,
+}
+
 // memorySchemaStatements 在同一事务扩展 v3，不重写 v1/v2 历史。作用域
 // CHECK 是第二道数据边界，session 的可信归属由读写事务核对，不能用
 // 外键替代主体/工作区过滤；迁移故障测试守住 DDL 与 user_version 同回滚。

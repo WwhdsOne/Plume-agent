@@ -52,8 +52,9 @@ func createMemoryLegacyV2(t *testing.T) string {
 	return path
 }
 
-// TestLongTermMemoryMigrationAndReopen 守住 v2→v3 保留所有旧数据类型，
-// 新记忆跨关闭重开保持相同版本/时间，数据库权限仍为 0600。
+// TestLongTermMemoryMigrationAndReopen 守住 v2→v3（现随 v4 检查点表继续
+// 前向迁移）保留所有旧数据类型，新记忆跨关闭重开保持相同版本/时间，
+// 数据库权限仍为 0600。
 func TestLongTermMemoryMigrationAndReopen(t *testing.T) {
 	t.Setenv("PLUME_HOME", t.TempDir())
 	path := createMemoryLegacyV2(t)
@@ -64,7 +65,7 @@ func TestLongTermMemoryMigrationAndReopen(t *testing.T) {
 	t.Cleanup(func() { _ = s.Close() })
 	ctx := context.Background()
 	var version int
-	if err := s.db.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != 3 {
+	if err := s.db.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != 4 {
 		t.Fatalf("memory schema=%d err=%v", version, err)
 	}
 	// case: 原会话、成功消息、未知用量、绑定和收据分别核查，不以行数代替语义。
