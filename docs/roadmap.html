@@ -3,7 +3,7 @@
 title: plume-agent 路线图
 status: active
 updated: 2026-10-25
-summary: G4a.2.1 检查点恢复已验收通过；下一步先设计 TUI 交互与 skills
+summary: G4a.2.1 已通过；G5.0 微内核、Skills 与 MCP 扩展设计待审，实施未开始
 -->
 
 <html lang="zh-CN">
@@ -220,6 +220,8 @@ const ROADMAP = [
           desc: "已通过：read/grep/glob/edit/write/bash、完整默认配置、次数无限预算、原子写入与读取快照、进程取消和真实开发闭环；状态栏默认隐藏 ctx", updated: "2026-10-09" },
         { id: "G3.2", title: "人格初始化与上下文拼装", status: "passed",
           desc: "已通过：soul.md 默认配置完整落盘、setup 无覆盖初始化、每 run 人格快照、唯一 system 来源标识及失败隔离；记忆/MCP/skill 继续预留", updated: "2026-10-10" },
+        { id: "G3.3", title: "Agent 工具沙箱（三平台三接口）", status: "todo",
+          desc: "2026-10-25 提案待审：internal/sandbox 可插拔抽象（Policy/Backend/Factory），bash 经 Wrap 进沙箱；macOS Seatbelt、Linux Landlock+seccomp、Windows restricted token 三原生后端 + noop，网络首版全禁；分 .1-.5 单元实施", updated: "2026-10-25" },
       ],
     ],
   },
@@ -261,7 +263,8 @@ const ROADMAP = [
         { id: "G4a.3.2", title: "显式记忆管理与遗忘", status: "todo", desc: "待另行授权：公共指令、删除与幂等收据，不调用模型", updated: "2026-10-24" },
         { id: "G4a.3.3", title: "按任务召回与请求快照", status: "todo", desc: "待另行授权：确定性选择、来源标记、条数/字节预算与 PromptBuilder 快照", updated: "2026-10-24" },
         { id: "G4b", title: "上下文压缩", status: "deferred", desc: "实验 E01 候选", updated: "2026-10-06" },
-        { id: "G5", title: "已审核技能", status: "deferred", desc: "", updated: "2026-10-06" },
+        { id: "G5", title: "已审核技能与能力扩展", status: "deferred", desc: "实现仍待逐单元授权；G5.1–G5.5 仅为设计中的拟议拆分", updated: "2026-10-25" },
+        { id: "G5.0", title: "微内核、Skills 与 MCP 设计", status: "review", desc: "仅设计待审：K1–K12 规则、技能文件/运行快照、MCP tools 接入与 TUI 边界；尚未实现", updated: "2026-10-25" },
         { id: "G6", title: "实验与简历整理", status: "deferred", desc: "量化改造对比报告", updated: "2026-10-06" },
       ],
     ],

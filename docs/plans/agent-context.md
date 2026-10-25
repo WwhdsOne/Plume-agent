@@ -1,7 +1,7 @@
 ---
 title: Agent 上下文与工具请求拼装契约
 status: active
-updated: 2026-10-24
+updated: 2026-10-25
 summary: 人格与工具已接入，G4a.3.1 记忆账本已通过；任务召回、MCP 与 skill 尚未接入请求
 ---
 
@@ -10,6 +10,8 @@ summary: 人格与工具已接入，G4a.3.1 记忆账本已通过；任务召回
 用户于 2026-10-08 确认：prompt 拼装应提前考虑 `soul.md`、人格、长期记忆、MCP tools 和 skill，当时只授权基础 tools。本文同时记录当前接入边界与后续规划，未实现来源不因写在模板中而具备能力。
 
 2026-10-09：用户审核通过 G3/G3.1，基础规则/会话/tools 拼装与六种开发工具循环已实现，见 [现行契约](../specs/agent/tools.md) 和 [审核记录](../reviews/G3.1.md)。G3.2 人格初始化与读取于 2026-10-10 审核通过，见 [人格契约](../specs/agent/soul.md) 与 [归档实施计划](../archive/plans/2026-10-09-soul-context.md)。记忆、MCP 与 skill 仍仅规划；必要历史组超限明确拒绝，不静默裁剪，未实现 token 估算器。
+
+2026-10-25：新增 [G5.0 微内核与 Skills/MCP 扩展设计](2026-10-25-microkernel-extensions.md)，明确技能文件、下一次 run 的显式选择、私密来源快照、MCP 统一工具入口与恢复隔离。该稿待审，本文所列当前请求仍未接入 skill/MCP；配置、schema 与命令均未因此改变。
 
 关联：[第一阶段 G3](phase-01-tui.md)、[模型运行时决策](../decisions/0003-model-runtime.md)。
 
